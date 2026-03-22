@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, test } from "node:test";
@@ -19,39 +19,22 @@ import type {
     FixtureCaseExecutionResult,
     FixtureCaseResult,
     FixtureComparison,
+    FixtureProfileBudgets,
     FixtureProfileCollector,
     FixtureRunFailure,
-    FixtureRunResult
+    FixtureRunResult,
+    FixtureStageName
 } from "../types.js";
 
 async function snapshotDirectoryTree(rootPath: string): Promise<Map<string, string>> {
-    const files = new Map<string, string>();
+    const relativePaths = await Core.listRelativeFilePathsRecursively(rootPath);
+    const files = await Promise.all(
+        relativePaths.map(
+            async (relativePath) => [relativePath, await readFile(path.join(rootPath, relativePath), "utf8")] as const
+        )
+    );
 
-    async function walk(currentPath: string): Promise<void> {
-        const directoryEntries = await readdir(currentPath, { withFileTypes: true });
-        const sortedEntries = directoryEntries.toSorted((left, right) => left.name.localeCompare(right.name));
-
-        await Promise.all(
-            sortedEntries.map(async (entry) => {
-                const entryPath = path.join(currentPath, entry.name);
-                if (entry.isDirectory()) {
-                    await walk(entryPath);
-                    return;
-                }
-
-                if (!entry.isFile()) {
-                    return;
-                }
-
-                const relativePath = path.relative(rootPath, entryPath).split(path.sep).join("/");
-                files.set(relativePath, await readFile(entryPath, "utf8"));
-            })
-        );
-    }
-
-    await walk(rootPath);
-
-    return new Map([...files.entries()].toSorted(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath)));
+    return new Map(files);
 }
 
 const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*(?:\/\s*)?@/iu;
@@ -120,6 +103,57 @@ async function compareFixtureCaseResult(fixtureCase: FixtureCase, caseResult: Fi
     );
 }
 
+function createFixtureProfileEntry(
+    adapter: FixtureAdapter,
+    fixtureCase: FixtureCase,
+    caseResult: FixtureCaseResult | null,
+    status: "passed" | "failed",
+    budgets: FixtureProfileBudgets | null,
+    stages: ReturnType<ReturnType<typeof createStageTimer>["getStages"]>
+) {
+    const deepCpuProfileArtifactPath = null;
+    const budgetFailures = collectBudgetFailures(stages, budgets);
+
+    return Object.freeze({
+        workspace: adapter.workspaceName,
+        suite: adapter.suiteName,
+        caseId: fixtureCase.caseId,
+        fixturePath: fixtureCase.fixturePath,
+        status,
+        changed: caseResult?.changed ?? false,
+        totalMs: stages.find((stage) => stage.stageName === "total")?.durationMs ?? 0,
+        stages,
+        budgets,
+        budgetFailures,
+        deepCpuProfileArtifactPath,
+        memorySummary: createFixtureMemorySummary(stages)
+    });
+}
+
+async function readFixtureInputText(fixtureCase: FixtureCase): Promise<string | null> {
+    return fixtureCase.inputFilePath ? await readFile(fixtureCase.inputFilePath, "utf8") : null;
+}
+
+function createRunProfiledStage(stageTimer: ReturnType<typeof createStageTimer>) {
+    return <T>(stageName: Exclude<FixtureStageName, "load" | "compare" | "total">, operation: () => Promise<T>) =>
+        stageTimer.runStage(stageName, operation);
+}
+
+function assertFixtureBudgetsWithinLimits(
+    fixtureCase: FixtureCase,
+    budgetFailures: ReturnType<typeof collectBudgetFailures>
+): void {
+    if (budgetFailures.length === 0) {
+        return;
+    }
+
+    throw new Error(
+        `Fixture ${fixtureCase.caseId} exceeded profiling budgets:\n${budgetFailures
+            .map((failure) => `- ${failure.metricName} on ${failure.stageName}: ${failure.actual} > ${failure.budget}`)
+            .join("\n")}`
+    );
+}
+
 async function executeFixtureCase(
     adapter: FixtureAdapter,
     fixtureCase: FixtureCase,
@@ -127,10 +161,10 @@ async function executeFixtureCase(
 ): Promise<FixtureCaseExecutionResult> {
     const stageTimer = createStageTimer();
     const budgets = fixtureCase.config.fixture.profile?.budgets ?? null;
-    const deepCpuProfileArtifactPath = null;
+    const inputText = await readFixtureInputText(fixtureCase);
+    const runProfiledStage = createRunProfiledStage(stageTimer);
     let workingProjectDirectoryPath: string | null = null;
     let caseResult: FixtureCaseResult | null = null;
-    let changed = false;
 
     try {
         await stageTimer.runStage("load", async () => {
@@ -146,9 +180,9 @@ async function executeFixtureCase(
                     adapter.run({
                         fixtureCase,
                         config: fixtureCase.config,
-                        inputText: fixtureCase.inputFilePath ? await readFile(fixtureCase.inputFilePath, "utf8") : null,
+                        inputText,
                         workingProjectDirectoryPath,
-                        runProfiledStage: (stageName, operation) => stageTimer.runStage(stageName, operation)
+                        runProfiledStage
                     })
                 );
                 return;
@@ -157,44 +191,24 @@ async function executeFixtureCase(
             caseResult = await adapter.run({
                 fixtureCase,
                 config: fixtureCase.config,
-                inputText: fixtureCase.inputFilePath ? await readFile(fixtureCase.inputFilePath, "utf8") : null,
+                inputText,
                 workingProjectDirectoryPath,
-                runProfiledStage: (stageName, operation) => stageTimer.runStage(stageName, operation)
+                runProfiledStage
             });
-            changed = caseResult.changed;
             await stageTimer.runStage("compare", async () => {
                 await compareFixtureCaseResult(fixtureCase, caseResult);
             });
         });
 
-        const stages = stageTimer.getStages();
-        const budgetFailures = collectBudgetFailures(stages, budgets);
-        const profileEntry = Object.freeze({
-            workspace: adapter.workspaceName,
-            suite: adapter.suiteName,
-            caseId: fixtureCase.caseId,
-            fixturePath: fixtureCase.fixturePath,
-            status: "passed" as const,
-            changed,
-            totalMs: stages.find((stage) => stage.stageName === "total")?.durationMs ?? 0,
-            stages,
+        const profileEntry = createFixtureProfileEntry(
+            adapter,
+            fixtureCase,
+            caseResult,
+            "passed",
             budgets,
-            budgetFailures,
-            deepCpuProfileArtifactPath,
-            memorySummary: createFixtureMemorySummary(stages)
-        });
-
-        if (budgetFailures.length > 0) {
-            throw new Error(
-                `Fixture ${fixtureCase.caseId} exceeded profiling budgets:\n${budgetFailures
-                    .map(
-                        (failure) =>
-                            `- ${failure.metricName} on ${failure.stageName}: ${failure.actual} > ${failure.budget}`
-                    )
-                    .join("\n")}`
-            );
-        }
-
+            stageTimer.getStages()
+        );
+        assertFixtureBudgetsWithinLimits(fixtureCase, profileEntry.budgetFailures);
         profileCollector.addEntry(profileEntry);
 
         return {
@@ -203,22 +217,14 @@ async function executeFixtureCase(
             caseResult
         };
     } catch (error) {
-        const stages = stageTimer.getStages();
-        const budgetFailures = collectBudgetFailures(stages, budgets);
-        const profileEntry = Object.freeze({
-            workspace: adapter.workspaceName,
-            suite: adapter.suiteName,
-            caseId: fixtureCase.caseId,
-            fixturePath: fixtureCase.fixturePath,
-            status: "failed" as const,
-            changed,
-            totalMs: stages.find((stage) => stage.stageName === "total")?.durationMs ?? 0,
-            stages,
+        const profileEntry = createFixtureProfileEntry(
+            adapter,
+            fixtureCase,
+            caseResult,
+            "failed",
             budgets,
-            budgetFailures,
-            deepCpuProfileArtifactPath,
-            memorySummary: createFixtureMemorySummary(stages)
-        });
+            stageTimer.getStages()
+        );
         profileCollector.addEntry(profileEntry);
         throw error;
     } finally {

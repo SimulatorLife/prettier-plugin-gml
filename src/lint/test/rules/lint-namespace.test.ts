@@ -20,6 +20,7 @@ void test("Lint namespace exports plugin/configs/ruleIds/services and is deeply 
     assertIsFrozenObject(Lint.configs, "Lint.configs");
     assertIsFrozenObject(Lint.ruleIds, "Lint.ruleIds");
     assertIsFrozenObject(Lint.services, "Lint.services");
+    assertIsFrozenObject(Lint.services.projectConfig, "Lint.services.projectConfig");
 });
 
 void test("ruleIds contract keeps canonical ids with PascalCase keys", () => {
@@ -139,6 +140,9 @@ void test("Lint namespace does not expose internal doc-comment implementation he
     // doc-comment module (src/lint/src/doc-comment/*.ts) rather than leaked
     // through the public Lint namespace.  The public surface is intentionally
     // limited to: plugin, featherPlugin, configs, ruleIds, services.
+    assert.equal("normalizeLintRulesConfig" in Lint, false);
+    assert.equal("createLintRuleEntriesFromProjectConfig" in Lint, false);
+
     const forbiddenExports = [
         "collectSyntheticDocCommentLines",
         "collectLeadingProgramLineComments",

@@ -27,7 +27,7 @@
     {"weight":0.2,"name":"agent-37-helper-substitution"},
     {"weight":0.5,"name":"agent-38-logic-deduplicate"},
     {"weight":0.1,"name":"agent-40-memory-footprint"},
-    {"weight":0.35,"name":"agent-41-test-failure"},
+    {"weight":0.4,"name":"agent-41-test-failure"},
     {"weight":0.1,"name":"agent-42-todo-implementation"},
     {"weight":0.04,"name":"agent-70-null-undefined-guardrails"},
     {"weight":0.05,"name":"agent-71-loop-mutability-hazards"},

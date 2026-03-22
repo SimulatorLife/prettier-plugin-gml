@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { test } from "node:test";
 
 import {
     buildLoopInvariantStressBatchSource,
     createOutputHash,
     lintSingleRuleWithTiming,
-    runSequentialPerformanceTest,
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     STILE_FIXTURE_URL,
     STILE_OPTIMIZE_MATH_OUTPUT_HASH
 } from "./performance-test-helpers.js";
@@ -87,8 +88,9 @@ function buildLoopHoistCollisionStressSource(loopCount: number, reservedHoistNam
     return lines.join("\n");
 }
 
-runSequentialPerformanceTest(
+void test(
     "optimize-math-expressions skips non-math batches without runaway traversal cost",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildNonMathAssignmentBatchSource(1500);
         const timedRun = await lintSingleRuleWithTiming(
@@ -110,8 +112,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "optimize-logical-flow skips non-logical batches without deep clone overhead",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildNonLogicalConditionBatchSource(1200);
         const timedRun = await lintSingleRuleWithTiming(
@@ -133,8 +136,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "optimize-logical-flow avoids deep-cloning large guard bodies that cannot be simplified",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildHeavyIfGuardBatchSource(300);
         const timedRun = await lintSingleRuleWithTiming(
@@ -156,8 +160,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "optimize-math-expressions scales linearly for long arithmetic assignment batches",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildArithmeticChainBatchSource(250);
         const timedRun = await lintSingleRuleWithTiming(
@@ -182,8 +187,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "optimize-math-expressions keeps dot-product auto-fixes within bounded runtime on large batches",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildArithmeticChainBatchSource(1000);
         const timedRun = await lintSingleRuleWithTiming(
@@ -208,8 +214,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "optimize-math-expressions skips additive identifier batches without clone-heavy normalization",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildAdditiveIdentifierBatchSource(2500);
         const timedRun = await lintSingleRuleWithTiming(
@@ -231,8 +238,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "optimize-math-expressions preserves stile fixes within the real-file runtime budget",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = await readFile(STILE_FIXTURE_URL, "utf8");
         const timedRun = await lintSingleRuleWithTiming("gml/optimize-math-expressions", source, "stile.gml");
@@ -246,8 +254,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "prefer-loop-invariant-expressions avoids repeated subtree analysis on deep invariant loop expressions",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildLoopInvariantStressBatchSource(60, 15);
         const timedRun = await lintSingleRuleWithTiming(
@@ -272,8 +281,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "prefer-loop-invariant-expressions keeps large hoist-name resolution workloads within bounded runtime",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildLoopInvariantStressBatchSource(160, 30);
         const timedRun = await lintSingleRuleWithTiming(
@@ -298,8 +308,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "prefer-loop-invariant-expressions keeps local hoist-name resolution bounded on collision-heavy files",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const reservedHoistNameCount = 320;
         const source = buildLoopHoistCollisionStressSource(220, reservedHoistNameCount);
@@ -324,8 +335,9 @@ runSequentialPerformanceTest(
     }
 );
 
-runSequentialPerformanceTest(
+void test(
     "prefer-loop-invariant-expressions keeps very large hoist-name resolution workloads within bounded runtime",
+    SEQUENTIAL_PERFORMANCE_TEST_OPTIONS,
     async () => {
         const source = buildLoopInvariantStressBatchSource(320, 60);
         const timedRun = await lintSingleRuleWithTiming(

@@ -100,6 +100,8 @@ void test("overlay warning output is deduped per invocation and bounded", () => 
     const rendered = __lintCommandTest__.formatOverlayWarning(paths);
 
     assert.match(rendered, /^GML_OVERLAY_WITHOUT_LANGUAGE_WIRING:/);
+    assert.match(rendered, /Add `plugins: \{ gml: Lint\.plugin \}` and `language: "gml\/gml"`/);
+    assert.match(rendered, /Affected files:/);
     assert.match(rendered, /\/tmp\/0\.gml/);
     assert.match(rendered, /\/tmp\/19\.gml/);
     assert.doesNotMatch(rendered, /\/tmp\/20\.gml/);

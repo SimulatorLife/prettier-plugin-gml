@@ -19,8 +19,7 @@ type EnumDeclarationMatch = {
 
 type FeatherRuleFactory = (entry: FeatherManifestEntry) => Rule.RuleModule;
 
-const NON_NEWLINE_WHITESPACE_CHARACTER_CLASS =
-    String.raw`[\t\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]`;
+const NON_NEWLINE_WHITESPACE_CHARACTER_CLASS = String.raw`[\t\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]`;
 
 const ENUM_MEMBER_DECLARATION_PATTERN = new RegExp(
     String.raw`^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*(?:[^\s,][^,\n]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$`,

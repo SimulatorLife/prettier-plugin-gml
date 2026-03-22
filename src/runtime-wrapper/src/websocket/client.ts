@@ -137,15 +137,15 @@ type FlushQueueOptions = {
 /**
  * Deduplicates a list of patch candidates by ID, retaining only the last
  * occurrence of each ID. When a developer saves rapidly, the same patch ID
- * can arrive multiple times within the flush window. Applying only the
- * most-recent version avoids unnecessary `new Function` compilations and
- * registry version churn.
+ * can arrive multiple times before the runtime is ready or within a flush
+ * window. Applying only the most-recent version avoids unnecessary
+ * `new Function` compilations and registry version churn.
  *
  * Patches without a string `id` field are always retained unchanged.
  *
  * @returns The deduplicated list and the number of duplicates removed.
  */
-function deduplicatePatchQueueById(patches: Array<unknown>): {
+function deduplicatePatchesById(patches: Array<unknown>): {
     patches: Array<unknown>;
     duplicateCount: number;
 } {
@@ -265,7 +265,7 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     // Deduplicate: when the same patch ID appears multiple times in the flush
     // batch (e.g., rapid saves), only the last version is applied. Earlier
     // occurrences are accounted for in totalFlushed but skipped from application.
-    const { patches: patchesToApply, duplicateCount } = deduplicatePatchQueueById(patchesToFlush);
+    const { patches: patchesToApply, duplicateCount } = deduplicatePatchesById(patchesToFlush);
     queueMetrics.totalDeduplicated += duplicateCount;
 
     const flushStartTime = getHighResolutionTime();
@@ -522,11 +522,12 @@ export function createWebSocketClient({
                 state.pendingPatchHead === 0
                     ? state.pendingPatches
                     : state.pendingPatches.slice(state.pendingPatchHead);
+            const { patches: deduplicatedPending } = deduplicatePatchesById(pending);
 
             state.pendingPatches = [];
             state.pendingPatchHead = 0;
 
-            for (const patch of pending) {
+            for (const patch of deduplicatedPending) {
                 applyIncomingPatch(patch);
             }
         }
@@ -922,10 +923,14 @@ function decodeBinaryPayload(
 
 function toUint8Array(payload: ArrayBuffer | ArrayBufferView): Uint8Array {
     if (Core.isArrayBufferLike(payload)) {
-        return new Uint8Array(payload);
+        return new Uint8Array(payload as ArrayBufferLike);
     }
 
-    return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
+    if (ArrayBuffer.isView(payload)) {
+        return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
+    }
+
+    throw new Error("Binary payload must be an ArrayBuffer or ArrayBufferView");
 }
 
 function createCloseHandler({
@@ -1158,31 +1163,7 @@ function createRuntimePatchError(message: string, patch?: Patch): RuntimePatchEr
 }
 
 function resolveRuntimeErrorMessage(error: unknown): string {
-    if (Core.isErrorLike(error)) {
-        return error.message;
-    }
-
-    if (typeof error === "string") {
-        return error;
-    }
-
-    if (
-        typeof error === "number" ||
-        typeof error === "boolean" ||
-        typeof error === "bigint" ||
-        typeof error === "symbol"
-    ) {
-        return String(error);
-    }
-
-    if (error && typeof error === "object" && "message" in error) {
-        const messageCandidate = (error as { message?: unknown }).message;
-        if (typeof messageCandidate === "string") {
-            return messageCandidate;
-        }
-    }
-
-    return "Unknown error";
+    return Core.getErrorMessageOrFallback(error, { fallback: "Unknown error" });
 }
 
 function resolveMissingPatchFields(candidate: Record<string, unknown>): Array<"kind" | "id"> {

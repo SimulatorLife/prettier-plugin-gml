@@ -63,7 +63,7 @@ jobs:
           GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
 
       - name: Checkout (with your token so pushes are yours)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.base_branch }}
           fetch-depth: 0
@@ -71,7 +71,7 @@ jobs:
 
       - name: Select agent (weighted random)
         id: select_agent
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           REQUESTED_AGENT: ${{ env.REQUESTED_AGENT }}
           BRANCH_SUFFIX: ${{ env.BRANCH_SUFFIX }}
@@ -192,7 +192,7 @@ jobs:
 
       - name: Open PR (authored by your user)
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_TITLE: ${{ inputs.pr_title }}
           PROMPT: ${{ inputs.prompt }}
@@ -217,7 +217,7 @@ jobs:
             };
 
       - name: (Optional) Label the PR (as your user)
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ fromJSON(steps.pr.outputs.result).number }}
           AGENT: ${{ env.AGENT }}
@@ -237,7 +237,7 @@ jobs:
             }
 
       - name: Comment to trigger AI agent (as your user)
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           BASE_BRANCH: ${{ inputs.base_branch }}
           PROMPT: ${{ inputs.prompt }}
@@ -256,7 +256,7 @@ jobs:
             const mention = `@${agent}`;
 
             const preInstruction = "Start a new task: survey the entire codebase before narrowing to this task.";
-            const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. All changes must align with and not violate the architectural guidelines defined in `docs/target-state.md`. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement.";
+            const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage or test regressions. All changes must align with and not violate the architectural guidelines defined in `docs/target-state.md`. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe improvement.";
             const lines = [
               `${mention} ${preInstruction} ${process.env.PROMPT} ${postInstruction}`,
               ""

@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-async function readRepoFile(relativePath: string): Promise<string> {
-    return await readFile(path.resolve(process.cwd(), relativePath), "utf8");
+function readRepoFile(relativePath: string): Promise<string> {
+    return readFile(path.resolve(process.cwd(), relativePath), "utf8");
 }
 
 void test("fixture profile report uses the same workspace adapter factories as the workspace fixture suites", async () => {
@@ -35,9 +35,10 @@ void test("fixture profile report uses the same workspace adapter factories as t
     ]);
 
     assert.match(profileReportSource, /createFixtureSuiteRegistry\(\)/u);
-    assert.match(registrySource, /#fixture-test\/format/u);
-    assert.match(registrySource, /#fixture-test\/lint/u);
-    assert.match(registrySource, /#fixture-test\/refactor/u);
+    assert.match(registrySource, /@gmloop\/format/u);
+    assert.match(registrySource, /@gmloop\/lint/u);
+    assert.match(registrySource, /@gmloop\/refactor/u);
+    assert.doesNotMatch(registrySource, /#fixture-test\/(?:format|lint|refactor)/u);
 
     assert.match(formatSuiteSource, /createFormatFixtureSuiteDefinition\(\)/u);
     assert.match(formatDefinitionSource, /createFormatFixtureAdapter\(\)/u);

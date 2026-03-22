@@ -826,7 +826,12 @@ function formatOverlayWarning(paths: Array<string>): string {
     const sample = paths.slice(0, OVERLAY_WARNING_MAX_PATH_SAMPLE);
     const remainderCount = paths.length - sample.length;
     const suffix = remainderCount > 0 ? `\nand ${remainderCount} more...` : "";
-    return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
+    const guidance = [
+        `${OVERLAY_WARNING_CODE}: Your ESLint config enables GML overlay rules, but the matching config entry is missing the canonical GML language wiring.`,
+        'Add `plugins: { gml: Lint.plugin }` and `language: "gml/gml"` to that config entry, or remove the overlay rules from it.',
+        "Affected files:"
+    ].join("\n");
+    return `${guidance}\n${sample.join("\n")}${suffix}`;
 }
 
 async function collectOverlayWithoutLanguageWiringPaths(parameters: {

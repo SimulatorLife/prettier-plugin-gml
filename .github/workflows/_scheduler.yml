@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Load workflow configuration
         id: cfg
@@ -27,7 +27,7 @@ jobs:
 
       - name: Compute dispatch plan
         id: plan
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CFG_JSON: ${{ steps.cfg.outputs.cfg }}
         with:
@@ -109,7 +109,7 @@ jobs:
 
       - name: Dispatch workflow
         if: ${{ steps.plan.outputs.result != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PLAN_RESULT: ${{ steps.plan.outputs.result }}
         with:
@@ -156,4 +156,3 @@ jobs:
             } catch (error) {
               core.warning(`Failed to dispatch ${workflowPath}: ${error.message}`);
             }
-
