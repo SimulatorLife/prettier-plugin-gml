@@ -1423,7 +1423,7 @@ Performance tips:
 
 ### WebSocket and Network
 
-- **Patch Queue Batching**: Patches are queued and flushed every 50ms (configurable via `flushIntervalMs`) to reduce WebSocket message overhead. Batches flush immediately when the queue reaches `maxQueueSize`.
+- **Patch Queue Batching**: Patches are queued and flushed every 50ms (configurable via `flushIntervalMs`) to reduce WebSocket message overhead. Batches flush immediately when the queue reaches `maxQueueSize`, and any ready-to-apply queue is flushed immediately if the socket closes so hot-reload work is not stranded behind a stale timer.
 
 - **Pending Patches**: Before runtime readiness, patches are buffered with a sliding window (oldest discarded when `maxPendingPatches` is reached) to prevent memory bloat during slow GameMaker initialization.
 

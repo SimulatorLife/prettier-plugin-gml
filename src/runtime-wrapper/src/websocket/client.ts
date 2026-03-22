@@ -232,15 +232,15 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     }
 
     const queueState = state.patchQueue;
+    if (queueState.flushTimer !== null) {
+        clearTimeout(queueState.flushTimer);
+        queueState.flushTimer = null;
+    }
+
     const effectiveQueueSize = queueState.queue.length - queueState.queueHead;
 
     if (effectiveQueueSize === 0) {
         return 0;
-    }
-
-    if (queueState.flushTimer !== null) {
-        clearTimeout(queueState.flushTimer);
-        queueState.flushTimer = null;
     }
 
     // Fast path: when no drops have occurred (queueHead === 0), reuse the
@@ -655,7 +655,8 @@ export function createWebSocketClient({
                 connect,
                 logger,
                 url,
-                clearReadinessTimer
+                clearReadinessTimer,
+                flushQueuedPatches
             });
         } catch (error) {
             handleConnectionError(error, onError);
@@ -755,6 +756,7 @@ type WebSocketEventListenerArgs = {
     logger?: Logger;
     url: string;
     clearReadinessTimer: () => void;
+    flushQueuedPatches: () => number;
 };
 
 type WebSocketMessageHandlerArgs = {
@@ -770,6 +772,7 @@ type WebSocketCloseHandlerArgs = {
     connect: () => void;
     logger?: Logger;
     clearReadinessTimer: () => void;
+    flushQueuedPatches: () => number;
 };
 
 type WebSocketErrorHandlerArgs = {
@@ -796,7 +799,8 @@ function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSo
             reconnectDelay: args.reconnectDelay,
             connect: args.connect,
             logger: args.logger,
-            clearReadinessTimer: args.clearReadinessTimer
+            clearReadinessTimer: args.clearReadinessTimer,
+            flushQueuedPatches: args.flushQueuedPatches
         })
     );
     ws.addEventListener(
@@ -939,7 +943,8 @@ function createCloseHandler({
     reconnectDelay,
     connect,
     logger,
-    clearReadinessTimer
+    clearReadinessTimer,
+    flushQueuedPatches
 }: WebSocketCloseHandlerArgs): () => void {
     return () => {
         const websocketState = state;
@@ -955,6 +960,10 @@ function createCloseHandler({
         if (onDisconnect) {
             onDisconnect();
         }
+
+        // Flush any already-queued runtime-ready patches immediately so a
+        // connection drop does not leave hot-reload work waiting on a stale timer.
+        flushQueuedPatches();
 
         // Ensure readiness polling does not run after the socket is closed.
         clearReadinessTimer();

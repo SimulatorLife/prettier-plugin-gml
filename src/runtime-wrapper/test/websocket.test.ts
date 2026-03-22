@@ -731,6 +731,64 @@ void test("WebSocket client caches runtime readiness checks after first successf
     }
 });
 
+void test("WebSocket client flushes queued patches immediately on unexpected close", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true,
+        reconnectDelay: 0,
+        patchQueue: {
+            enabled: true,
+            flushIntervalMs: 60_000,
+            maxQueueSize: 10
+        }
+    });
+
+    try {
+        await wait(50);
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
+        const mockSocket = ws as MockWebSocket;
+
+        mockSocket.simulateMessage(
+            JSON.stringify({
+                kind: "script",
+                id: "script:flush_on_close",
+                js_body: "return 321;"
+            })
+        );
+
+        await wait(10);
+
+        assert.equal(
+            wrapper.hasScript("script:flush_on_close"),
+            false,
+            "Patch should remain queued before the flush timer fires"
+        );
+
+        mockSocket.close();
+
+        await wait(20);
+
+        assert.equal(
+            wrapper.hasScript("script:flush_on_close"),
+            true,
+            "Unexpected close should flush queued patches immediately"
+        );
+        const queuedMetrics = client.getPatchQueueMetrics();
+        assert.ok(queuedMetrics, "Patch queue metrics should be available");
+        assert.equal(queuedMetrics.totalFlushed, 1);
+        assert.equal(queuedMetrics.flushCount, 1);
+    } finally {
+        client.disconnect();
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
 void test("WebSocket client accepts structured payloads", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
