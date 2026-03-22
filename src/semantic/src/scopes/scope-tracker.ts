@@ -124,6 +124,80 @@ export class ScopeTracker {
         return paths;
     }
 
+    private getTrackedSymbolSummaries(name: string | null | undefined): Map<string, ScopeSummary> | null {
+        if (!name) {
+            return null;
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return null;
+        }
+
+        return scopeSummaryMap;
+    }
+
+    private collectSymbolOccurrencesForName(
+        name: string | null | undefined,
+        {
+            cloneOccurrences,
+            includeDeclarations,
+            includeReferences,
+            referenceFilter
+        }: {
+            cloneOccurrences: boolean;
+            includeDeclarations: boolean;
+            includeReferences: boolean;
+            referenceFilter: (occurrence: Occurrence) => boolean;
+        }
+    ): SymbolOccurrence[] {
+        const scopeSummaryMap = this.getTrackedSymbolSummaries(name);
+        if (!scopeSummaryMap) {
+            return [];
+        }
+
+        const results: SymbolOccurrence[] = [];
+        for (const scopeId of scopeSummaryMap.keys()) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            if (includeDeclarations) {
+                for (const declaration of entry.declarations) {
+                    results.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "declaration",
+                        occurrence: cloneOccurrences ? cloneOccurrence(declaration) : declaration
+                    });
+                }
+            }
+
+            if (includeReferences) {
+                for (const reference of entry.references) {
+                    if (!referenceFilter(reference)) {
+                        continue;
+                    }
+
+                    results.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: cloneOccurrences ? cloneOccurrence(reference) : reference
+                    });
+                }
+            }
+        }
+
+        return results;
+    }
+
     constructor({
         enabled = true,
         lookupCacheMaxEntries = DEFAULT_LOOKUP_CACHE_MAX_ENTRIES,
@@ -662,48 +736,12 @@ export class ScopeTracker {
     }
 
     public getSymbolOccurrences(name: string | null | undefined): SymbolOccurrence[] {
-        if (!name) {
-            return [];
-        }
-
-        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-            return [];
-        }
-
-        const results: SymbolOccurrence[] = [];
-
-        for (const scopeId of scopeSummaryMap.keys()) {
-            const scope = this.scopesById.get(scopeId);
-            if (!scope) {
-                continue;
-            }
-
-            const entry = scope.occurrences.get(name);
-            if (!entry) {
-                continue;
-            }
-
-            for (const declaration of entry.declarations) {
-                results.push({
-                    scopeId: scope.id,
-                    scopeKind: scope.kind,
-                    kind: "declaration",
-                    occurrence: cloneOccurrence(declaration)
-                });
-            }
-
-            for (const reference of entry.references) {
-                results.push({
-                    scopeId: scope.id,
-                    scopeKind: scope.kind,
-                    kind: "reference",
-                    occurrence: cloneOccurrence(reference)
-                });
-            }
-        }
-
-        return results;
+        return this.collectSymbolOccurrencesForName(name, {
+            cloneOccurrences: true,
+            includeDeclarations: true,
+            includeReferences: true,
+            referenceFilter: () => true
+        });
     }
 
     public getBatchSymbolOccurrences(names: Iterable<string>): Map<string, SymbolOccurrence[]> {
@@ -712,43 +750,12 @@ export class ScopeTracker {
 
         // Optimize by processing all symbols in one pass rather than calling getSymbolOccurrences repeatedly
         for (const name of uniqueNames) {
-            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-                continue;
-            }
-
-            const nameResults: SymbolOccurrence[] = [];
-
-            for (const scopeId of scopeSummaryMap.keys()) {
-                const scope = this.scopesById.get(scopeId);
-                if (!scope) {
-                    continue;
-                }
-
-                const entry = scope.occurrences.get(name);
-                if (!entry) {
-                    continue;
-                }
-
-                for (const declaration of entry.declarations) {
-                    nameResults.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "declaration",
-                        occurrence: cloneOccurrence(declaration)
-                    });
-                }
-
-                for (const reference of entry.references) {
-                    nameResults.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "reference",
-                        occurrence: cloneOccurrence(reference)
-                    });
-                }
-            }
-
+            const nameResults = this.collectSymbolOccurrencesForName(name, {
+                cloneOccurrences: true,
+                includeDeclarations: true,
+                includeReferences: true,
+                referenceFilter: () => true
+            });
             if (nameResults.length > 0) {
                 results.set(name, nameResults);
             }
@@ -770,48 +777,12 @@ export class ScopeTracker {
      * @returns Array of symbol occurrences with internal references (DO NOT MODIFY)
      */
     public getSymbolOccurrencesUnsafe(name: string | null | undefined): SymbolOccurrence[] {
-        if (!name) {
-            return [];
-        }
-
-        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-            return [];
-        }
-
-        const results: SymbolOccurrence[] = [];
-
-        for (const scopeId of scopeSummaryMap.keys()) {
-            const scope = this.scopesById.get(scopeId);
-            if (!scope) {
-                continue;
-            }
-
-            const entry = scope.occurrences.get(name);
-            if (!entry) {
-                continue;
-            }
-
-            for (const declaration of entry.declarations) {
-                results.push({
-                    scopeId: scope.id,
-                    scopeKind: scope.kind,
-                    kind: "declaration",
-                    occurrence: declaration
-                });
-            }
-
-            for (const reference of entry.references) {
-                results.push({
-                    scopeId: scope.id,
-                    scopeKind: scope.kind,
-                    kind: "reference",
-                    occurrence: reference
-                });
-            }
-        }
-
-        return results;
+        return this.collectSymbolOccurrencesForName(name, {
+            cloneOccurrences: false,
+            includeDeclarations: true,
+            includeReferences: true,
+            referenceFilter: () => true
+        });
     }
 
     /**
@@ -831,43 +802,12 @@ export class ScopeTracker {
         const uniqueNames = this.collectUniqueSymbolNames(names);
 
         for (const name of uniqueNames) {
-            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-                continue;
-            }
-
-            const nameResults: SymbolOccurrence[] = [];
-
-            for (const scopeId of scopeSummaryMap.keys()) {
-                const scope = this.scopesById.get(scopeId);
-                if (!scope) {
-                    continue;
-                }
-
-                const entry = scope.occurrences.get(name);
-                if (!entry) {
-                    continue;
-                }
-
-                for (const declaration of entry.declarations) {
-                    nameResults.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "declaration",
-                        occurrence: declaration
-                    });
-                }
-
-                for (const reference of entry.references) {
-                    nameResults.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "reference",
-                        occurrence: reference
-                    });
-                }
-            }
-
+            const nameResults = this.collectSymbolOccurrencesForName(name, {
+                cloneOccurrences: false,
+                includeDeclarations: true,
+                includeReferences: true,
+                referenceFilter: () => true
+            });
             if (nameResults.length > 0) {
                 results.set(name, nameResults);
             }
@@ -2044,79 +1984,21 @@ export class ScopeTracker {
     }
 
     public getSymbolWrites(name: string | null | undefined): SymbolOccurrence[] {
-        if (!name) {
-            return [];
-        }
-
-        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-            return [];
-        }
-
-        const writes: SymbolOccurrence[] = [];
-
-        for (const scopeId of scopeSummaryMap.keys()) {
-            const scope = this.scopesById.get(scopeId);
-            if (!scope) {
-                continue;
-            }
-
-            const entry = scope.occurrences.get(name);
-            if (!entry) {
-                continue;
-            }
-
-            for (const reference of entry.references) {
-                if (reference.usageContext?.isWrite) {
-                    writes.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "reference",
-                        occurrence: cloneOccurrence(reference)
-                    });
-                }
-            }
-        }
-
-        return writes;
+        return this.collectSymbolOccurrencesForName(name, {
+            cloneOccurrences: true,
+            includeDeclarations: false,
+            includeReferences: true,
+            referenceFilter: (occurrence) => Boolean(occurrence.usageContext?.isWrite)
+        });
     }
 
     public getSymbolReads(name: string | null | undefined): SymbolOccurrence[] {
-        if (!name) {
-            return [];
-        }
-
-        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-            return [];
-        }
-
-        const reads: SymbolOccurrence[] = [];
-
-        for (const scopeId of scopeSummaryMap.keys()) {
-            const scope = this.scopesById.get(scopeId);
-            if (!scope) {
-                continue;
-            }
-
-            const entry = scope.occurrences.get(name);
-            if (!entry) {
-                continue;
-            }
-
-            for (const reference of entry.references) {
-                if (reference.usageContext?.isRead) {
-                    reads.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "reference",
-                        occurrence: cloneOccurrence(reference)
-                    });
-                }
-            }
-        }
-
-        return reads;
+        return this.collectSymbolOccurrencesForName(name, {
+            cloneOccurrences: true,
+            includeDeclarations: false,
+            includeReferences: true,
+            referenceFilter: (occurrence) => Boolean(occurrence.usageContext?.isRead)
+        });
     }
 
     /**
@@ -2132,41 +2014,12 @@ export class ScopeTracker {
      * @returns Array of write occurrences with internal references (DO NOT MODIFY)
      */
     public getSymbolWritesUnsafe(name: string | null | undefined): SymbolOccurrence[] {
-        if (!name) {
-            return [];
-        }
-
-        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-            return [];
-        }
-
-        const writes: SymbolOccurrence[] = [];
-
-        for (const scopeId of scopeSummaryMap.keys()) {
-            const scope = this.scopesById.get(scopeId);
-            if (!scope) {
-                continue;
-            }
-
-            const entry = scope.occurrences.get(name);
-            if (!entry) {
-                continue;
-            }
-
-            for (const reference of entry.references) {
-                if (reference.usageContext?.isWrite) {
-                    writes.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "reference",
-                        occurrence: reference
-                    });
-                }
-            }
-        }
-
-        return writes;
+        return this.collectSymbolOccurrencesForName(name, {
+            cloneOccurrences: false,
+            includeDeclarations: false,
+            includeReferences: true,
+            referenceFilter: (occurrence) => Boolean(occurrence.usageContext?.isWrite)
+        });
     }
 
     /**
@@ -2182,41 +2035,12 @@ export class ScopeTracker {
      * @returns Array of read occurrences with internal references (DO NOT MODIFY)
      */
     public getSymbolReadsUnsafe(name: string | null | undefined): SymbolOccurrence[] {
-        if (!name) {
-            return [];
-        }
-
-        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-            return [];
-        }
-
-        const reads: SymbolOccurrence[] = [];
-
-        for (const scopeId of scopeSummaryMap.keys()) {
-            const scope = this.scopesById.get(scopeId);
-            if (!scope) {
-                continue;
-            }
-
-            const entry = scope.occurrences.get(name);
-            if (!entry) {
-                continue;
-            }
-
-            for (const reference of entry.references) {
-                if (reference.usageContext?.isRead) {
-                    reads.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "reference",
-                        occurrence: reference
-                    });
-                }
-            }
-        }
-
-        return reads;
+        return this.collectSymbolOccurrencesForName(name, {
+            cloneOccurrences: false,
+            includeDeclarations: false,
+            includeReferences: true,
+            referenceFilter: (occurrence) => Boolean(occurrence.usageContext?.isRead)
+        });
     }
 
     public withRole<T>(role: ScopeRole | null, callback: () => T): T {
