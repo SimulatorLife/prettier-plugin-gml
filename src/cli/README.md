@@ -2,40 +2,18 @@
 
 Command-line interface for the GMLoop toolchain. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
 
-## Formatter/Linter contract
+## Formatter/Linter/Refactor contract
 
-- Run `format` for layout-only formatting.
-- Run `lint` for semantic/content rewrites and syntax repairs.
-- Run `fix` to execute project codemods, lint autofixes, and formatting in one pass.
-- Recommended migration flow for existing formatter-heavy usage: `lint --fix` first, then `format`.
-
-Contract migration mapping:
-
-- `globalvar` rewrite => `gml/no-globalvar` (diagnostic only, no autofix)
-- loop-length hoist / hoistable loop accessors => `gml/prefer-hoistable-loop-accessors`
-- missing separators => `gml/require-argument-separators`
-- doc comment text normalization => `gml/normalize-doc-comments`
-
-## Architecture Role: Composition Root
-
-The CLI wires formatter-only runtime integration and lint execution.
-
-- `format` wires identifier-case integration for formatter parsing/printing.
-- `lint` applies local single-file ESLint diagnostics/fixes through `@gmloop/lint`.
-- Semantic/content rewrites are lint-owned and run through `lint --fix`, not formatter runtime adapters.
-
-Ownership summary:
-
-- `@gmloop/format`: formatter-only AST normalization + printing
-- `@gmloop/lint`: diagnostics + semantic/content rewrites + language plugin
-- `@gmloop/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
-- Domain boundary: lint rules report/fix issues per lint run; refactor plans/applies explicit rename/refactor transactions requested by the user.
+- Run `refactor` to execute global transactions (Codemods), atomic cross-file edits (e.g. rename transactions), and metadata updates via a native Collection API through `@gmloop/refactor`.
+- Run `lint` for and syntax repairs/rewrites (applies local single-file ESLint diagnostics/fixes through `@gmloop/lint`).
+- Run `format` for layout-only formatting (formatter-only AST normalization + printing through `@gmloop/format`).
+- Run `fix` to execute all three in one pass: project codemods, lint autofixes, and formatting.
 
 ## Commands
 
 ### `format` - Format GML Files
 
-Wraps the Prettier plugin to format GameMaker Language files with enhanced diagnostics and error handling.
+Wraps the Prettier plugin to format GameMaker Language files with enhanced diagnostics and error handling (targets `.gml` files only).
 
 ```bash
 pnpm run cli -- format path/to/project
@@ -48,10 +26,6 @@ pnpm run cli -- format path/to/project
 - `--on-parse-error <action>` - How to handle parse errors (skip, revert, abort)
 - `--ignored-file-sample-limit <n>` - Limit ignored file samples in output
 - `--unsupported-extension-sample-limit <n>` - Limit unsupported extension samples
-
-`format` now targets `.gml` files only. Extension overrides were removed to keep
-the formatter aligned with GameMaker's canonical source extension and avoid
-inconsistent multi-extension formatting behavior.
 
 **Environment Variables:**
 - `PRETTIER_PLUGIN_GML_LOG_LEVEL` - Default log level
