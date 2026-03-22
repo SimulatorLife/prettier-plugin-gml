@@ -111,6 +111,15 @@ function sendScriptPatch(ws: MockWebSocket, id: string, jsBody = "return 1;"): v
     ws.simulateMessage(JSON.stringify({ kind: "script", id, js_body: jsBody }));
 }
 
+function sendScriptPatchWithDependencies(
+    ws: MockWebSocket,
+    id: string,
+    dependencies: ReadonlyArray<string>,
+    jsBody = "return 1;"
+): void {
+    ws.simulateMessage(JSON.stringify({ kind: "script", id, js_body: jsBody, metadata: { dependencies } }));
+}
+
 function sendScriptPatchBatch(ws: MockWebSocket, patches: Array<{ id: string; js_body?: string }>): void {
     ws.simulateMessage(
         JSON.stringify(
@@ -230,6 +239,32 @@ void test("patch queue tracks patches received without double-counting on flush"
         const metricsAfterFlush = client.getConnectionMetrics();
         assert.strictEqual(metricsAfterFlush.patchesReceived, 1);
         assert.strictEqual(metricsAfterFlush.patchesApplied, 1);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
+void test("patch queue reorders dependency-linked patches before batch apply", async () => {
+    const { wrapper, client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 1000
+        }
+    });
+
+    try {
+        sendScriptPatchWithDependencies(ws, "gml/script/dependent", ["gml/script/provider"], "return provider();");
+        sendScriptPatch(ws, "gml/script/provider", "return 42;");
+
+        const flushedCount = client.flushPatchQueue();
+        assert.strictEqual(flushedCount, 2);
+
+        assert.ok(wrapper.hasScript("gml/script/provider"), "Provider patch should be applied");
+        assert.ok(wrapper.hasScript("gml/script/dependent"), "Dependent patch should be applied after provider");
+
+        const metrics = client.getConnectionMetrics();
+        assert.strictEqual(metrics.patchesApplied, 2);
+        assert.strictEqual(metrics.patchesFailed, 0);
     } finally {
         client.disconnect();
         restoreRuntimeGlobals();

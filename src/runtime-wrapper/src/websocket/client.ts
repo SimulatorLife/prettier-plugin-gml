@@ -224,6 +224,116 @@ function extractPatchId(patch: unknown): string | null {
     return typeof id === "string" ? id : null;
 }
 
+function extractPatchDependencies(patch: unknown): Array<string> {
+    if (patch === null || typeof patch !== "object" || !("metadata" in patch)) {
+        return [];
+    }
+
+    const metadata = (patch as Record<string, unknown>).metadata;
+    if (metadata === null || typeof metadata !== "object" || !("dependencies" in metadata)) {
+        return [];
+    }
+
+    const dependencies = (metadata as Record<string, unknown>).dependencies;
+    if (!Array.isArray(dependencies) || dependencies.length === 0) {
+        return [];
+    }
+
+    return dependencies.filter(
+        (dependency): dependency is string => typeof dependency === "string" && dependency.length > 0
+    );
+}
+
+function orderPatchesForDependencyBatching(patches: Array<unknown>): Array<unknown> {
+    if (patches.length < 2) {
+        return patches;
+    }
+
+    const patchIds = new Set<string>();
+    let hasInBatchDependencies = false;
+
+    for (const patch of patches) {
+        const id = extractPatchId(patch);
+        if (id !== null) {
+            patchIds.add(id);
+        }
+    }
+
+    const incomingEdges = new Map<string, number>();
+    const dependentsByDependency = new Map<string, Array<string>>();
+    const patchById = new Map<string, unknown>();
+    const orderedIds: Array<string> = [];
+    const queuedIds = new Set<string>();
+
+    for (const patch of patches) {
+        const id = extractPatchId(patch);
+        if (id === null || patchById.has(id)) {
+            continue;
+        }
+
+        patchById.set(id, patch);
+        orderedIds.push(id);
+        incomingEdges.set(id, 0);
+    }
+
+    for (const patchId of orderedIds) {
+        const patch = patchById.get(patchId);
+        if (patch === undefined) {
+            continue;
+        }
+
+        for (const dependencyId of extractPatchDependencies(patch)) {
+            if (!patchIds.has(dependencyId) || dependencyId === patchId) {
+                continue;
+            }
+
+            hasInBatchDependencies = true;
+            incomingEdges.set(patchId, (incomingEdges.get(patchId) ?? 0) + 1);
+
+            const dependents = dependentsByDependency.get(dependencyId);
+            if (dependents) {
+                dependents.push(patchId);
+            } else {
+                dependentsByDependency.set(dependencyId, [patchId]);
+            }
+        }
+    }
+
+    if (!hasInBatchDependencies) {
+        return patches;
+    }
+
+    const readyQueue = orderedIds.filter((id) => (incomingEdges.get(id) ?? 0) === 0);
+    const reordered: Array<unknown> = [];
+
+    while (readyQueue.length > 0) {
+        const nextId = readyQueue.shift();
+        if (!nextId || queuedIds.has(nextId)) {
+            continue;
+        }
+
+        queuedIds.add(nextId);
+        const patch = patchById.get(nextId);
+        if (patch !== undefined) {
+            reordered.push(patch);
+        }
+
+        for (const dependentId of dependentsByDependency.get(nextId) ?? []) {
+            const remainingEdges = (incomingEdges.get(dependentId) ?? 0) - 1;
+            incomingEdges.set(dependentId, remainingEdges);
+            if (remainingEdges === 0) {
+                readyQueue.push(dependentId);
+            }
+        }
+    }
+
+    if (reordered.length !== orderedIds.length) {
+        return patches;
+    }
+
+    return reordered;
+}
+
 function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     const { state, wrapper, applyQueuedPatch, logger } = options;
 
@@ -265,7 +375,8 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     // Deduplicate: when the same patch ID appears multiple times in the flush
     // batch (e.g., rapid saves), only the last version is applied. Earlier
     // occurrences are accounted for in totalFlushed but skipped from application.
-    const { patches: patchesToApply, duplicateCount } = deduplicatePatchesById(patchesToFlush);
+    const { patches: deduplicatedPatches, duplicateCount } = deduplicatePatchesById(patchesToFlush);
+    const patchesToApply = orderPatchesForDependencyBatching(deduplicatedPatches);
     queueMetrics.totalDeduplicated += duplicateCount;
 
     const flushStartTime = getHighResolutionTime();
