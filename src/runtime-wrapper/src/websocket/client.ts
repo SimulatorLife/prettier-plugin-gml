@@ -127,13 +127,6 @@ function createPatchQueueState(): PatchQueueState {
     };
 }
 
-type FlushQueueOptions = {
-    state: WebSocketClientState;
-    wrapper: PatchApplicator | null;
-    applyQueuedPatch: (incoming: unknown) => boolean;
-    logger?: Logger;
-};
-
 /**
  * Deduplicates a list of patch candidates by ID, retaining only the last
  * occurrence of each ID. When a developer saves rapidly, the same patch ID
@@ -334,9 +327,12 @@ function orderPatchesForDependencyBatching(patches: Array<unknown>): Array<unkno
     return reordered;
 }
 
-function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
-    const { state, wrapper, applyQueuedPatch, logger } = options;
-
+function flushQueuedPatchesInternal(
+    state: WebSocketClientState,
+    wrapper: PatchApplicator | null,
+    applyQueuedPatch: (incoming: unknown) => boolean,
+    logger?: Logger
+): number {
     if (!state.patchQueue || !wrapper) {
         return 0;
     }
@@ -416,24 +412,7 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
     return flushSize;
 }
 
-type EnqueuePatchOptions = {
-    patch: unknown;
-    state: WebSocketClientState;
-    maxQueueSize: number;
-    flushQueuedPatches: () => number;
-    scheduleFlush: () => void;
-    logger?: Logger;
-};
-
-type PendingPatchQueueOptions = {
-    patch: unknown;
-    state: WebSocketClientState;
-    maxPendingPatches: number;
-};
-
-function enqueuePendingPatchInternal(options: PendingPatchQueueOptions): void {
-    const { patch, state, maxPendingPatches } = options;
-
+function enqueuePendingPatchInternal(state: WebSocketClientState, patch: unknown, maxPendingPatches: number): void {
     const effectivePendingCount = state.pendingPatches.length - state.pendingPatchHead;
     if (effectivePendingCount >= maxPendingPatches) {
         state.pendingPatchHead += 1;
@@ -448,9 +427,14 @@ function enqueuePendingPatchInternal(options: PendingPatchQueueOptions): void {
     state.pendingPatches.push(patch);
 }
 
-function enqueuePatchInternal(options: EnqueuePatchOptions): void {
-    const { patch, state, maxQueueSize, flushQueuedPatches, scheduleFlush, logger } = options;
-
+function enqueuePatchInternal(
+    state: WebSocketClientState,
+    patch: unknown,
+    maxQueueSize: number,
+    flushQueuedPatches: () => number,
+    scheduleFlush: () => void,
+    logger?: Logger
+): void {
     if (!state.patchQueue) {
         return;
     }
@@ -495,15 +479,6 @@ function enqueuePatchInternal(options: EnqueuePatchOptions): void {
     }
 }
 
-type ApplyIncomingPatchOptions = {
-    incoming: unknown;
-    state: WebSocketClientState;
-    wrapper: PatchApplicator | null;
-    onError?: WebSocketClientOptions["onError"];
-    logger?: Logger;
-    alreadyRecordedReceived?: boolean;
-};
-
 function recordPatchReceived(state: WebSocketClientState): number {
     const receivedAt = getWallClockTime();
     state.connectionMetrics.patchesReceived += 1;
@@ -511,9 +486,14 @@ function recordPatchReceived(state: WebSocketClientState): number {
     return receivedAt;
 }
 
-function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean {
-    const { incoming, state, wrapper, onError, logger, alreadyRecordedReceived = false } = options;
-
+function applyIncomingPatchInternal(
+    incoming: unknown,
+    state: WebSocketClientState,
+    wrapper: PatchApplicator | null,
+    onError?: WebSocketClientOptions["onError"],
+    logger?: Logger,
+    alreadyRecordedReceived = false
+): boolean {
     const receivedAt = alreadyRecordedReceived
         ? (state.connectionMetrics.lastPatchReceivedAt ?? getWallClockTime())
         : recordPatchReceived(state);
@@ -661,26 +641,17 @@ export function createWebSocketClient({
     };
 
     const queuePendingPatch = (patch: unknown): void => {
-        enqueuePendingPatchInternal({ patch, state, maxPendingPatches });
+        enqueuePendingPatchInternal(state, patch, maxPendingPatches);
         ensureReadinessTimer();
     };
 
     const flushQueuedPatches = (): number => {
-        return flushQueuedPatchesInternal({
+        return flushQueuedPatchesInternal(
             state,
             wrapper,
-            applyQueuedPatch: (incoming) => {
-                return applyIncomingPatchInternal({
-                    incoming,
-                    state,
-                    wrapper,
-                    onError,
-                    logger,
-                    alreadyRecordedReceived: true
-                });
-            },
+            (incoming) => applyIncomingPatchInternal(incoming, state, wrapper, onError, logger, true),
             logger
-        });
+        );
     };
 
     const scheduleFlush = (): void => {
@@ -700,14 +671,7 @@ export function createWebSocketClient({
     };
 
     const enqueuePatch = (patch: unknown): void => {
-        enqueuePatchInternal({
-            patch,
-            state,
-            maxQueueSize,
-            flushQueuedPatches,
-            scheduleFlush,
-            logger
-        });
+        enqueuePatchInternal(state, patch, maxQueueSize, flushQueuedPatches, scheduleFlush, logger);
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
@@ -726,13 +690,7 @@ export function createWebSocketClient({
             return true;
         }
 
-        return applyIncomingPatchInternal({
-            incoming,
-            state,
-            wrapper,
-            onError,
-            logger
-        });
+        return applyIncomingPatchInternal(incoming, state, wrapper, onError, logger);
     };
 
     function connect() {
