@@ -76,6 +76,13 @@ void test("createListSplitPattern optionally includes whitespace separators", ()
     assert.deepStrictEqual("one, two  three".split(pattern), ["one", "two", "three"]);
 });
 
+void test("createListSplitPattern treats null options like omitted options", () => {
+    assert.doesNotThrow(() => createListSplitPattern([","], null));
+
+    const pattern = createListSplitPattern([","], null);
+    assert.deepStrictEqual("one,two".split(pattern), ["one", "two"]);
+});
+
 void test("createListSplitPattern requires a separator when whitespace is disabled", () => {
     assert.throws(() => createListSplitPattern([]), TypeError);
 });
