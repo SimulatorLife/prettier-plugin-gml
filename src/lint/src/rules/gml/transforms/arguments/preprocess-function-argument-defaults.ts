@@ -3,11 +3,10 @@
  */
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode, type ParserTransform } from "@gmloop/core";
 
-import {
-    getArgumentIndexFromIdentifier,
-    getIdentifierFromParameterNode,
-    prepareDocCommentEnvironment
-} from "../../../../doc-comment/index.js";
+import { gmlTransformDocCommentServices } from "../doc-comment-services.js";
+
+const { getArgumentIndexFromIdentifier, getIdentifierFromParameterNode, prepareDocCommentEnvironment } =
+    gmlTransformDocCommentServices;
 
 const { isObjectLike } = Core;
 
