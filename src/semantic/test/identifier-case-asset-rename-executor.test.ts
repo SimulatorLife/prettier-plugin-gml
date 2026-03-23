@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { __private__, createAssetRenameExecutor } from "../src/identifier-case/asset-rename-executor.js";
+import { __private__, createAssetRenameExecutor } from "../src/identifier-case/asset-renames/executor.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "../src/identifier-case/common.js";
 
 const { ensureWritableDirectory, ensureWritableFile, readJsonFile } = __private__;
