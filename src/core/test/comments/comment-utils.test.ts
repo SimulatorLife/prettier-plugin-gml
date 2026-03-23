@@ -31,3 +31,34 @@ void describe("suppressTrailingLineComment", () => {
         assert.equal(root.comments.length, 0);
     });
 });
+
+void describe("hasInlineCommentBetween", () => {
+    void it("detects inline comments between sibling expressions from traversal context objects", () => {
+        const sourceText = "alpha /* keep */ beta";
+        const left = { start: { index: 0 }, end: { index: 4 } };
+        const right = { start: { index: 17 }, end: { index: 20 } };
+
+        assert.equal(Core.hasInlineCommentBetween(left, right, { sourceText }), true);
+    });
+
+    void it("accepts raw source strings and ignores whitespace-only gaps", () => {
+        const sourceText = "alpha   beta";
+        const left = { start: { index: 0 }, end: { index: 4 } };
+        const right = { start: { index: 8 }, end: { index: 11 } };
+
+        assert.equal(Core.hasInlineCommentBetween(left, right, sourceText), false);
+    });
+
+    void it("prefers originalText when both text fields are present", () => {
+        const left = { start: { index: 0 }, end: { index: 4 } };
+        const right = { start: { index: 17 }, end: { index: 20 } };
+
+        assert.equal(
+            Core.hasInlineCommentBetween(left, right, {
+                sourceText: "alpha   beta",
+                originalText: "alpha // keep\nbeta"
+            }),
+            true
+        );
+    });
+});
