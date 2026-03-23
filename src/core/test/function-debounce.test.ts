@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { debounce } from "../src/utils/function.js";
@@ -356,45 +356,51 @@ void describe("debounce", () => {
             assert.ok(errors[0] instanceof Error, "Should pass the error to callback");
         });
 
-        void it("should write to stderr when no onError callback provided", (testContext, done) => {
+        void it("should write to stderr when no onError callback provided", () => {
             const stderrOutput: Array<string> = [];
-            const originalWrite = process.stderr.write.bind(process.stderr);
-            const mockWrite: typeof process.stderr.write = (
-                chunk: string | Uint8Array,
-                encodingOrCallback?: BufferEncoding | ((error?: Error) => void),
-                callback?: (error?: Error) => void
-            ): boolean => {
-                stderrOutput.push(String(chunk));
-                if (typeof encodingOrCallback === "function") {
-                    encodingOrCallback();
-                } else if (callback !== undefined) {
-                    callback();
+            const stderrWriteMock = mock.method(
+                process.stderr,
+                "write",
+                (
+                    chunk: string | Uint8Array,
+                    encodingOrCallback?: BufferEncoding | ((error?: Error) => void),
+                    callback?: (error?: Error) => void
+                ): boolean => {
+                    stderrOutput.push(String(chunk));
+                    if (typeof encodingOrCallback === "function") {
+                        encodingOrCallback();
+                    } else if (callback !== undefined) {
+                        callback();
+                    }
+
+                    return true;
                 }
-                return true;
-            };
+            );
 
-            process.stderr.write = mockWrite;
+            mock.timers.enable({ apis: ["setTimeout"] });
+            try {
+                const debouncedFn = debounce(() => {
+                    throw new Error("Test error");
+                }, 50);
 
-            const debouncedFn = debounce(() => {
-                throw new Error("Test error");
-            }, 50);
+                debouncedFn();
 
-            debouncedFn();
+                // This scenario previously slept for 60 ms of wall-clock time after
+                // scheduling a 50 ms debounce. Under CI load, the timer callback and
+                // the assertion could race, causing intermittent failures. Advancing
+                // mocked timers makes the debounce deterministic and confines the
+                // stderr mock to this test only.
+                mock.timers.tick(50);
 
-            setTimeout(() => {
-                process.stderr.write = originalWrite;
-
-                try {
-                    assert.ok(stderrOutput.length > 0, "Should write to stderr");
-                    assert.ok(
-                        stderrOutput.some((output) => output.includes("Test error")),
-                        "Should include error message in stderr output"
-                    );
-                    done();
-                } catch (error) {
-                    done(error);
-                }
-            }, 60);
+                assert.ok(stderrOutput.length > 0, "Should write to stderr");
+                assert.ok(
+                    stderrOutput.some((output) => output.includes("Test error")),
+                    "Should include error message in stderr output"
+                );
+            } finally {
+                mock.timers.reset();
+                stderrWriteMock.mock.restore();
+            }
         });
     });
 
