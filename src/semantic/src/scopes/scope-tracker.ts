@@ -2797,9 +2797,10 @@ export class ScopeTracker {
         queue.sort();
 
         const result: string[] = [];
-        while (queue.length > 0) {
-            // shift() preserves BFS / level-by-level order.
-            const current = queue.shift();
+        let queueIndex = 0;
+        while (queueIndex < queue.length) {
+            const current = queue[queueIndex];
+            queueIndex += 1;
             const original = inputPaths.get(current);
             if (original !== undefined) {
                 result.push(original);
