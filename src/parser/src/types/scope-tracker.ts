@@ -1,4 +1,4 @@
-import type { MutableGameMakerAstNode } from "./types.js";
+import type { MutableGameMakerAstNode } from "@gmloop/core";
 
 /**
  * Global identifier tracking.
