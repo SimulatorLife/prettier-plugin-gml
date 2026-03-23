@@ -9,9 +9,9 @@ import {
     stringifyProjectMetadataDocument,
     updateProjectMetadataReferenceByPath,
     writeProjectMetadataDocumentToFile
-} from "../project-metadata/yy-adapter.js";
-import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
-import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
+} from "../../project-metadata/yy-adapter.js";
+import { DEFAULT_WRITE_ACCESS_MODE } from "../common.js";
+import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "../fs-facade.js";
 
 type IdentifierCaseProjectIndex = {
     projectRoot?: string | null;
