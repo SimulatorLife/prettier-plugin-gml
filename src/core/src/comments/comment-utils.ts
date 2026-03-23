@@ -1,3 +1,4 @@
+import { getNodeEndIndex, getNodeStartIndex } from "../ast/locations.js";
 import { isObjectLike } from "../utils/object.js";
 
 /**
@@ -200,6 +201,68 @@ export function getCommentBoundaryIndex(comment: unknown, boundaryName: "start" 
 
     const boundary = (comment as { start?: unknown; end?: unknown })[boundaryName];
     return normalizeCommentBoundaryIndex(boundary);
+}
+
+type InlineCommentSourceContext = {
+    originalText?: string;
+    sourceText?: string;
+};
+
+function resolveInlineCommentSourceText(sourceContext: string | InlineCommentSourceContext | null | undefined): string {
+    if (typeof sourceContext === "string") {
+        return sourceContext;
+    }
+
+    if (!isObjectLike(sourceContext)) {
+        return "";
+    }
+
+    if (typeof sourceContext.originalText === "string") {
+        return sourceContext.originalText;
+    }
+
+    return typeof sourceContext.sourceText === "string" ? sourceContext.sourceText : "";
+}
+
+/**
+ * Detects whether source text contains an inline comment between two node ranges.
+ *
+ * AST transforms use this helper before rewriting binary expressions so comments
+ * anchored between operands keep their original placement instead of being
+ * dropped or moved. The check stays text-based because parser comment arrays
+ * are attached to nodes, not to every token boundary between sibling nodes.
+ *
+ * @param left Left-side AST node.
+ * @param right Right-side AST node.
+ * @param sourceContext Source text string or object containing `originalText`
+ *        / `sourceText`.
+ * @returns `true` when the text slice between the nodes contains line, block,
+ *          or directive-style comments.
+ */
+export function hasInlineCommentBetween(
+    left: unknown,
+    right: unknown,
+    sourceContext: string | InlineCommentSourceContext | null | undefined
+): boolean {
+    const sourceText = resolveInlineCommentSourceText(sourceContext);
+    if (sourceText.length === 0) {
+        return false;
+    }
+
+    const leftEnd = getNodeEndIndex(left);
+    const rightStart = getNodeStartIndex(right);
+
+    if (leftEnd == undefined || rightStart == undefined || rightStart <= leftEnd || rightStart > sourceText.length) {
+        return false;
+    }
+
+    const between = sourceText.slice(leftEnd, rightStart);
+
+    if (between.length === 0) {
+        return false;
+    }
+
+    return between.includes("/*") || between.includes("//") || between.includes("#");
 }
 
 /**
