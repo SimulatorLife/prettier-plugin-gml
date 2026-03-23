@@ -23,7 +23,7 @@
  * ```
  */
 
-import { hasType } from "./node-helpers.js";
+import { hasType } from "./node-helpers/index.js";
 import {
     ARROW_FUNCTION_EXPRESSION,
     ASSIGNMENT_EXPRESSION,
