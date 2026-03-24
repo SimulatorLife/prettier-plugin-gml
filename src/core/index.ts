@@ -16,16 +16,11 @@ export type {
     FeatherMetadata,
     GameMakerAstLocation,
     GameMakerAstNode,
-    GlobalIdentifierTracker,
     GmloopProjectConfig,
-    IdentifierRoleManager,
     LiteralNode,
     MutableDocCommentLines,
     MutableGameMakerAstNode,
     ParserTransform,
-    ScopeLifecycle,
-    ScopeTracker,
-    ScopeTrackerOptions,
     StringCommentScanState,
     StripCommentsTransformOptions
 } from "./src/index.js";
