@@ -1,7 +1,10 @@
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
-import { collectIdentifierNamesInSubtree } from "../../rule-base-helpers.js";
-import { applyLogicalExpressionCondensation, type OptimizeLogicalExpressionsOptions } from "./condensation.js";
+import { collectIdentifierNamesInSubtree } from "../rule-base-helpers.js";
+import {
+    applyLogicalExpressionCondensation,
+    type OptimizeLogicalExpressionsOptions
+} from "./logical-expression-condensation.js";
 
 type StatementList = Array<MutableGameMakerAstNode | null | undefined>;
 type MutableAstRecord = MutableGameMakerAstNode & Record<string, unknown>;

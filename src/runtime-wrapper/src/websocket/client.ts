@@ -4,10 +4,19 @@ import type { Logger } from "../runtime/logger.js";
 import { validatePatch } from "../runtime/patch-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
 import { getHighResolutionTime, getWallClockTime } from "../timing/index.js";
+import {
+    createInitialConnectionMetrics,
+    createPatchQueueState,
+    deduplicatePatchesById,
+    enqueuePatchForDeferredFlush,
+    enqueuePendingPatchUntilRuntimeReady,
+    flushQueuedPatches as flushQueuedPatchBatch,
+    recordPatchReceived
+} from "./patch-queue.js";
+import { ensureApplicationSurfaceAccessor, resolveRuntimeReadiness } from "./runtime-readiness.js";
 import type {
     MessageEventLike,
     PatchQueueMetrics,
-    PatchQueueState,
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
@@ -19,501 +28,17 @@ import type {
 const DEFAULT_MAX_QUEUE_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 50;
 const READINESS_POLL_INTERVAL_MS = 50;
-const QUEUE_COMPACTION_THRESHOLD_MULTIPLIER = 2;
 
 const textDecoder = new TextDecoder();
 
-type RuntimeReadyGlobals = Record<string, unknown> & {
-    g_pBuiltIn?: Record<string, unknown>;
-    JSON_game?: {
-        ScriptNames?: Array<string>;
-        Scripts?: Array<unknown>;
-    };
-};
-
-function isRuntimeReady(): boolean {
-    const globals = globalThis as RuntimeReadyGlobals;
-    const builtins = globals?.g_pBuiltIn;
-    if (typeof builtins !== "object" || builtins === null) {
-        return false;
-    }
-
-    const jsonGame = globals.JSON_game;
-    if (!jsonGame || typeof jsonGame !== "object") {
-        return false;
-    }
-
-    const { ScriptNames, Scripts } = jsonGame;
-    if (!Array.isArray(ScriptNames) || !Array.isArray(Scripts)) {
-        return false;
-    }
-
-    return Scripts.some((entry) => typeof entry === "function");
-}
-
-function resolveRuntimeReadiness(runtimeReady: boolean): boolean {
-    if (runtimeReady) {
-        return true;
-    }
-
-    return isRuntimeReady();
-}
-
-function ensureApplicationSurfaceAccessor(): void {
-    const globals = globalThis as Record<string, unknown>;
-    const builtins = globals.g_pBuiltIn;
-    if (!builtins || typeof builtins !== "object") {
-        return;
-    }
-
-    if (Object.hasOwn(globals, "application_surface")) {
-        return;
-    }
-
-    Object.defineProperty(globals, "application_surface", {
-        configurable: true,
-        enumerable: true,
-        get() {
-            const runtimeGlobals = globalThis as Record<string, unknown>;
-            const runtimeBuiltins = runtimeGlobals.g_pBuiltIn as Record<string, unknown> | undefined;
-            return runtimeBuiltins?.application_surface;
-        },
-        set(value) {
-            const runtimeGlobals = globalThis as Record<string, unknown>;
-            const runtimeBuiltins = runtimeGlobals.g_pBuiltIn as Record<string, unknown> | undefined;
-            if (runtimeBuiltins) {
-                runtimeBuiltins.application_surface = value;
-            }
-        }
-    });
-}
-
-function createInitialMetrics(): WebSocketConnectionMetrics {
-    return {
-        totalConnections: 0,
-        totalDisconnections: 0,
-        totalReconnectAttempts: 0,
-        patchesReceived: 0,
-        patchesApplied: 0,
-        patchesFailed: 0,
-        lastConnectedAt: null,
-        lastDisconnectedAt: null,
-        lastPatchReceivedAt: null,
-        lastPatchAppliedAt: null,
-        connectionErrors: 0,
-        patchErrors: 0
-    };
-}
-
-function createInitialQueueMetrics(): PatchQueueMetrics {
-    return {
-        totalQueued: 0,
-        totalFlushed: 0,
-        totalDropped: 0,
-        totalDeduplicated: 0,
-        maxQueueDepth: 0,
-        flushCount: 0,
-        lastFlushSize: 0,
-        lastFlushedAt: null
-    };
-}
-
-function createPatchQueueState(): PatchQueueState {
-    return {
-        queue: [],
-        flushTimer: null,
-        queueMetrics: createInitialQueueMetrics(),
-        queueHead: 0
-    };
-}
-
-type FlushQueueOptions = {
-    state: WebSocketClientState;
-    wrapper: PatchApplicator | null;
-    applyQueuedPatch: (incoming: unknown) => boolean;
-    logger?: Logger;
-};
-
-/**
- * Deduplicates a list of patch candidates by ID, retaining only the last
- * occurrence of each ID. When a developer saves rapidly, the same patch ID
- * can arrive multiple times before the runtime is ready or within a flush
- * window. Applying only the most-recent version avoids unnecessary
- * `new Function` compilations and registry version churn.
- *
- * Patches without a string `id` field are always retained unchanged.
- *
- * @returns The deduplicated list and the number of duplicates removed.
- */
-function deduplicatePatchesById(patches: Array<unknown>): {
-    patches: Array<unknown>;
-    duplicateCount: number;
-} {
-    if (patches.length < 2) {
-        return { patches, duplicateCount: 0 };
-    }
-
-    if (!hasDuplicatePatchIds(patches)) {
-        return { patches, duplicateCount: 0 };
-    }
-
-    // Walk backward so the first occurrence we encounter for each ID is the
-    // most-recent patch that should be retained.
-    const seenIds = new Set<string>();
-    const deduplicatedReversed: Array<unknown> = [];
-    let duplicateCount = 0;
-
-    for (let i = patches.length - 1; i >= 0; i--) {
-        const patch = patches[i];
-        const id = extractPatchId(patch);
-        if (id === null) {
-            deduplicatedReversed.push(patch);
-            continue;
-        }
-
-        if (seenIds.has(id)) {
-            duplicateCount += 1;
-            continue;
-        }
-
-        seenIds.add(id);
-        deduplicatedReversed.push(patch);
-    }
-
-    if (duplicateCount === 0) {
-        return { patches, duplicateCount: 0 };
-    }
-
-    deduplicatedReversed.reverse();
-    return { patches: deduplicatedReversed, duplicateCount };
-}
-
-/**
- * Fast duplicate check used to skip queue-array reconstruction when every
- * patch ID is already unique.
- */
-function hasDuplicatePatchIds(patches: Array<unknown>): boolean {
-    const seenIds = new Set<string>();
-
-    for (const patch of patches) {
-        const id = extractPatchId(patch);
-        if (id === null) {
-            continue;
-        }
-
-        if (seenIds.has(id)) {
-            return true;
-        }
-
-        seenIds.add(id);
-    }
-
-    return false;
-}
-
-/**
- * Returns the string `id` from a patch candidate object, or `null` if the
- * value is not an object with a string `id` property.
- */
-function extractPatchId(patch: unknown): string | null {
-    if (patch === null || typeof patch !== "object" || !("id" in patch)) {
-        return null;
-    }
-
-    const id = (patch as Record<string, unknown>).id;
-    return typeof id === "string" ? id : null;
-}
-
-function extractPatchDependencies(patch: unknown): Array<string> {
-    if (patch === null || typeof patch !== "object" || !("metadata" in patch)) {
-        return [];
-    }
-
-    const metadata = (patch as Record<string, unknown>).metadata;
-    if (metadata === null || typeof metadata !== "object" || !("dependencies" in metadata)) {
-        return [];
-    }
-
-    const dependencies = (metadata as Record<string, unknown>).dependencies;
-    if (!Array.isArray(dependencies) || dependencies.length === 0) {
-        return [];
-    }
-
-    return dependencies.filter(
-        (dependency): dependency is string => typeof dependency === "string" && dependency.length > 0
-    );
-}
-
-function orderPatchesForDependencyBatching(patches: Array<unknown>): Array<unknown> {
-    if (patches.length < 2) {
-        return patches;
-    }
-
-    const patchIds = new Set<string>();
-    let hasInBatchDependencies = false;
-
-    for (const patch of patches) {
-        const id = extractPatchId(patch);
-        if (id !== null) {
-            patchIds.add(id);
-        }
-    }
-
-    const incomingEdges = new Map<string, number>();
-    const dependentsByDependency = new Map<string, Array<string>>();
-    const patchById = new Map<string, unknown>();
-    const orderedIds: Array<string> = [];
-    const queuedIds = new Set<string>();
-
-    for (const patch of patches) {
-        const id = extractPatchId(patch);
-        if (id === null || patchById.has(id)) {
-            continue;
-        }
-
-        patchById.set(id, patch);
-        orderedIds.push(id);
-        incomingEdges.set(id, 0);
-    }
-
-    for (const patchId of orderedIds) {
-        const patch = patchById.get(patchId);
-        if (patch === undefined) {
-            continue;
-        }
-
-        for (const dependencyId of extractPatchDependencies(patch)) {
-            if (!patchIds.has(dependencyId) || dependencyId === patchId) {
-                continue;
-            }
-
-            hasInBatchDependencies = true;
-            incomingEdges.set(patchId, (incomingEdges.get(patchId) ?? 0) + 1);
-
-            const dependents = dependentsByDependency.get(dependencyId);
-            if (dependents) {
-                dependents.push(patchId);
-            } else {
-                dependentsByDependency.set(dependencyId, [patchId]);
-            }
-        }
-    }
-
-    if (!hasInBatchDependencies) {
-        return patches;
-    }
-
-    const readyQueue = orderedIds.filter((id) => (incomingEdges.get(id) ?? 0) === 0);
-    const reordered: Array<unknown> = [];
-
-    while (readyQueue.length > 0) {
-        const nextId = readyQueue.shift();
-        if (!nextId || queuedIds.has(nextId)) {
-            continue;
-        }
-
-        queuedIds.add(nextId);
-        const patch = patchById.get(nextId);
-        if (patch !== undefined) {
-            reordered.push(patch);
-        }
-
-        for (const dependentId of dependentsByDependency.get(nextId) ?? []) {
-            const remainingEdges = (incomingEdges.get(dependentId) ?? 0) - 1;
-            incomingEdges.set(dependentId, remainingEdges);
-            if (remainingEdges === 0) {
-                readyQueue.push(dependentId);
-            }
-        }
-    }
-
-    if (reordered.length !== orderedIds.length) {
-        return patches;
-    }
-
-    return reordered;
-}
-
-function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
-    const { state, wrapper, applyQueuedPatch, logger } = options;
-
-    if (!state.patchQueue || !wrapper) {
-        return 0;
-    }
-
-    const queueState = state.patchQueue;
-    const effectiveQueueSize = queueState.queue.length - queueState.queueHead;
-
-    if (effectiveQueueSize === 0) {
-        return 0;
-    }
-
-    if (queueState.flushTimer !== null) {
-        clearTimeout(queueState.flushTimer);
-        queueState.flushTimer = null;
-    }
-
-    // Fast path: when no drops have occurred (queueHead === 0), reuse the
-    // existing queue array directly instead of slicing into a new array.
-    // This avoids an allocation for the common case where patches are flushed
-    // by timer/size before any overflow compaction is needed.
-    const patchesToFlush = queueState.queueHead === 0 ? queueState.queue : queueState.queue.slice(queueState.queueHead);
-    const flushSize = patchesToFlush.length;
-
-    // Reset queue to release old references for garbage collection
-    queueState.queue = [];
-    queueState.queueHead = 0;
-
-    // Cache metrics objects for fewer property lookups
-    const queueMetrics = queueState.queueMetrics;
-    const connectionMetrics = state.connectionMetrics;
-
-    queueMetrics.flushCount += 1;
-    queueMetrics.lastFlushSize = flushSize;
-    queueMetrics.lastFlushedAt = getWallClockTime();
-
-    // Deduplicate: when the same patch ID appears multiple times in the flush
-    // batch (e.g., rapid saves), only the last version is applied. Earlier
-    // occurrences are accounted for in totalFlushed but skipped from application.
-    const { patches: deduplicatedPatches, duplicateCount } = deduplicatePatchesById(patchesToFlush);
-    const patchesToApply = orderPatchesForDependencyBatching(deduplicatedPatches);
-    queueMetrics.totalDeduplicated += duplicateCount;
-
-    const flushStartTime = getHighResolutionTime();
-
-    if (wrapper.applyPatchBatch) {
-        const result = wrapper.applyPatchBatch(patchesToApply);
-        const applied = result.success && !result.rolledBack ? result.appliedCount : 0;
-        // patchesFailed counts the deduplicated set: on a batch failure all
-        // non-deduped patches are considered failed (the batch is rolled back).
-        const failed = result.success ? 0 : patchesToApply.length;
-
-        connectionMetrics.patchesApplied += applied;
-        connectionMetrics.patchesFailed += failed;
-        if (failed > 0) {
-            connectionMetrics.patchErrors += failed;
-        }
-        // totalFlushed accounts for all patches removed from the queue, including
-        // those skipped by deduplication. The invariant is:
-        //   totalFlushed = patchesApplied + patchesFailed + totalDeduplicated
-        queueMetrics.totalFlushed += flushSize;
-
-        if (result.success && applied > 0) {
-            connectionMetrics.lastPatchAppliedAt = getWallClockTime();
-        }
-    } else {
-        for (const patch of patchesToApply) {
-            applyQueuedPatch(patch);
-        }
-        queueMetrics.totalFlushed += flushSize;
-    }
-
-    const flushDuration = getHighResolutionTime() - flushStartTime;
-    if (logger) {
-        logger.patchQueueFlushed(flushSize, flushDuration);
-    }
-
-    return flushSize;
-}
-
-type EnqueuePatchOptions = {
-    patch: unknown;
-    state: WebSocketClientState;
-    maxQueueSize: number;
-    flushQueuedPatches: () => number;
-    scheduleFlush: () => void;
-    logger?: Logger;
-};
-
-type PendingPatchQueueOptions = {
-    patch: unknown;
-    state: WebSocketClientState;
-    maxPendingPatches: number;
-};
-
-function enqueuePendingPatchInternal(options: PendingPatchQueueOptions): void {
-    const { patch, state, maxPendingPatches } = options;
-
-    const effectivePendingCount = state.pendingPatches.length - state.pendingPatchHead;
-    if (effectivePendingCount >= maxPendingPatches) {
-        state.pendingPatchHead += 1;
-
-        const compactionThreshold = maxPendingPatches * QUEUE_COMPACTION_THRESHOLD_MULTIPLIER;
-        if (state.pendingPatchHead >= compactionThreshold) {
-            state.pendingPatches = state.pendingPatches.slice(state.pendingPatchHead);
-            state.pendingPatchHead = 0;
-        }
-    }
-
-    state.pendingPatches.push(patch);
-}
-
-function enqueuePatchInternal(options: EnqueuePatchOptions): void {
-    const { patch, state, maxQueueSize, flushQueuedPatches, scheduleFlush, logger } = options;
-
-    if (!state.patchQueue) {
-        return;
-    }
-
-    const queueState = state.patchQueue;
-    const queueMetrics = queueState.queueMetrics;
-    const effectiveQueueSize = queueState.queue.length - queueState.queueHead;
-
-    // If queue is full, drop oldest patch by advancing head pointer
-    if (effectiveQueueSize >= maxQueueSize) {
-        queueState.queueHead += 1;
-        queueMetrics.totalDropped += 1;
-
-        // Periodically compact the queue to prevent unbounded growth.
-        // Compact only when head has advanced significantly (2x maxQueueSize)
-        // to amortize the cost of the slice operation over more enqueue calls.
-        // This reduces allocation pressure and improves hot-reload throughput.
-        const compactionThreshold = maxQueueSize * QUEUE_COMPACTION_THRESHOLD_MULTIPLIER;
-        if (queueState.queueHead >= compactionThreshold) {
-            const activePatches = queueState.queue.slice(queueState.queueHead);
-            queueState.queue = activePatches;
-            queueState.queueHead = 0;
-        }
-    }
-
-    queueState.queue.push(patch);
-    queueMetrics.totalQueued += 1;
-
-    const currentDepth = queueState.queue.length - queueState.queueHead;
-    if (currentDepth > queueMetrics.maxQueueDepth) {
-        queueMetrics.maxQueueDepth = currentDepth;
-    }
-
-    if (logger && typeof patch === "object" && patch !== null && "id" in patch && typeof patch.id === "string") {
-        logger.patchQueued(patch.id, currentDepth);
-    }
-
-    if (currentDepth >= maxQueueSize) {
-        flushQueuedPatches();
-    } else {
-        scheduleFlush();
-    }
-}
-
-type ApplyIncomingPatchOptions = {
-    incoming: unknown;
-    state: WebSocketClientState;
-    wrapper: PatchApplicator | null;
-    onError?: WebSocketClientOptions["onError"];
-    logger?: Logger;
-    alreadyRecordedReceived?: boolean;
-};
-
-function recordPatchReceived(state: WebSocketClientState): number {
-    const receivedAt = getWallClockTime();
-    state.connectionMetrics.patchesReceived += 1;
-    state.connectionMetrics.lastPatchReceivedAt = receivedAt;
-    return receivedAt;
-}
-
-function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean {
-    const { incoming, state, wrapper, onError, logger, alreadyRecordedReceived = false } = options;
-
+function applyIncomingPatchInternal(
+    incoming: unknown,
+    state: WebSocketClientState,
+    wrapper: PatchApplicator | null,
+    onError?: WebSocketClientOptions["onError"],
+    logger?: Logger,
+    alreadyRecordedReceived = false
+): boolean {
     const receivedAt = alreadyRecordedReceived
         ? (state.connectionMetrics.lastPatchReceivedAt ?? getWallClockTime())
         : recordPatchReceived(state);
@@ -603,7 +128,7 @@ export function createWebSocketClient({
         isConnected: false,
         reconnectTimer: null,
         manuallyDisconnected: false,
-        connectionMetrics: createInitialMetrics(),
+        connectionMetrics: createInitialConnectionMetrics(),
         patchQueue: queueEnabled ? createPatchQueueState() : null,
         pendingPatches: [],
         pendingPatchHead: 0,
@@ -661,26 +186,17 @@ export function createWebSocketClient({
     };
 
     const queuePendingPatch = (patch: unknown): void => {
-        enqueuePendingPatchInternal({ patch, state, maxPendingPatches });
+        enqueuePendingPatchUntilRuntimeReady(state, patch, maxPendingPatches);
         ensureReadinessTimer();
     };
 
     const flushQueuedPatches = (): number => {
-        return flushQueuedPatchesInternal({
+        return flushQueuedPatchBatch(
             state,
             wrapper,
-            applyQueuedPatch: (incoming) => {
-                return applyIncomingPatchInternal({
-                    incoming,
-                    state,
-                    wrapper,
-                    onError,
-                    logger,
-                    alreadyRecordedReceived: true
-                });
-            },
+            (incoming) => applyIncomingPatchInternal(incoming, state, wrapper, onError, logger, true),
             logger
-        });
+        );
     };
 
     const scheduleFlush = (): void => {
@@ -700,14 +216,7 @@ export function createWebSocketClient({
     };
 
     const enqueuePatch = (patch: unknown): void => {
-        enqueuePatchInternal({
-            patch,
-            state,
-            maxQueueSize,
-            flushQueuedPatches,
-            scheduleFlush,
-            logger
-        });
+        enqueuePatchForDeferredFlush(state, patch, maxQueueSize, flushQueuedPatches, scheduleFlush, logger);
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
@@ -726,13 +235,7 @@ export function createWebSocketClient({
             return true;
         }
 
-        return applyIncomingPatchInternal({
-            incoming,
-            state,
-            wrapper,
-            onError,
-            logger
-        });
+        return applyIncomingPatchInternal(incoming, state, wrapper, onError, logger);
     };
 
     function connect() {
@@ -823,7 +326,7 @@ export function createWebSocketClient({
     }
 
     function resetConnectionMetrics(): void {
-        state.connectionMetrics = createInitialMetrics();
+        state.connectionMetrics = createInitialConnectionMetrics();
     }
 
     function getPatchQueueMetrics(): Readonly<PatchQueueMetrics> | null {

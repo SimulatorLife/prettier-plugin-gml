@@ -13,7 +13,7 @@ import type { HotReloadSafetySummary, ValidationSummary } from "./types.js";
 export interface RenameValidationCacheConfig {
     /**
      * Maximum number of cached validation results.
-     * When exceeded, oldest entries are evicted (FIFO).
+     * When exceeded, the least-recently-used entry is evicted.
      * @default 50
      */
     maxSize?: number;
@@ -109,8 +109,9 @@ export class RenameValidationCache {
 
     /**
      * Get or compute a validation result.
-     * If a valid cached result exists, return it immediately.
-     * Otherwise, compute the result using the provided function and cache it.
+     * If a valid cached result exists, return it immediately and promote it so
+     * frequently-used validations stay resident. Otherwise, compute the result
+     * and cache it using least-recently-used eviction.
      *
      * @param symbolId - Symbol being renamed
      * @param newName - Proposed new name
@@ -132,6 +133,7 @@ export class RenameValidationCache {
         if (cached) {
             if (Date.now() - cached.timestamp < this.ttlMs) {
                 this.hits++;
+                this.promoteCachedEntry(key, cached);
                 return cached.result;
             }
             // Entry expired – evict it
@@ -152,7 +154,7 @@ export class RenameValidationCache {
             const result = await compute();
 
             if (this.maxSize > 0) {
-                // Evict the oldest entry (FIFO) before adding the new one
+                // Evict the least-recently-used entry before adding the new one
                 if (this.cache.size >= this.maxSize) {
                     const oldestKey = this.cache.keys().next().value as string | undefined;
                     if (oldestKey !== undefined) {
@@ -176,6 +178,11 @@ export class RenameValidationCache {
         } finally {
             this.inFlight.delete(key);
         }
+    }
+
+    private promoteCachedEntry(key: string, entry: CacheEntry): void {
+        this.cache.delete(key);
+        this.cache.set(key, entry);
     }
 
     /**
