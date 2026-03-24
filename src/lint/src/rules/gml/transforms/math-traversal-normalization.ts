@@ -4,7 +4,7 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
-import { findFirstAstNodeBy } from "../../rule-base-helpers.js";
+import { findFirstAstNodeBy } from "../rule-base-helpers.js";
 
 const {
     ASSIGNMENT_EXPRESSION,

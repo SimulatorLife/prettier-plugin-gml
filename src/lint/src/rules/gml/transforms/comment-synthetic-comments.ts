@@ -10,7 +10,7 @@ import {
     mergeSyntheticDocComments,
     promoteLeadingDocCommentTextToDescription,
     reorderDescriptionLinesToTop
-} from "../../../../doc-comment/index.js";
+} from "../../../doc-comment/index.js";
 
 const STRING_TYPE = "string";
 
