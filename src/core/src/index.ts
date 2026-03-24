@@ -55,13 +55,6 @@ export const Core: CoreNamespace = Object.freeze({
 // import without deep imports. This is the preferred path for type imports
 // across the monorepo.
 export type { EmptyTransformOptions, ParserTransform } from "./ast/parser-transform.js";
-export type {
-    GlobalIdentifierTracker,
-    IdentifierRoleManager,
-    ScopeLifecycle,
-    ScopeTracker,
-    ScopeTrackerOptions
-} from "./ast/scope-tracker.js";
 export type { StripCommentsTransformOptions } from "./ast/strip-comments-transform.js";
 export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
