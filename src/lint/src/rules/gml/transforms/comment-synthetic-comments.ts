@@ -1,6 +1,8 @@
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
-import {
+import { gmlTransformDocCommentServices } from "./doc-comment-services.js";
+
+const {
     collectAdjacentLeadingSourceLineComments,
     collectLeadingProgramLineComments,
     collectSyntheticDocCommentLines,
@@ -10,7 +12,7 @@ import {
     mergeSyntheticDocComments,
     promoteLeadingDocCommentTextToDescription,
     reorderDescriptionLinesToTop
-} from "../../../doc-comment/index.js";
+} = gmlTransformDocCommentServices;
 
 const STRING_TYPE = "string";
 
