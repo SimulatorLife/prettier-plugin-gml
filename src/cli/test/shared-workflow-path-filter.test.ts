@@ -28,6 +28,24 @@ void describe("workflow path filter helpers", () => {
         assert.ok(filter.allowsPath(path.join(workspace, "file.json")));
     });
 
+    void it("preserves Windows absolute allow paths on non-Windows hosts", () => {
+        const workspace = path.win32.join("C:\\", "workflow-path-filter", "allowed");
+        const outputPath = path.win32.join(workspace, "artefacts", "manual.json");
+        const filter = createWorkflowPathFilter({ allowPaths: [workspace] });
+
+        assert.deepStrictEqual(filter.allowList, [workspace]);
+        assert.ok(filter.allowsDirectory(workspace));
+        assert.ok(filter.allowsPath(outputPath));
+    });
+
+    void it("preserves UNC deny paths on non-Windows hosts", () => {
+        const restricted = String.raw`\\server\share\workflow-path-filter\restricted`;
+        const filter = createWorkflowPathFilter({ denyPaths: [restricted] });
+
+        assert.equal(filter.denyList[0], restricted);
+        assert.equal(filter.allowsPath(String.raw`${restricted}\manual.json`), false);
+    });
+
     void it("accepts alias workflow input names for allow/deny lists", () => {
         const root = path.resolve("/tmp", "workflow-path-filter", "aliases");
         const allowed = path.join(root, "allowed");
