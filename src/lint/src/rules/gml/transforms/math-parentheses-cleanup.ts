@@ -10,7 +10,7 @@ import {
     type ConvertManualMathTransformOptions,
     isIdentityReplacementSafeExpression,
     replaceNodeWith
-} from "./traversal-normalization.js";
+} from "./math-traversal-normalization.js";
 
 const { BINARY_EXPRESSION, PARENTHESIZED_EXPRESSION, UNARY_EXPRESSION, isObjectLike } = Core;
 

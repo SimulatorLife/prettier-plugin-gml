@@ -100,6 +100,27 @@ void describe("RenameValidationCache", () => {
             assert.equal(cache.getStats().evictions, 1);
         });
 
+        void it("retains the most recently used entry when eviction is required", async () => {
+            const cache = new RenameValidationCache({ maxSize: 2 });
+            let computeCount = 0;
+
+            const compute = async (): Promise<CachedValidationResult> => {
+                computeCount += 1;
+                return createValidResult();
+            };
+
+            await cache.getOrCompute("gml/script/scr_a", "scr_1", compute);
+            await cache.getOrCompute("gml/script/scr_b", "scr_2", compute);
+
+            await cache.getOrCompute("gml/script/scr_a", "scr_1", compute);
+            await cache.getOrCompute("gml/script/scr_c", "scr_3", compute);
+            await cache.getOrCompute("gml/script/scr_a", "scr_1", compute);
+            await cache.getOrCompute("gml/script/scr_b", "scr_2", compute);
+
+            assert.equal(computeCount, 4);
+            assert.equal(cache.getStats().evictions, 2);
+        });
+
         void it("respects TTL expiration", async () => {
             const cache = new RenameValidationCache({ ttlMs: 100 });
             let computeCount = 0;

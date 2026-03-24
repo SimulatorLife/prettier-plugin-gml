@@ -2,7 +2,7 @@
  * Marks static constructor helper functions that override implementations
  * inherited from parent constructors.
  *
- * This transform lives in the lint `transforms/comments` directory because its
+ * This transform lives in the lint comment-transform layer because its
  * sole consumer is `synthetic-comments.ts`, which checks `_overridesStaticFunction`
  * to decide whether to emit an `@override` doc-comment tag and to copy inherited
  * doc lines from the ancestor static helper.

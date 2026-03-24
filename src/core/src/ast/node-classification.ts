@@ -1,4 +1,4 @@
-import { getNodeType } from "./node-helpers.js";
+import { getNodeType } from "./node-helpers/index.js";
 import {
     ASSIGNMENT_EXPRESSION,
     CONSTRUCTOR_DECLARATION,

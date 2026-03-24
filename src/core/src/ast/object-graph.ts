@@ -1,5 +1,5 @@
 import { isObjectLike } from "../utils/object.js";
-import { isNode } from "./node-helpers.js";
+import { isNode } from "./node-helpers/index.js";
 
 type ObjectRecord = Record<string, unknown>;
 
