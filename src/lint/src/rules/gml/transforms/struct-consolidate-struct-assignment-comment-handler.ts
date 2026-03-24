@@ -1,6 +1,6 @@
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
-import type { CommentTracker } from "../comments/comment-tracker.js";
+import type { CommentTracker } from "./comment-tracker.js";
 
 type CommentTools = {
     addTrailingComment: (...args: Array<unknown>) => unknown;

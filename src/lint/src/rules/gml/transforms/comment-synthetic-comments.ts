@@ -1,6 +1,6 @@
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
-import { gmlTransformDocCommentServices } from "../doc-comment-services.js";
+import { gmlTransformDocCommentServices } from "./doc-comment-services.js";
 
 const {
     collectAdjacentLeadingSourceLineComments,
