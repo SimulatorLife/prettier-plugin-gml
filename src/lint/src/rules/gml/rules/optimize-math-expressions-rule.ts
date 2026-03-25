@@ -15,8 +15,8 @@ import {
     type SourceTextEdit,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
-import { applyDivisionToMultiplication } from "../transforms/math/division-to-multiplication.js";
-import { cleanupMultiplicativeIdentityParentheses } from "../transforms/math/parentheses-cleanup.js";
+import { applyDivisionToMultiplication } from "../transforms/math-division-to-multiplication.js";
+import { cleanupMultiplicativeIdentityParentheses } from "../transforms/math-parentheses-cleanup.js";
 // manual-transforms provide a comprehensive suite of normalization helpers that
 // the linter rule previously replicated only incompletely. We now invoke them
 // directly and print the resulting AST fragment ourselves so the rule can keep
@@ -25,7 +25,7 @@ import {
     applyManualMathNormalization,
     applyScalarCondensing,
     simplifyZeroDivisionNumerators
-} from "../transforms/math/traversal-normalization.js";
+} from "../transforms/math-traversal-normalization.js";
 
 const {
     getNodeStartIndex,

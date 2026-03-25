@@ -67,6 +67,60 @@ const baseIgnorePatterns = [
     // be picked up by `npm run lint:yaml` and by CI checks.
 ];
 
+const MAX_SOURCE_DIRECTORY_NESTING = 3;
+const SOURCE_ROOT_DIRECTORY_NAMES = new Set(["src", "test"]);
+const sourceStructurePlugin = {
+    rules: {
+        "max-directory-nesting": {
+            meta: {
+                type: "suggestion",
+                docs: {
+                    description:
+                        "Prevent excessively nested workspace source directories."
+                },
+                schema: []
+            },
+            create(context) {
+                return {
+                    Program(node) {
+                        const relativePath = path.relative(
+                            tsconfigRootDir,
+                            context.filename
+                        );
+                        const normalizedPath = relativePath
+                            .split(path.sep)
+                            .join("/");
+                        const pathSegments = normalizedPath.split("/");
+
+                        if (
+                            pathSegments[0] !== "src" ||
+                            pathSegments.length < 4
+                        ) {
+                            return;
+                        }
+
+                        if (!SOURCE_ROOT_DIRECTORY_NAMES.has(pathSegments[2])) {
+                            return;
+                        }
+
+                        const nestedDirectoryCount = pathSegments.length - 4;
+                        if (
+                            nestedDirectoryCount <= MAX_SOURCE_DIRECTORY_NESTING
+                        ) {
+                            return;
+                        }
+
+                        context.report({
+                            node,
+                            message: `Source files may be nested at most ${MAX_SOURCE_DIRECTORY_NESTING} directories below a workspace ${pathSegments[2]}/ root; found ${nestedDirectoryCount} in "${normalizedPath}".`
+                        });
+                    }
+                };
+            }
+        }
+    }
+};
+
 /**
  * TypeScript configuration:
  * - Scoped to .ts files
@@ -130,7 +184,8 @@ const tsConfig = defineConfig({
         "no-secrets": pluginNoSecrets,
         "eslint-comments": pluginEslintComments,
         "unused-imports": pluginUnusedImports,
-        "simple-import-sort": pluginSimpleImportSort
+        "simple-import-sort": pluginSimpleImportSort,
+        "source-structure": sourceStructurePlugin
     },
 
     settings: {
@@ -245,6 +300,7 @@ const tsConfig = defineConfig({
         /* --- core "bad practice" rules --- */
         complexity: ["error", { max: 70 }],
         "max-depth": ["error", 5],
+        "source-structure/max-directory-nesting": "error",
         "max-lines": [
             "warn",
             {
