@@ -27,6 +27,8 @@ export interface ParserToken extends Token {
 // not the shared AST model owned by Core.
 export type {
     GlobalIdentifierTracker,
+    IdentifierRoleApplicator,
+    IdentifierRoleContextController,
     IdentifierRoleManager,
     ScopeLifecycle,
     ScopeTracker,
