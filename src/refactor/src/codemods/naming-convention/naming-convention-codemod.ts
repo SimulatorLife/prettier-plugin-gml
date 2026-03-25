@@ -13,6 +13,10 @@ import type {
 } from "../../types.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
 
+function resolveSelectedTargetPath(projectRoot: string, selectedPath: string): string {
+    return path.isAbsolute(selectedPath) ? selectedPath : path.resolve(projectRoot, selectedPath);
+}
+
 function isPathSelected(projectRoot: string, selectedPaths: ReadonlyArray<string>, targetPath: string): boolean {
     if (selectedPaths.length === 0) {
         return true;
@@ -20,7 +24,7 @@ function isPathSelected(projectRoot: string, selectedPaths: ReadonlyArray<string
 
     const absoluteTargetPath = path.resolve(projectRoot, targetPath);
     return selectedPaths.some((selectedPath) => {
-        const absoluteSelectedPath = path.resolve(selectedPath);
+        const absoluteSelectedPath = resolveSelectedTargetPath(projectRoot, selectedPath);
         return (
             absoluteTargetPath === absoluteSelectedPath || Core.isPathInside(absoluteTargetPath, absoluteSelectedPath)
         );

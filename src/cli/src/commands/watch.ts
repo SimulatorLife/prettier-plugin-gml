@@ -24,6 +24,7 @@ import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
 import { formatCliError } from "../cli-core/errors.js";
+import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
     type RuntimeStaticServerHandle,
@@ -38,10 +39,12 @@ import {
     type RuntimeSourceResolver
 } from "../modules/runtime/source.js";
 import { startStatusServer, type StatusServerHandle, type StatusServerLifecycle } from "../modules/status/server.js";
+import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
 import {
     displayTranspilationStatistics,
     type ErrorCollector,
     type MetricsCollector,
+    orderPatchesForReplay,
     type PatchBroadcastService,
     type PatchHistoryStore,
     registerScriptNamesFromSymbols,
@@ -50,8 +53,7 @@ import {
     type TranspilationResult,
     transpileFile,
     type TranspilerProvider
-} from "../modules/transpilation/coordinator.js";
-import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
+} from "../modules/transpilation/index.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
@@ -149,6 +151,8 @@ interface HotReloadConfig {
  */
 interface InfrastructureConfig {
     abortSignal?: AbortSignal;
+    onWebSocketServerReady?: (server: PatchWebSocketServer) => void;
+    onStatusServerReady?: (server: StatusServerHandle) => void;
 }
 
 /**
@@ -399,10 +403,7 @@ async function runAutoInjectHotReload(
  * logging while providing a case-insensitive predicate for incoming filenames.
  */
 export function createExtensionMatcher(extensions: ReadonlyArray<string>): ExtensionMatcher {
-    const normalized = extensions.map((ext) => {
-        const withDot = ext.startsWith(".") ? ext : `.${ext}`;
-        return withDot.toLowerCase();
-    });
+    const normalized = normalizeExtensions(extensions);
 
     const normalizedSet = new Set(normalized);
 
@@ -762,6 +763,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         statusHost = "127.0.0.1",
         statusServer: enableStatus = true,
         abortSignal,
+        onWebSocketServerReady,
+        onStatusServerReady,
         runtimeRoot,
         runtimePackage = DEFAULT_RUNTIME_PACKAGE,
         runtimeServer,
@@ -878,7 +881,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         console.log(`Patch streaming client connected: ${clientId}`);
                     }
                 },
-                prepareInitialMessages: () => Array.from(runtimeContext.lastSuccessfulPatches.values()),
+                prepareInitialMessages: () =>
+                    orderPatchesForReplay(Array.from(runtimeContext.lastSuccessfulPatches.values())),
                 onClientDisconnect: (clientId) => {
                     if (verbose) {
                         console.log(`Patch streaming client disconnected: ${clientId}`);
@@ -887,6 +891,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
 
             runtimeContext.websocketServer = websocketServerController;
+            onWebSocketServerReady?.(websocketServerController);
 
             console.log(`WebSocket patch server ready at ${websocketServerController.url}`);
         } catch (error) {
@@ -942,6 +947,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
 
             runtimeContext.statusServer = statusServerController;
+            onStatusServerReady?.(statusServerController);
 
             console.log(`Status server ready at ${statusServerController.url}`);
         } catch (error) {
@@ -1565,31 +1571,43 @@ function updateDependencyTrackerForTranspileResult(
     result: TranspilationResult
 ): DependencyUpdateSummary {
     const previousDefinitions = runtimeContext.dependencyTracker.getFileDefinitions(filePath);
-    const previousDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
     const nextDefinitions = result.symbols ?? [];
     const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
 
-    if (!definitionsChanged) {
-        runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
-        runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+    runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
+    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
 
+    if (!definitionsChanged) {
         return {
             definitionsChanged,
             affectedDependents: []
         };
     }
 
-    const addedDefinitions = subtractSymbolSets(nextDefinitions, previousDefinitions);
-
-    runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
-    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
-
-    const newlyDependentFiles = runtimeContext.dependencyTracker.getFilesReferencingSymbols(addedDefinitions, filePath);
+    const changedDefinitions = resolveChangedDefinitions(previousDefinitions, nextDefinitions);
+    const affectedDependents = runtimeContext.dependencyTracker.getFilesReferencingSymbols(
+        changedDefinitions,
+        filePath
+    );
 
     return {
         definitionsChanged,
-        affectedDependents: mergeDependentFiles(previousDependents, newlyDependentFiles)
+        affectedDependents
     };
+}
+
+/**
+ * Returns the symbol names whose availability changed between two definition sets.
+ * Only files that reference these specific symbols need dependent retranspilation.
+ */
+function resolveChangedDefinitions(
+    previousDefinitions: ReadonlyArray<string>,
+    nextDefinitions: ReadonlyArray<string>
+): Array<string> {
+    return mergeDependentFiles(
+        subtractSymbolSets(previousDefinitions, nextDefinitions),
+        subtractSymbolSets(nextDefinitions, previousDefinitions)
+    );
 }
 
 /**

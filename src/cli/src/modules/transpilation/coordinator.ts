@@ -484,7 +484,8 @@ export function transpileFile(
             ...patch,
             metadata: {
                 ...patch.metadata,
-                sourcePath: filePath
+                sourcePath: filePath,
+                dependencies: resolvePatchDependencies(parsedReferences, patch.id)
             }
         };
         const patchPayload =
@@ -747,4 +748,19 @@ function getPrimaryScriptPatchId(symbols: ReadonlyArray<string>): string | null 
         }
     }
     return null;
+}
+
+function resolvePatchDependencies(references: ReadonlyArray<string>, patchId: string): Array<string> {
+    const dependencies = new Set<string>();
+
+    for (const reference of references) {
+        const dependencyPatchId = runtimeSymbolToPatchId(reference);
+        if (!dependencyPatchId || dependencyPatchId === patchId) {
+            continue;
+        }
+
+        dependencies.add(dependencyPatchId);
+    }
+
+    return Array.from(dependencies);
 }

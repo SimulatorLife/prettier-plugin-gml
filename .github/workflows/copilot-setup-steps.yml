@@ -26,17 +26,17 @@ jobs:
         id: node-version
         run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
 
-      - name: Enable pnpm via Corepack
-        run: |
-          corepack enable
-          corepack prepare $(node -p "require('./package.json').packageManager") --activate
-
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ steps.node-version.outputs.version }}
           cache: 'pnpm'
           cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable pnpm via Corepack
+        run: |
+          corepack enable
+          corepack prepare $(node -p "require('./package.json').packageManager") --activate
 
       - name: Install dependencies
         run: |

@@ -1,7 +1,7 @@
 // This module defines the public API surface for the Core package. Do NOT add
 // re-export wrappers, compatibility shims, or transitional helpers here. The Core
 // namespace is intentionally minimal and exposes only the canonical functionality
-// defined in the submodules (AST, Comments, FS, Utils, Resources). Adding
+// defined in the submodules (AST, Comments, FS, Text, Utils, Resources). Adding
 // legacy-support layers or pass-through exports would:
 //   1. Dilute the single-responsibility principle by mixing compatibility concerns
 //      with the core domain logic.
@@ -24,10 +24,12 @@ import * as FS from "./fs/index.js";
 import * as ProjectConfig from "./project-config/index.js";
 import * as IdentifierMetadata from "./resources/gml-identifier-loading.js";
 import * as Resources from "./resources/index.js";
+import * as Text from "./text/index.js";
 import * as Utils from "./utils/index.js";
 
 // Define the Core namespace type from existing module types
 type CoreNamespace = typeof AST &
+    typeof Text &
     typeof Utils &
     typeof FS &
     typeof ProjectConfig &
@@ -41,6 +43,7 @@ type CoreNamespace = typeof AST &
 export const Core: CoreNamespace = Object.freeze({
     ...AST,
     ...FS,
+    ...Text,
     ...Utils,
     ...ProjectConfig,
     ...Resources,
@@ -52,17 +55,11 @@ export const Core: CoreNamespace = Object.freeze({
 // import without deep imports. This is the preferred path for type imports
 // across the monorepo.
 export type { EmptyTransformOptions, ParserTransform } from "./ast/parser-transform.js";
-export type {
-    GlobalIdentifierTracker,
-    IdentifierRoleManager,
-    ScopeLifecycle,
-    ScopeTracker,
-    ScopeTrackerOptions
-} from "./ast/scope-tracker.js";
 export type { StripCommentsTransformOptions } from "./ast/strip-comments-transform.js";
 export type { GameMakerAstLocation, GameMakerAstNode, LiteralNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export type { DocCommentNodeMetadata } from "./comments/doc-comment/node-metadata.js";
+export type { StringCommentScanState } from "./comments/string-comment-scan.js";
 export type { GmloopProjectConfig } from "./project-config/gmloop-project-config.js";
 export type { FeatherDiagnostic, FeatherMetadata } from "./resources/feather-metadata.js";
 export type {
@@ -73,4 +70,3 @@ export type {
 } from "./resources/gml-identifier-loading.js";
 export type { AbortSignalLike } from "./utils/abort.js";
 export type { DebouncedFunction } from "./utils/function.js";
-export type { StringCommentScanState } from "./utils/text-scan.js";

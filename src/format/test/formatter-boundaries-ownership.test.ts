@@ -470,6 +470,31 @@ void describe("formatter boundaries ownership", () => {
         assert.match(formatted, /return true;/);
     });
 
+    void it("does not add semantic blank-line padding between boolean return paths", async () => {
+        // Inserting an extra blank line between `if (...) { return true; }` and a
+        // following `return false;` depends on interpreting the control-flow
+        // meaning of the statements. That semantic presentation choice belongs in
+        // lint, not in the formatter's statement-spacing policy.
+        const source = [
+            "function bool_guard(condition) {",
+            "    if (condition) {",
+            "        return true;",
+            "    }",
+            "    return false;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.equal(
+            formatted.includes("return true;\n    }\n\n    return false;"),
+            false,
+            "Formatter must not insert semantic blank-line padding between opposing boolean returns."
+        );
+        assert.equal(formatted.includes("return true;\n    }\n    return false;"), true);
+    });
+
     void it("does not apply math optimizations during formatting", async () => {
         const source = ["var division = 1 / 2;", "var multiplication = 2 * 2;"].join("\n");
 
@@ -568,6 +593,27 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves multiline @description continuation indentation while reusing shared core parsing", async () => {
+        const source = [
+            "/// @description Build packet metadata",
+            "/// first line",
+            "///   nested details",
+            "///",
+            "/// @param value",
+            "function build_packet(value) {",
+            "    return value;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description Build packet metadata\n\/\/\/ {14}first line\n\/\/\/ {14}nested details\n\/\/\/\n\/\/\/ @param value/m,
+            "Formatter must preserve multiline @description continuation layout without introducing formatter-owned doc-comment normalization."
+        );
+    });
+
     void it("does not move top-of-file empty /// @description onto plain variable declarations", async () => {
         const source = [
             "/// @description",
@@ -586,6 +632,27 @@ void describe("formatter boundaries ownership", () => {
         assert.doesNotMatch(
             formatted,
             /^\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground\s*\n\/\/\/ @description\s*\nvar ray/m
+        );
+    });
+
+    void it("preserves blank lines between doc tags instead of inferring description/function grouping", async () => {
+        const source = [
+            "/// @description Build a packet",
+            "",
+            "/// @function build_packet(value)",
+            "/// @param value",
+            "function build_packet(value) {",
+            "    return value;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description Build a packet\s*\n\n\/\/\/ @function build_packet\(value\)/m,
+            "Formatter must preserve source blank lines between doc tags; grouping @description with @function is lint-owned doc normalization."
         );
     });
 

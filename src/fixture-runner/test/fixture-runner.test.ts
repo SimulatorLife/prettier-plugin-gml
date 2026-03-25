@@ -66,7 +66,7 @@ void test("discoverFixtureCases normalizes directory-per-case fixtures", async (
     }
 });
 
-void test("discoverFixtureCases rejects legacy flat fixture files and unexpected directories", async () => {
+void test("discoverFixtureCases rejects unexpected files and directories", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-invalid-layout-"));
     const casePath = path.join(rootPath, "invalid");
     await mkdir(casePath, { recursive: true });
@@ -82,7 +82,28 @@ void test("discoverFixtureCases rejects legacy flat fixture files and unexpected
     try {
         await assert.rejects(
             FixtureRunner.discoverFixtureCases(rootPath),
-            /legacy fixture file "legacy\.output\.gml" is not allowed.*unexpected directory "nested"/su
+            /unexpected file "legacy\.output\.gml".*unexpected directory "nested"/su
+        );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("discoverFixtureCases rejects text fixtures that use the project-tree assertion", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-invalid-assertion-"));
+    const casePath = path.join(rootPath, "invalid-assertion");
+    await mkdir(casePath, { recursive: true });
+    await writeFile(
+        path.join(casePath, "gmloop.json"),
+        `${JSON.stringify({ fixture: { kind: "format", assertion: "project-tree" } }, null, 2)}\n`,
+        "utf8"
+    );
+    await writeFile(path.join(casePath, "input.gml"), "var value = 1;\n", "utf8");
+
+    try {
+        await assert.rejects(
+            FixtureRunner.discoverFixtureCases(rootPath),
+            /project-tree assertion is only valid for refactor fixtures/su
         );
     } finally {
         await rm(rootPath, { recursive: true, force: true });
@@ -225,6 +246,54 @@ void test("runFixtureSuite continues collecting failures for profiling mode", as
             report.entries.some((entry) => entry.status === "failed"),
             true
         );
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
+void test("failed fixture comparisons preserve the adapter changed flag in profiling output", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-failed-changed-"));
+    await createTextFixtureCase(
+        rootPath,
+        "changed-before-compare",
+        {
+            fixture: {
+                kind: "format"
+            }
+        },
+        "input\n",
+        "expected\n"
+    );
+
+    try {
+        const collector = FixtureRunner.createProfileCollector();
+
+        await assert.rejects(
+            FixtureRunner.runFixtureSuite({
+                fixtureRoot: rootPath,
+                profileCollector: collector,
+                adapter: {
+                    workspaceName: "format",
+                    suiteName: "format fixtures",
+                    supports(kind) {
+                        return kind === "format";
+                    },
+                    async run({ runProfiledStage }) {
+                        return await runProfiledStage("format", async () => ({
+                            resultKind: "text",
+                            outputText: "different\n",
+                            changed: true
+                        }));
+                    }
+                }
+            }),
+            /must match expected text byte-for-byte/u
+        );
+
+        const report = collector.createReport();
+        assert.equal(report.entries.length, 1);
+        assert.equal(report.entries[0]?.status, "failed");
+        assert.equal(report.entries[0]?.changed, true);
     } finally {
         await rm(rootPath, { recursive: true, force: true });
     }

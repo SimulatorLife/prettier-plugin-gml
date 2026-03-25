@@ -37,7 +37,6 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import { joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
 import { isLogicalComparisonClause } from "./logical-expression-predicates.js";
 import { safeGetParentNode } from "./path-utils.js";
 import {
@@ -71,11 +70,7 @@ import {
     sliceOriginalText,
     stripTrailingLineTerminators
 } from "./source-text.js";
-import {
-    shouldAddNewlinesAroundStatement,
-    shouldForceBlankLineBetweenReturnPaths,
-    shouldSuppressEmptyLineBetween
-} from "./statement-spacing-policy.js";
+import { shouldAddNewlinesAroundStatement, shouldSuppressEmptyLineBetween } from "./statement-spacing-policy.js";
 import {
     expressionIsStringLike,
     hasLineBreak,
@@ -87,6 +82,7 @@ import {
     isSimpleCallArgument,
     isSyntheticParenFlatteningEnabled
 } from "./type-guards.js";
+import { joinDeclaratorPartsWithCommas } from "./variable-declarator-layout.js";
 
 // TODO: Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
@@ -276,7 +272,7 @@ function printNodeDocComments(node, path, options) {
     // The formatter trusts the AST's `docComments` as authoritative. Legacy doc
     // comment formats (e.g. `// @function`) are normalised by the lint rule
     // `gml/normalize-doc-comments` before formatting, so no source-text fallback
-    // is needed here. The parser's `normalizeFunctionDocCommentAttachments` pass
+    // is needed here. Core's `normalizeFunctionDocCommentAttachments` helper
     // pre-attaches recognised `@function`-tag comments to the correct function
     // node, removing the need for any formatter-side source-text scan.
     // (target-state.md §2.2, §3.2, §3.5)
@@ -367,11 +363,7 @@ function joinDocCommentsPreservingSourceSpacing(
         const currentEntry = docCommentDocs[index];
         const nextEntry = docCommentDocs[index + 1];
         if (hasBlankLineBetweenDocCommentEntries(currentEntry, nextEntry, originalText)) {
-            if (shouldCollapseDescriptionToFunctionDocGap(docCommentDocs, index)) {
-                parts.push(hardline);
-            } else {
-                parts.push(hardline, hardline);
-            }
+            parts.push(hardline, hardline);
         } else {
             parts.push(hardline);
         }
@@ -393,51 +385,6 @@ function hasBlankLineBetweenDocCommentEntries(leftEntry: unknown, rightEntry: un
     }
 
     return /\r?\n[ \t]*\r?\n/u.test(slice);
-}
-
-function resolveDocCommentEntryText(commentEntry: unknown): string | null {
-    if (typeof commentEntry === "string") {
-        return commentEntry;
-    }
-
-    if (Core.isObjectLike(commentEntry)) {
-        const docText = (commentEntry as { _gmlDocText?: unknown })._gmlDocText;
-        if (typeof docText === "string") {
-            return docText;
-        }
-    }
-
-    const rawText = Core.getLineCommentRawText(commentEntry, {});
-    return typeof rawText === STRING_TYPE && rawText.length > 0 ? rawText : null;
-}
-
-function shouldCollapseDescriptionToFunctionDocGap(docCommentDocs: MutableDocCommentLines, leftIndex: number): boolean {
-    const leftText = resolveDocCommentEntryText(docCommentDocs[leftIndex]);
-    const rightText = resolveDocCommentEntryText(docCommentDocs[leftIndex + 1]);
-    if (leftText === null || rightText === null) {
-        return false;
-    }
-
-    if (!/^\/\/\/\s*@description\b/iu.test(leftText.trim())) {
-        return false;
-    }
-
-    if (!/^\/\/\/\s*@(?:function|func)\b/iu.test(rightText.trim())) {
-        return false;
-    }
-
-    for (let index = leftIndex + 2; index < docCommentDocs.length; index += 1) {
-        const trailingText = resolveDocCommentEntryText(docCommentDocs[index]);
-        if (trailingText === null) {
-            continue;
-        }
-
-        if (/^\/\/\/\s*@/iu.test(trailingText.trim())) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 function resolveDocCommentStartIndex(commentEntry: unknown): number | null {
@@ -2403,16 +2350,12 @@ function handleIntermediateTrailingSpacing({
         hasAutomaticPaddingCapacityWithSuppressionGuard &&
         containerNode?.type === "ConstructorDeclaration" &&
         isStaticFunctionVariableDeclaration(nextNode);
-    const shouldForceEarlyReturnPadding =
-        !suppressFollowingEmptyLine && shouldForceBlankLineBetweenReturnPaths(node, nextNode);
-
     const shouldAddForcedPadding = [
         shouldForceMacroPadding,
         shouldForceLoopSectionPadding,
         shouldForceVariableBlockLoopPadding,
         shouldForceConstructorStaticSectionPadding,
-        forceFollowingEmptyLine && hasAutomaticPaddingCapacity,
-        shouldForceEarlyReturnPadding && hasAutomaticPaddingCapacity
+        forceFollowingEmptyLine && hasAutomaticPaddingCapacity
     ].some(Boolean);
 
     // Suppress the blank line between a #region and an immediately following

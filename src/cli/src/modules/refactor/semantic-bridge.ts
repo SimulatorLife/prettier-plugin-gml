@@ -152,6 +152,14 @@ type BridgeGroupedTextEdits = Map<string, Array<BridgeTextEdit>>;
 type NamingTargetPathPredicate = (candidatePath: string | null | undefined) => boolean;
 type NamingTargetSink = (target: BridgeNamingConventionTarget) => void;
 
+function toExclusiveEndIndex(endIndex: number): number {
+    return endIndex + 1;
+}
+
+function resolveOccurrenceEndIndex(endIndex: unknown): number | null {
+    return typeof endIndex === "number" ? toExclusiveEndIndex(endIndex) : null;
+}
+
 function createWorkspaceEdit(): WorkspaceEdit {
     const workspace = {
         edits: [] as Array<{ end: number; newText: string; path: string; start: number }>,
@@ -600,10 +608,15 @@ export class GmlSemanticBridge {
         if (Array.isArray(entry.declarations)) {
             for (const decl of entry.declarations) {
                 if (decl.name === symbolName) {
+                    const end = resolveOccurrenceEndIndex(decl.end?.index);
+                    if (end === null) {
+                        continue;
+                    }
+
                     occurrences.push({
                         path: decl.filePath,
                         start: decl.start?.index ?? 0,
-                        end: decl.end?.index ?? 0,
+                        end,
                         scopeId: decl.scopeId,
                         kind: "definition"
                     });
@@ -616,10 +629,15 @@ export class GmlSemanticBridge {
             for (const ref of entry.references) {
                 if (ref.targetName === symbolName) {
                     const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
-                    const end = ref.end?.index ?? ref.location?.end?.index ?? 0;
+                    const end = resolveOccurrenceEndIndex(ref.end?.index ?? ref.location?.end?.index);
+                    const filePath = typeof ref.filePath === "string" ? ref.filePath : "";
+
+                    if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
+                        continue;
+                    }
 
                     occurrences.push({
-                        path: ref.filePath,
+                        path: filePath,
                         start,
                         end,
                         scopeId: ref.scopeId,
@@ -645,10 +663,15 @@ export class GmlSemanticBridge {
         for (const call of scriptCalls) {
             if (call.target?.name === symbolName) {
                 const start = call.location?.start?.index ?? 0;
-                const end = call.location?.end?.index ?? 0;
+                const end = resolveOccurrenceEndIndex(call.location?.end?.index);
+                const filePath = call.from?.filePath ?? "";
+
+                if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
+                    continue;
+                }
 
                 occurrences.push({
-                    path: call.from?.filePath ?? "",
+                    path: filePath,
                     start,
                     end,
                     scopeId: call.from?.scopeId,
@@ -665,10 +688,15 @@ export class GmlSemanticBridge {
         // Add declarations
         if (Array.isArray(entry.declarations)) {
             for (const decl of entry.declarations) {
+                const end = resolveOccurrenceEndIndex(decl.end?.index);
+                if (end === null) {
+                    continue;
+                }
+
                 occurrences.push({
                     path: decl.filePath,
                     start: decl.start?.index ?? 0,
-                    end: decl.end?.index ?? 0,
+                    end,
                     scopeId: decl.scopeId,
                     kind: "definition"
                 });
@@ -679,10 +707,15 @@ export class GmlSemanticBridge {
         if (Array.isArray(entry.references)) {
             for (const ref of entry.references) {
                 const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
-                const end = ref.end?.index ?? ref.location?.end?.index ?? 0;
+                const end = resolveOccurrenceEndIndex(ref.end?.index ?? ref.location?.end?.index);
+                const filePath = typeof ref.filePath === "string" ? ref.filePath : "";
+
+                if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
+                    continue;
+                }
 
                 occurrences.push({
-                    path: ref.filePath,
+                    path: filePath,
                     start,
                     end,
                     scopeId: ref.scopeId,
@@ -698,6 +731,10 @@ export class GmlSemanticBridge {
     private deduplicateOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
         const seen = new Set<string>();
         return occurrences.filter((occ) => {
+            if (!Core.isNonEmptyString(occ.path) || occ.end <= occ.start) {
+                return false;
+            }
+
             const key = `${occ.path}:${occ.start}:${occ.end}:${occ.kind}`;
             if (seen.has(key)) return false;
             seen.add(key);
@@ -1208,7 +1245,7 @@ export class GmlSemanticBridge {
         occurrences.push({
             path: filePath,
             start: declaration.start?.index ?? 0,
-            end: declaration.end?.index ?? 0,
+            end: resolveOccurrenceEndIndex(declaration.end?.index) ?? 0,
             scopeId: declaration.scopeId ?? undefined,
             kind: "definition"
         });
@@ -1221,7 +1258,7 @@ export class GmlSemanticBridge {
             occurrences.push({
                 path: filePath,
                 start: reference.start?.index ?? 0,
-                end: reference.end?.index ?? 0,
+                end: resolveOccurrenceEndIndex(reference.end?.index) ?? 0,
                 scopeId: reference.scopeId ?? undefined,
                 kind: "reference"
             });
@@ -1242,7 +1279,8 @@ export class GmlSemanticBridge {
                 : null;
             const declarationStart =
                 typeof declarationStartRecord?.index === "number" ? declarationStartRecord.index : 0;
-            const declarationEnd = typeof declarationEndRecord?.index === "number" ? declarationEndRecord.index : 0;
+            const declarationEnd =
+                typeof declarationEndRecord?.index === "number" ? toExclusiveEndIndex(declarationEndRecord.index) : 0;
 
             occurrences.push({
                 path: typeof declaration.filePath === "string" ? declaration.filePath : "",
@@ -1270,9 +1308,11 @@ export class GmlSemanticBridge {
                 ? (referenceLocationRecord.end as Record<string, unknown>)
                 : null;
             const referenceStart = typeof referenceStartRecord?.index === "number" ? referenceStartRecord.index : 0;
-            const referenceEnd = typeof referenceEndRecord?.index === "number" ? referenceEndRecord.index : 0;
+            const referenceEnd =
+                typeof referenceEndRecord?.index === "number" ? toExclusiveEndIndex(referenceEndRecord.index) : 0;
             const locationStart = typeof locationStartRecord?.index === "number" ? locationStartRecord.index : 0;
-            const locationEnd = typeof locationEndRecord?.index === "number" ? locationEndRecord.index : 0;
+            const locationEnd =
+                typeof locationEndRecord?.index === "number" ? toExclusiveEndIndex(locationEndRecord.index) : 0;
 
             occurrences.push({
                 path: typeof reference.filePath === "string" ? reference.filePath : "",

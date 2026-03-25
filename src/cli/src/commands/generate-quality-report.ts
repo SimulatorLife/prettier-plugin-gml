@@ -22,6 +22,7 @@ const {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     isObjectLike,
+    parseJsonWithContext,
     readTextFileSync,
     toArray,
     toTrimmedString
@@ -488,7 +489,10 @@ function readDuplicates(files) {
     const file = files[0];
     try {
         const content = readTextFileSync(file);
-        const data = JSON.parse(content);
+        const data = parseJsonWithContext(content, {
+            source: file,
+            description: "JSCPD report"
+        });
         return data.statistics?.total || null;
     } catch {
         return null;
@@ -502,7 +506,10 @@ function readProjectHealth(files) {
     const file = files[0];
     try {
         const content = readTextFileSync(file);
-        return JSON.parse(content);
+        return parseJsonWithContext(content, {
+            source: file,
+            description: "project health report"
+        });
     } catch {
         return null;
     }

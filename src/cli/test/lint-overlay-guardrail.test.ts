@@ -100,6 +100,8 @@ void test("overlay warning output is deduped per invocation and bounded", () => 
     const rendered = __lintCommandTest__.formatOverlayWarning(paths);
 
     assert.match(rendered, /^GML_OVERLAY_WITHOUT_LANGUAGE_WIRING:/);
+    assert.match(rendered, /Add `plugins: \{ gml: Lint\.plugin \}` and `language: "gml\/gml"`/);
+    assert.match(rendered, /Affected files:/);
     assert.match(rendered, /\/tmp\/0\.gml/);
     assert.match(rendered, /\/tmp\/19\.gml/);
     assert.doesNotMatch(rendered, /\/tmp\/20\.gml/);
@@ -254,6 +256,87 @@ void test("extractLintRuntimeFailureLocation falls back when location is unavail
     assert.equal(parsed.filePath, null);
     assert.equal(parsed.line, 1);
     assert.equal(parsed.column, 1);
+});
+
+void test("createRecoverableLintTargets prioritizes expanded file targets before passthrough targets", () => {
+    const orderedTargets = __lintCommandTest__.createRecoverableLintTargets({
+        cwd: "/tmp/workspace",
+        expandedTargets: {
+            fileTargets: ["/tmp/workspace/alpha.gml", "/tmp/workspace/beta.gml"],
+            passthroughTargets: ["scripts", "missing.gml"]
+        }
+    });
+
+    assert.deepEqual(orderedTargets, [
+        Object.freeze({
+            target: "/tmp/workspace/alpha.gml",
+            fallbackFilePath: "/tmp/workspace/alpha.gml"
+        }),
+        Object.freeze({
+            target: "/tmp/workspace/beta.gml",
+            fallbackFilePath: "/tmp/workspace/beta.gml"
+        }),
+        Object.freeze({
+            target: "scripts",
+            fallbackFilePath: "/tmp/workspace/scripts"
+        }),
+        Object.freeze({
+            target: "missing.gml",
+            fallbackFilePath: "/tmp/workspace/missing.gml"
+        })
+    ]);
+});
+
+void test("appendRetainedLintResults strips autofix payloads before aggregation", () => {
+    const aggregatedResults: Parameters<typeof __lintCommandTest__.appendRetainedLintResults>[0] = [];
+
+    __lintCommandTest__.appendRetainedLintResults(aggregatedResults, [
+        {
+            filePath: "/tmp/workspace/example.gml",
+            messages: [
+                {
+                    ruleId: "gml/example-rule",
+                    severity: 1,
+                    message: "Example warning",
+                    line: 1,
+                    column: 1,
+                    nodeType: "Identifier",
+                    fix: { range: [0, 3], text: "foo" },
+                    suggestions: [{ desc: "Apply suggestion", fix: { range: [0, 3], text: "bar" } }]
+                }
+            ],
+            suppressedMessages: [],
+            errorCount: 0,
+            fatalErrorCount: 0,
+            warningCount: 1,
+            fixableErrorCount: 0,
+            fixableWarningCount: 1,
+            usedDeprecatedRules: []
+        }
+    ]);
+
+    assert.deepEqual(aggregatedResults, [
+        {
+            filePath: "/tmp/workspace/example.gml",
+            messages: [
+                {
+                    ruleId: "gml/example-rule",
+                    severity: 1,
+                    message: "Example warning",
+                    line: 1,
+                    column: 1,
+                    nodeType: "Identifier"
+                }
+            ],
+            suppressedMessages: [],
+            errorCount: 0,
+            fatalErrorCount: 0,
+            warningCount: 1,
+            fixableErrorCount: 0,
+            fixableWarningCount: 1,
+            usedDeprecatedRules: []
+        }
+    ]);
 });
 
 void test("lintTargetsWithRuntimeRecovery records recoverable crashes and continues", async () => {

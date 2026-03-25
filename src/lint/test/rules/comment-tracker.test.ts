@@ -1,17 +1,22 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { CommentTracker } from "../../src/rules/gml/transforms/comments/comment-tracker.js";
+import { CommentTracker } from "../../src/rules/gml/transforms/comment-tracker.js";
 
 /** Minimal synthetic comment shape used throughout these tests. */
 interface TestComment {
-    start: number;
+    start: number | { index: number };
     text: string;
+    _removedByConsolidation?: boolean;
 }
 
 /** Build a synthetic comment with a numeric start index for test purposes. */
 function makeComment(startIndex: number, text = ""): TestComment {
     return { start: startIndex, text };
+}
+
+function makeObjectBoundaryComment(startIndex: number, text = ""): TestComment {
+    return { start: { index: startIndex }, text };
 }
 
 void describe("CommentTracker.takeBetween", () => {
@@ -34,9 +39,7 @@ void describe("CommentTracker.takeBetween", () => {
 
         const taken = tracker.takeBetween(5, 25);
 
-        // c1 (index 10) and c2 (index 20) are in (5, 25)
         assert.deepEqual(taken, [c1, c2]);
-        // c3 (index 30) remains in tracker
         assert.equal(tracker.entries.length, 1);
         assert.equal((tracker.entries[0].comment as TestComment).start, 30);
     });
@@ -47,7 +50,6 @@ void describe("CommentTracker.takeBetween", () => {
         const cRight = makeComment(30);
         const tracker = new CommentTracker([cLeft, cInside, cRight]);
 
-        // left=10 means "strictly greater than 10"; right=30 means "strictly less than 30"
         const taken = tracker.takeBetween(10, 30);
 
         assert.deepEqual(taken, [cInside]);
@@ -62,7 +64,6 @@ void describe("CommentTracker.takeBetween", () => {
 
         tracker.takeBetween(0, 20);
 
-        // Only c3 (index 25) should remain
         assert.equal(tracker.entries.length, 1);
         assert.equal((tracker.entries[0].comment as TestComment).start, 25);
     });
@@ -73,10 +74,9 @@ void describe("CommentTracker.takeBetween", () => {
         const c3 = makeComment(30, "keep");
         const tracker = new CommentTracker([c1, c2, c3]);
 
-        const taken = tracker.takeBetween(5, 100, (c) => (c as TestComment).text === "keep");
+        const taken = tracker.takeBetween(5, 100, (comment) => (comment as TestComment).text === "keep");
 
         assert.deepEqual(taken, [c1, c3]);
-        // c2 (failed predicate) stays in tracker
         assert.equal(tracker.entries.length, 1);
         assert.equal((tracker.entries[0].comment as TestComment).text, "skip");
     });
@@ -114,6 +114,18 @@ void describe("CommentTracker.takeBetween", () => {
         assert.deepEqual(taken, [c1, c2]);
         assert.equal(tracker.entries.length, 0);
     });
+
+    void it("accepts parser-style boundary objects when building tracker entries", () => {
+        const inside = makeObjectBoundaryComment(15, "inside");
+        const outside = makeObjectBoundaryComment(40, "outside");
+        const tracker = new CommentTracker([outside, inside]);
+
+        const taken = tracker.takeBetween(10, 30);
+
+        assert.deepEqual(taken, [inside]);
+        assert.equal(tracker.entries.length, 1);
+        assert.equal((tracker.entries[0].comment as TestComment).text, "outside");
+    });
 });
 
 void describe("CommentTracker checkpoint / rollback / commit", () => {
@@ -123,7 +135,7 @@ void describe("CommentTracker checkpoint / rollback / commit", () => {
         const tracker = new CommentTracker([c1, c2]);
 
         tracker.checkpoint();
-        tracker.takeBetween(5, 25); // remove both
+        tracker.takeBetween(5, 25);
         assert.equal(tracker.entries.length, 0);
 
         tracker.rollback();
@@ -136,10 +148,38 @@ void describe("CommentTracker checkpoint / rollback / commit", () => {
 
         tracker.checkpoint();
         tracker.takeBetween(5, 100);
-        tracker.commit(); // accept the mutation
+        tracker.commit();
 
-        // A subsequent rollback should have no saved state to restore
-        tracker.rollback(); // no-op: stack is empty
+        tracker.rollback();
         assert.equal(tracker.entries.length, 0);
+    });
+});
+
+void describe("CommentTracker entry queries and consumption", () => {
+    void it("skips consumed comments in between/after queries", () => {
+        const first = makeComment(10, "first");
+        const second = makeComment(20, "second");
+        const tracker = new CommentTracker([first, second]);
+
+        const [entry] = tracker.getEntriesBetween(0, 30);
+        tracker.consumeEntries([entry]);
+
+        assert.equal(tracker.hasBetween(0, 15), false);
+        assert.equal(tracker.hasBetween(0, 30), true);
+        assert.equal(tracker.hasAfter(15), true);
+        assert.equal(tracker.hasAfter(25), false);
+    });
+
+    void it("removeConsumedComments mutates the original comment array in place", () => {
+        const first = makeComment(10, "first");
+        const second = makeComment(20, "second");
+        const comments = [first, second];
+        const tracker = new CommentTracker(comments);
+
+        tracker.consumeEntries([first]);
+        tracker.removeConsumedComments();
+
+        assert.equal(comments.length, 1);
+        assert.deepEqual(comments, [second]);
     });
 });

@@ -2,7 +2,29 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
-const { getNonEmptyTrimmedString, isNonEmptyString, isPathInside, toArray, uniqueArray, compactArray } = Core;
+const { getNonEmptyTrimmedString, isNonEmptyString, isPathWithinBoundary, toArray, uniqueArray, compactArray } = Core;
+const WINDOWS_ABSOLUTE_PATH_PATTERN = /^[A-Za-z]:[\\/]/u;
+const WINDOWS_UNC_PATH_PATTERN = /^\\\\[^\\]+\\[^\\]+/u;
+
+/**
+ * Resolve workflow paths while preserving Windows absolute/UNC semantics even
+ * when the CLI runs on a non-Windows host.
+ *
+ * Node's POSIX `path.resolve()` treats `C:\project` and `\\server\share` as
+ * relative filenames on Linux/macOS, which corrupts allow/deny lists before
+ * the boundary helpers can compare them. Choosing the Win32 resolver only for
+ * true Windows absolute inputs keeps existing relative-path behavior intact.
+ *
+ * @param {string} candidate Raw workflow path candidate.
+ * @returns {string} Resolved absolute path using the correct path flavor.
+ */
+function resolveWorkflowPathCandidate(candidate: string): string {
+    if (WINDOWS_ABSOLUTE_PATH_PATTERN.test(candidate) || WINDOWS_UNC_PATH_PATTERN.test(candidate)) {
+        return path.win32.resolve(candidate);
+    }
+
+    return path.resolve(candidate);
+}
 
 export interface WorkflowPathFilterOptions {
     allowPaths?: Iterable<unknown>;
@@ -32,7 +54,7 @@ export function normalizeWorkflowPathList(paths: Iterable<unknown> | null | unde
     const trimmed = compactArray(toArray(paths).map(getNonEmptyTrimmedString)).filter(
         (value): value is string => typeof value === "string"
     );
-    const resolved = trimmed.map((candidate) => path.resolve(candidate));
+    const resolved = trimmed.map((candidate) => resolveWorkflowPathCandidate(candidate));
     return [...(uniqueArray(resolved, { freeze: false }) as Array<string>)];
 }
 
@@ -77,9 +99,9 @@ export function createWorkflowPathFilter(
             return false;
         }
 
-        const normalized = path.resolve(candidate);
+        const normalized = resolveWorkflowPathCandidate(candidate);
 
-        if (denyList.some((deny) => isPathInside(normalized, deny))) {
+        if (denyList.some((deny) => isPathWithinBoundary(normalized, deny))) {
             return false;
         }
 
@@ -88,7 +110,8 @@ export function createWorkflowPathFilter(
         }
 
         return allowList.some(
-            (allow) => isPathInside(normalized, allow) || (treatAsDirectory && isPathInside(allow, normalized))
+            (allow) =>
+                isPathWithinBoundary(normalized, allow) || (treatAsDirectory && isPathWithinBoundary(allow, normalized))
         );
     };
 

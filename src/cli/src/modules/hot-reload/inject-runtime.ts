@@ -8,10 +8,11 @@ import { Core } from "@gmloop/core";
 
 import { findRepoRootSync, safeStatOrNull } from "../../shared/index.js";
 
-const { getErrorMessageOrFallback, runSequentially } = Core;
+const { getErrorMessageOrFallback, parseJsonWithContext, runSequentially } = Core;
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = findRepoRootSync(MODULE_DIRECTORY);
+const HOT_RELOAD_ASSET_MANIFEST_VERSION = 1;
 
 function resolveRepositoryPath(...segments: Array<string>) {
     return path.resolve(REPO_ROOT, ...segments);
@@ -57,6 +58,17 @@ interface NormalizedHotReloadInjectionOptions {
 interface Html5OutputResolution {
     outputRoot: string;
     indexPath: string;
+}
+
+interface RuntimeWrapperAssetManifestEntry {
+    relativePath: string;
+    size: number;
+    mtimeMs: number;
+}
+
+interface RuntimeWrapperAssetManifest {
+    version: number;
+    entries: Array<RuntimeWrapperAssetManifestEntry>;
 }
 
 export interface HotReloadInjectionResult {
@@ -201,7 +213,126 @@ async function resolveHtml5Output({
     return best;
 }
 
-async function copyRuntimeWrapperAssets(runtimeWrapperRoot: string, outputRoot: string): Promise<string> {
+function shouldCopyRuntimeWrapperAsset(assetPath: string): boolean {
+    return !assetPath.endsWith(".d.ts") && !assetPath.endsWith(".d.ts.map");
+}
+
+async function collectRuntimeWrapperAssetManifestEntries(
+    runtimeWrapperRoot: string
+): Promise<Array<RuntimeWrapperAssetManifestEntry>> {
+    const manifestEntries: Array<RuntimeWrapperAssetManifestEntry> = [];
+
+    async function scanDirectory(currentPath: string): Promise<void> {
+        const directoryEntries = await fs.readdir(currentPath, { withFileTypes: true });
+
+        await runSequentially(directoryEntries, async (entry) => {
+            const entryPath = path.join(currentPath, entry.name);
+            if (entry.isDirectory()) {
+                await scanDirectory(entryPath);
+                return;
+            }
+
+            if (!entry.isFile() || !shouldCopyRuntimeWrapperAsset(entryPath)) {
+                return;
+            }
+
+            const stats = await fs.stat(entryPath);
+            manifestEntries.push({
+                relativePath: path.relative(runtimeWrapperRoot, entryPath),
+                size: stats.size,
+                mtimeMs: stats.mtimeMs
+            });
+        });
+    }
+
+    await scanDirectory(runtimeWrapperRoot);
+    manifestEntries.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+    return manifestEntries;
+}
+
+function createRuntimeWrapperAssetManifest(
+    entries: Array<RuntimeWrapperAssetManifestEntry>
+): RuntimeWrapperAssetManifest {
+    return {
+        version: HOT_RELOAD_ASSET_MANIFEST_VERSION,
+        entries
+    };
+}
+
+function areRuntimeWrapperAssetManifestsEqual(
+    left: RuntimeWrapperAssetManifest,
+    right: RuntimeWrapperAssetManifest
+): boolean {
+    if (left.version !== right.version || left.entries.length !== right.entries.length) {
+        return false;
+    }
+
+    return left.entries.every((entry, index) => {
+        const candidate = right.entries[index];
+        return (
+            entry.relativePath === candidate.relativePath &&
+            entry.size === candidate.size &&
+            entry.mtimeMs === candidate.mtimeMs
+        );
+    });
+}
+
+function isRuntimeWrapperAssetManifestEntry(value: unknown): value is RuntimeWrapperAssetManifestEntry {
+    if (!Core.isObjectLike(value)) {
+        return false;
+    }
+
+    const record = value as Record<string, unknown>;
+    return (
+        typeof record.relativePath === "string" &&
+        typeof record.size === "number" &&
+        Number.isFinite(record.size) &&
+        typeof record.mtimeMs === "number" &&
+        Number.isFinite(record.mtimeMs)
+    );
+}
+
+function parseRuntimeWrapperAssetManifest(manifestContents: string): RuntimeWrapperAssetManifest | null {
+    const parsed: unknown = parseJsonWithContext(manifestContents, {
+        description: "runtime wrapper asset manifest"
+    });
+    if (!Core.isObjectLike(parsed)) {
+        return null;
+    }
+
+    const parsedRecord = parsed as Record<string, unknown>;
+    if (parsedRecord.version !== HOT_RELOAD_ASSET_MANIFEST_VERSION) {
+        return null;
+    }
+
+    const { entries } = parsedRecord;
+    if (!Array.isArray(entries) || !entries.every(isRuntimeWrapperAssetManifestEntry)) {
+        return null;
+    }
+
+    return createRuntimeWrapperAssetManifest(entries.map((entry) => ({ ...entry })));
+}
+
+async function readRuntimeWrapperAssetManifest(manifestPath: string): Promise<RuntimeWrapperAssetManifest | null> {
+    const manifestContents = await fs.readFile(manifestPath, "utf8").catch((error) => {
+        const maybeFsError = error as NodeJS.ErrnoException;
+        if (maybeFsError.code === "ENOENT") {
+            return null;
+        }
+        throw error;
+    });
+
+    if (!manifestContents) {
+        return null;
+    }
+
+    return parseRuntimeWrapperAssetManifest(manifestContents);
+}
+
+async function copyRuntimeWrapperAssets(
+    runtimeWrapperRoot: string,
+    outputRoot: string
+): Promise<{ copiedAssets: boolean; runtimeWrapperTargetRoot: string }> {
     const resolvedSource = path.resolve(runtimeWrapperRoot);
     const sourceStats = await fs.stat(resolvedSource).catch((error) => {
         throw new Error(`Runtime wrapper assets not found at '${resolvedSource}': ${getErrorMessageOrFallback(error)}`);
@@ -211,17 +342,39 @@ async function copyRuntimeWrapperAssets(runtimeWrapperRoot: string, outputRoot: 
         throw new Error(`Runtime wrapper root '${resolvedSource}' is not a directory.`);
     }
 
-    const targetRoot = path.join(outputRoot, HOT_RELOAD_DIR_NAME, "runtime-wrapper");
-    await ensureDirectoryExists(targetRoot);
+    const hotReloadRoot = path.join(outputRoot, HOT_RELOAD_DIR_NAME);
+    const targetRoot = path.join(hotReloadRoot, "runtime-wrapper");
+    const manifestPath = path.join(hotReloadRoot, "runtime-wrapper-assets.manifest.json");
+    const sourceManifest = createRuntimeWrapperAssetManifest(
+        await collectRuntimeWrapperAssetManifestEntries(resolvedSource)
+    );
+    const existingManifest = await readRuntimeWrapperAssetManifest(manifestPath);
+    const targetStats = await safeStatOrNull(targetRoot);
+
+    if (
+        targetStats?.isDirectory() &&
+        existingManifest &&
+        areRuntimeWrapperAssetManifestsEqual(sourceManifest, existingManifest)
+    ) {
+        return {
+            copiedAssets: false,
+            runtimeWrapperTargetRoot: targetRoot
+        };
+    }
+
+    await ensureDirectoryExists(hotReloadRoot);
+    await fs.rm(targetRoot, { recursive: true, force: true });
     await fs.cp(resolvedSource, targetRoot, {
         recursive: true,
         force: true,
-        filter: (source) => {
-            return !source.endsWith(".d.ts") && !source.endsWith(".d.ts.map");
-        }
+        filter: shouldCopyRuntimeWrapperAsset
     });
+    await fs.writeFile(manifestPath, `${JSON.stringify(sourceManifest, null, 2)}\n`, "utf8");
 
-    return targetRoot;
+    return {
+        copiedAssets: true,
+        runtimeWrapperTargetRoot: targetRoot
+    };
 }
 
 function buildInjectionSnippet(websocketUrl: string): string {
@@ -324,7 +477,10 @@ export async function prepareHotReloadInjection(
 ): Promise<HotReloadInjectionResult> {
     const normalized = normalizeHotReloadInjectionOptions(options);
     const { outputRoot, indexPath } = await resolveHtml5Output(normalized);
-    const runtimeWrapperTargetRoot = await copyRuntimeWrapperAssets(normalized.runtimeWrapperRoot, outputRoot);
+    const { copiedAssets, runtimeWrapperTargetRoot } = await copyRuntimeWrapperAssets(
+        normalized.runtimeWrapperRoot,
+        outputRoot
+    );
     const injected = await injectSnippetIntoIndexHtml({
         indexPath,
         websocketUrl: normalized.websocketUrl,
@@ -337,7 +493,7 @@ export async function prepareHotReloadInjection(
         runtimeWrapperTargetRoot,
         websocketUrl: normalized.websocketUrl,
         injected,
-        copiedAssets: true
+        copiedAssets
     };
 }
 
@@ -350,5 +506,7 @@ export const __test__ = Object.freeze({
     normalizeHotReloadInjectionOptions,
     resolveHtml5Output,
     buildInjectionSnippet,
-    extractGmWebServerRoot
+    extractGmWebServerRoot,
+    areRuntimeWrapperAssetManifestsEqual,
+    collectRuntimeWrapperAssetManifestEntries
 });

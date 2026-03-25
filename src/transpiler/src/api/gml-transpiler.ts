@@ -6,6 +6,7 @@ import {
     collectLocalVariables,
     createSemanticOracle,
     type EmitOptions,
+    ensureStatementTerminated,
     EventContextOracle,
     type FunctionDeclarationNode,
     GmlToJsEmitter,
@@ -52,6 +53,7 @@ export interface TranspileEventRequest {
 export interface PatchMetadata {
     readonly timestamp: number;
     readonly sourcePath?: string;
+    readonly dependencies?: Array<string>;
 }
 
 export interface ScriptPatch {
@@ -124,10 +126,8 @@ export class GmlTranspiler {
             let line = "";
 
             if (typeof parameter === "string") {
-                continue;
-            }
-
-            if (parameter.type === "Identifier") {
+                line = `var ${parameter} = args[${index}];`;
+            } else if (parameter.type === "Identifier") {
                 line = `var ${parameter.name} = args[${index}];`;
             } else if (parameter.type === "DefaultParameter" && parameter.left.type === "Identifier") {
                 const name = parameter.left.name;
@@ -144,6 +144,24 @@ export class GmlTranspiler {
             }
 
             lines.push(line);
+        }
+
+        return lines.join("\n");
+    }
+
+    private emitUnwrappedFunctionBody(body: ProgramNode["body"][number], emitter: GmlToJsEmitter): string {
+        if (body.type !== "BlockStatement") {
+            return emitter.emit(body).trim();
+        }
+
+        const lines: string[] = [];
+        for (const statement of body.body) {
+            const code = emitter.emit(statement);
+            if (!code) {
+                continue;
+            }
+
+            lines.push(ensureStatementTerminated(code));
         }
 
         return lines.join("\n");
@@ -178,11 +196,7 @@ export class GmlTranspiler {
             if (ast.body.length === 1 && ast.body[0].type === "FunctionDeclaration") {
                 const func = ast.body[0] as unknown as FunctionDeclarationNode;
                 const paramUnpacking = this.emitFunctionParameterUnpacking(func, emitter);
-
-                const bodyRaw = emitter.emit(func.body).trim();
-                // Strip surrounding braces if present (BlockStatement)
-                const bodyContent =
-                    bodyRaw.startsWith("{") && bodyRaw.endsWith("}") ? bodyRaw.slice(1, -1).trim() : bodyRaw;
+                const bodyContent = this.emitUnwrappedFunctionBody(func.body, emitter);
 
                 jsBody = paramUnpacking ? `${paramUnpacking}\n${bodyContent}` : bodyContent;
             } else {

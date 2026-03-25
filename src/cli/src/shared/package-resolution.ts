@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
-import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { Core } from "@gmloop/core";
 
@@ -11,8 +11,6 @@ const {
     isPlainObject,
     parseJsonObjectWithContext
 } = Core;
-
-const require = createRequire(import.meta.url);
 
 const isPackageJsonRecord = (value: unknown): value is Record<string, unknown> => isPlainObject(value);
 const describePackageJsonValueWithArticle = describeValueWithArticle as (
@@ -121,12 +119,14 @@ export async function readPackageJson(packageJsonPath: string): Promise<Record<s
 }
 
 /**
- * Resolve the path to a package's package.json file.
+ * Resolve the path to a package's package.json file using Node's native ESM
+ * resolver instead of the legacy CommonJS `createRequire(...).resolve` bridge.
  * Throws if the package cannot be resolved.
  */
 export function resolvePackageJsonPath(packageName: string, context: string): string {
     try {
-        return require.resolve(`${packageName}/package.json`);
+        const packageJsonUrl = import.meta.resolve(`${packageName}/package.json`);
+        return fileURLToPath(packageJsonUrl);
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
         throw new Error(`Unable to resolve ${context} package '${packageName}'. (${message})`);

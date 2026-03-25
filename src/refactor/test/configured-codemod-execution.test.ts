@@ -475,6 +475,86 @@ void test("executeConfiguredCodemods streams namingConvention top-level renames 
     assert.equal(result.appliedFiles.get("scripts/a.gml"), "");
 });
 
+void test("executeConfiguredCodemods honors project-relative target paths for namingConvention selection", async () => {
+    const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
+    const firstOccurrence = sourceText.indexOf("bad_name");
+    const secondOccurrence = sourceText.lastIndexOf("bad_name");
+    const otherSourceText = "var leave_me = 1;\nshow_debug_message(leave_me);\n";
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "bad_name",
+                category: "localVariable",
+                path: "scripts/example.gml",
+                scopeId: "scope:local",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/example.gml",
+                        start: firstOccurrence,
+                        end: firstOccurrence + "bad_name".length,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:local"
+                    },
+                    {
+                        path: "scripts/example.gml",
+                        start: secondOccurrence,
+                        end: secondOccurrence + "bad_name".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:local"
+                    }
+                ]
+            },
+            {
+                name: "leave_me",
+                category: "localVariable",
+                path: "other/skip.gml",
+                scopeId: "scope:other",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "other/skip.gml",
+                        start: 4,
+                        end: 12,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:other"
+                    }
+                ]
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+
+    const fileContents = new Map<string, string>([
+        ["scripts/example.gml", sourceText],
+        ["other/skip.gml", otherSourceText]
+    ]);
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["scripts"],
+        gmlFilePaths: [],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    localVariable: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async (filePath) => fileContents.get(filePath) ?? ""
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.deepEqual(result.summaries[0]?.changedFiles, ["scripts/example.gml"]);
+    assert.equal(result.appliedFiles.get("scripts/example.gml"), "var badName = 1;\nshow_debug_message(badName);\n");
+    assert.equal(result.appliedFiles.has("other/skip.gml"), false);
+});
+
 void test("executeConfiguredCodemods requests naming targets by selected GML file paths", async () => {
     const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
     const firstOccurrence = sourceText.indexOf("bad_name");

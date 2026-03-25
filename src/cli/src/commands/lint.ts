@@ -433,6 +433,43 @@ async function lintTargetWithRuntimeRecovery(parameters: {
     }
 }
 
+/**
+ * Convert expanded lint targets into the execution order expected by runtime
+ * recovery, keeping file targets ahead of passthrough patterns while
+ * centralizing fallback path bookkeeping.
+ */
+function createRecoverableLintTargets(parameters: {
+    cwd: string;
+    expandedTargets: Readonly<{ fileTargets: Array<string>; passthroughTargets: Array<string> }>;
+}): Array<RecoverableLintTarget> {
+    return [
+        ...parameters.expandedTargets.fileTargets.map((target) =>
+            Object.freeze({
+                target,
+                fallbackFilePath: target
+            })
+        ),
+        ...parameters.expandedTargets.passthroughTargets.map((target) =>
+            Object.freeze({
+                target,
+                fallbackFilePath: path.resolve(parameters.cwd, target)
+            })
+        )
+    ];
+}
+
+/**
+ * Retain only the stable lint result fields that downstream reporting uses.
+ * This keeps the runtime-recovery orchestration focused on sequencing rather
+ * than array mutation details.
+ */
+function appendRetainedLintResults(
+    aggregatedResults: Array<ESLint.LintResult>,
+    targetResults: Array<ESLint.LintResult>
+): void {
+    aggregatedResults.push(...targetResults.map(createRetainedLintResult));
+}
+
 function lintTargetsWithRuntimeRecovery(parameters: {
     eslint: LintFilesExecutor;
     cwd: string;
@@ -444,21 +481,10 @@ function lintTargetsWithRuntimeRecovery(parameters: {
         cwd: parameters.cwd,
         targets: parameters.targets
     });
-    const orderedTargets: Array<RecoverableLintTarget> = [
-        ...expandedTargets.fileTargets.map((target) =>
-            Object.freeze({
-                target,
-                fallbackFilePath: target
-            })
-        ),
-        ...expandedTargets.passthroughTargets.map((target) =>
-            Object.freeze({
-                target,
-                fallbackFilePath: path.resolve(parameters.cwd, target)
-            })
-        )
-    ];
-
+    const orderedTargets = createRecoverableLintTargets({
+        cwd: parameters.cwd,
+        expandedTargets
+    });
     const aggregatedResults: Array<ESLint.LintResult> = [];
 
     const runLintTargetsSequentially = async (): Promise<Array<ESLint.LintResult>> => {
@@ -484,7 +510,7 @@ function lintTargetsWithRuntimeRecovery(parameters: {
                 })
             });
 
-            aggregatedResults.push(...targetResults.map(createRetainedLintResult));
+            appendRetainedLintResults(aggregatedResults, targetResults);
         }, Promise.resolve());
 
         return aggregatedResults;
@@ -800,7 +826,12 @@ function formatOverlayWarning(paths: Array<string>): string {
     const sample = paths.slice(0, OVERLAY_WARNING_MAX_PATH_SAMPLE);
     const remainderCount = paths.length - sample.length;
     const suffix = remainderCount > 0 ? `\nand ${remainderCount} more...` : "";
-    return `${OVERLAY_WARNING_CODE}: overlay rules applied without required language wiring.\n${sample.join("\n")}${suffix}`;
+    const guidance = [
+        `${OVERLAY_WARNING_CODE}: Your ESLint config enables GML overlay rules, but the matching config entry is missing the canonical GML language wiring.`,
+        'Add `plugins: { gml: Lint.plugin }` and `language: "gml/gml"` to that config entry, or remove the overlay rules from it.',
+        "Affected files:"
+    ].join("\n");
+    return `${guidance}\n${sample.join("\n")}${suffix}`;
 }
 
 async function collectOverlayWithoutLanguageWiringPaths(parameters: {
@@ -1241,6 +1272,8 @@ export const __lintCommandTest__ = Object.freeze({
     formatOverlayWarning,
     discoverFlatConfig,
     extractLintRuntimeFailureLocation,
+    createRecoverableLintTargets,
+    appendRetainedLintResults,
     lintTargetsWithRuntimeRecovery,
     createRetainedLintResult,
     toLintProgressDisplayPath,

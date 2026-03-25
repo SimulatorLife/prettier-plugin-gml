@@ -130,10 +130,8 @@ async function processDirectoryEntries({
     projectRoot,
     fsFacade,
     ensureNotAborted,
-    metrics,
-    signal
+    metrics
 }) {
-    void signal;
     await Core.runSequentially(entries, async (entry) => {
         ensureNotAborted();
         const descriptor = createDirectoryEntryDescriptor(directoryContext, entry, projectRoot);
@@ -188,8 +186,7 @@ export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacad
             projectRoot,
             fsFacade,
             ensureNotAborted,
-            metrics,
-            signal
+            metrics
         });
 
         return processNextDirectory();
