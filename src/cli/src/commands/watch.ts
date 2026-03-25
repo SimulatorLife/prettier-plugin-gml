@@ -39,10 +39,12 @@ import {
     type RuntimeSourceResolver
 } from "../modules/runtime/source.js";
 import { startStatusServer, type StatusServerHandle, type StatusServerLifecycle } from "../modules/status/server.js";
+import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
 import {
     displayTranspilationStatistics,
     type ErrorCollector,
     type MetricsCollector,
+    orderPatchesForReplay,
     type PatchBroadcastService,
     type PatchHistoryStore,
     registerScriptNamesFromSymbols,
@@ -51,8 +53,7 @@ import {
     type TranspilationResult,
     transpileFile,
     type TranspilerProvider
-} from "../modules/transpilation/coordinator.js";
-import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
+} from "../modules/transpilation/index.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
@@ -880,7 +881,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         console.log(`Patch streaming client connected: ${clientId}`);
                     }
                 },
-                prepareInitialMessages: () => Array.from(runtimeContext.lastSuccessfulPatches.values()),
+                prepareInitialMessages: () =>
+                    orderPatchesForReplay(Array.from(runtimeContext.lastSuccessfulPatches.values())),
                 onClientDisconnect: (clientId) => {
                     if (verbose) {
                         console.log(`Patch streaming client disconnected: ${clientId}`);
