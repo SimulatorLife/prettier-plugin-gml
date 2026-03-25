@@ -571,7 +571,7 @@ async function performInitialScan(
     verbose: boolean,
     quiet: boolean,
     maxConcurrentDirs: number,
-    fileDataCache?: ReadonlyMap<string, InitialFileData>
+    fileDataCache?: Map<string, InitialFileData>
 ): Promise<void> {
     const { getErrorMessage: getCoreErrorMessage } = Core;
 
@@ -581,7 +581,7 @@ async function performInitialScan(
             // available. This avoids a second disk read and a second ANTLR parse for every
             // file that was already processed during startup, cutting initial scan overhead
             // roughly in half for typical GML projects.
-            const cached = fileDataCache?.get(fullPath);
+            const cached = takeInitialFileData(fileDataCache, fullPath);
             const content = cached?.content ?? (await readFile(fullPath, "utf8"));
             const cachedAst = cached?.ast;
             const lines = countSourceLines(content);
@@ -1764,6 +1764,34 @@ async function updateFileSnapshot(runtimeContext: FileSnapshotWriter, filePath: 
 interface InitialFileData {
     content: string;
     ast: unknown;
+}
+
+/**
+ * Returns and removes cached startup data for a file.
+ *
+ * The watch command only needs the pre-read source text and AST once during the
+ * initial scan. Deleting the cache entry immediately after retrieval reduces the
+ * peak memory footprint of large startup scans without changing the transpilation
+ * work performed for each file.
+ *
+ * @param fileDataCache - Startup cache keyed by absolute file path.
+ * @param filePath - File whose cached source text and AST should be consumed.
+ * @returns Cached startup data when present.
+ */
+export function takeInitialFileData(
+    fileDataCache: Map<string, InitialFileData> | undefined,
+    filePath: string
+): InitialFileData | undefined {
+    if (!fileDataCache) {
+        return undefined;
+    }
+
+    const cached = fileDataCache.get(filePath);
+    if (cached) {
+        fileDataCache.delete(filePath);
+    }
+
+    return cached;
 }
 
 /**
