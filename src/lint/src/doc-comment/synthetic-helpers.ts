@@ -103,6 +103,21 @@ function getArgumentIndexFromNode(node: any) {
     return null;
 }
 
+/**
+ * Resolve an implicit `argumentN` reference index from a node.
+ *
+ * Supports the three parser shapes used across lint transforms:
+ * - `Identifier` (`argument0`)
+ * - `MemberIndexExpression` (`argument[0]`)
+ * - `MemberExpression` (`argument.0`)
+ *
+ * @param {any} node Candidate AST node.
+ * @returns {number | null} Zero-based argument index when recognized.
+ */
+export function getArgumentIndexFromReferenceNode(node: any): number | null {
+    return getArgumentIndexFromNode(node);
+}
+
 export function getSourceTextForNode(node: any, options: SyntheticDocGenerationOptions) {
     if (!node) {
         return null;

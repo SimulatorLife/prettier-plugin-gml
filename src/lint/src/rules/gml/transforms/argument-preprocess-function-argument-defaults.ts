@@ -5,7 +5,7 @@ import { Core, type GameMakerAstNode, type MutableGameMakerAstNode, type ParserT
 
 import { gmlTransformDocCommentServices } from "./doc-comment-services.js";
 
-const { getArgumentIndexFromIdentifier, getIdentifierFromParameterNode, prepareDocCommentEnvironment } =
+const { getArgumentIndexFromReferenceNode, getIdentifierFromParameterNode, prepareDocCommentEnvironment } =
     gmlTransformDocCommentServices;
 
 const { isObjectLike } = Core;
@@ -1217,7 +1217,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
         }
 
         if (node.type === "VariableDeclarator") {
-            const aliasIndex = getArgumentIndexFromNode(node.init);
+            const aliasIndex = getArgumentIndexFromReferenceNode(node.init);
             if (aliasIndex !== null && node.id?.type === "Identifier" && !aliasByIndex.has(aliasIndex)) {
                 const aliasName = node.id.name && String(node.id.name).trim();
                 if (aliasName && aliasName.length > 0) {
@@ -1227,7 +1227,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
             }
         }
 
-        const directIndex = getArgumentIndexFromNode(node);
+        const directIndex = getArgumentIndexFromReferenceNode(node);
         if (directIndex !== null) {
             referencedIndices.add(directIndex);
             const isInitializerOfAlias =
@@ -1239,7 +1239,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
 
         Core.forEachNodeChild(node, (value, key) => {
             if (node.type === "VariableDeclarator" && key === "init") {
-                const aliasIndex = getArgumentIndexFromNode(node.init);
+                const aliasIndex = getArgumentIndexFromReferenceNode(node.init);
                 if (aliasIndex !== null) return;
             }
 
@@ -1267,29 +1267,6 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
             hasDirectReference: directReferenceIndices.has(index) === true
         };
     });
-}
-
-function getArgumentIndexFromNode(node: any) {
-    if (!isObjectLike(node)) return null;
-
-    if (node.type === "Identifier") {
-        return getArgumentIndexFromIdentifier(node.name);
-    }
-
-    if (
-        node.type === "MemberIndexExpression" &&
-        node.object?.type === "Identifier" &&
-        node.object.name === "argument" &&
-        Array.isArray(node.property) &&
-        node.property.length === 1 &&
-        node.property[0]?.type === "Literal"
-    ) {
-        const literal = node.property[0];
-        const parsed = Number.parseInt(literal.value, 10);
-        return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
-    }
-
-    return null;
 }
 
 function applyCondenseMatches(params: {
