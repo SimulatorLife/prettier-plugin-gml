@@ -929,6 +929,26 @@ export interface RefactorEngineDependencies {
     projectAnalysisProvider: RefactorProjectAnalysisProvider | null;
 }
 
+/**
+ * Minimal engine surface used by codemod orchestration modules.
+ *
+ * This boundary keeps codemod planning/execution decoupled from the concrete
+ * `RefactorEngine` implementation and prevents registry ↔ engine import cycles.
+ */
+export interface CodemodEngine {
+    readonly semantic: PartialSemanticAnalyzer | null;
+    executeLoopLengthHoistingCodemod(
+        request: ExecuteLoopLengthHoistingCodemodRequest
+    ): Promise<ExecuteLoopLengthHoistingCodemodResult>;
+    prepareBatchRenamePlan(
+        request: Array<RenameRequest>,
+        options?: PrepareBatchRenamePlanOptions
+    ): Promise<BatchRenamePlanSummary>;
+    executeBatchRename(request: ExecuteBatchRenameRequest): Promise<ExecuteRenameResult>;
+    applyWorkspaceEdit(workspace: WorkspaceEdit, options: ApplyWorkspaceEditOptions): Promise<Map<string, string>>;
+    clearQueryCaches(): void;
+}
+
 export interface ApplyWorkspaceEditOptions {
     dryRun?: boolean;
     includeResultContent?: boolean;
