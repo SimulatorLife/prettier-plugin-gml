@@ -521,7 +521,8 @@ export function capitalize(value?: unknown): string {
  * @returns {RegExp} A character-class-based regular expression suitable for
  *          use with `String#split`.
  */
-export function createListSplitPattern(separators, { includeWhitespace = false } = {}) {
+export function createListSplitPattern(separators, options?: { includeWhitespace?: boolean } | null) {
+    const includeWhitespace = options?.includeWhitespace === true;
     const entries: Array<{ pattern: string; length: number; order: number }> = [];
     const seenPatterns = new Set();
 
