@@ -1,5 +1,6 @@
-import type { ScopeTrackerOptions } from "@gmloop/core";
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
+
+import type { ScopeTrackerOptions } from "./scope-tracker.js";
 
 export type ParserContext =
     | (ParserRuleContext & {
@@ -21,14 +22,16 @@ export interface ParserToken extends Token {
     symbol?: Token | null;
 }
 
-// Re-export scope tracker types from Core for convenience
+// Re-export scope tracker types from the parser's type surface. These
+// contracts are parser-owned because they define the parser/semantic boundary,
+// not the shared AST model owned by Core.
 export type {
     GlobalIdentifierTracker,
     IdentifierRoleManager,
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions
-} from "@gmloop/core";
+} from "./scope-tracker.js";
 
 /**
  * Comment extraction options.

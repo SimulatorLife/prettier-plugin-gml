@@ -4,9 +4,9 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
-import { CommentTracker } from "../comments/comment-tracker.js";
-import { AssignmentCommentHandler } from "./consolidate-struct-assignment-comment-handler.js";
-import { type AssignmentDetails, StructAssignmentMatcher } from "./consolidate-struct-assignment-matcher.js";
+import { CommentTracker } from "./comment-tracker.js";
+import { AssignmentCommentHandler } from "./struct-consolidate-struct-assignment-comment-handler.js";
+import { type AssignmentDetails, StructAssignmentMatcher } from "./struct-consolidate-struct-assignment-matcher.js";
 
 type CommentTools = {
     addTrailingComment: (...args: Array<unknown>) => unknown;

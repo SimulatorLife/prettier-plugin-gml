@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
-import { createAssetRenameExecutor } from "./asset-rename-executor.js";
+import { createAssetRenameExecutor } from "./asset-renames/executor.js";
 import {
     COLLISION_CONFLICT_CODE,
     createConflict,

@@ -3,7 +3,7 @@ import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 import {
     computeSyntheticDocCommentForFunctionAssignment,
     computeSyntheticDocCommentForStaticVariable
-} from "./synthetic-comments.js";
+} from "./comment-synthetic-comments.js";
 
 const { isObjectLike } = Core;
 

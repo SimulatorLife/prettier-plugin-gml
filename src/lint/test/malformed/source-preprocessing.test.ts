@@ -129,4 +129,11 @@ void describe("recoverParseSourceFromMissingBrace", () => {
         const result = recoverParseSourceFromMissingBrace(source, error);
         assert.strictEqual(result, null);
     });
+
+    void it("continues scanning after escaped string delimiters without counting string braces", () => {
+        const source = 'var message = "{\\"still string\\"}";\nif (ready) {';
+        const error = new Error("missing associated closing brace");
+        const result = recoverParseSourceFromMissingBrace(source, error);
+        assert.strictEqual(result, 'var message = "{\\"still string\\"}";\nif (ready) {\n}');
+    });
 });

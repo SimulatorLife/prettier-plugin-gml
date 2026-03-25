@@ -1,7 +1,7 @@
 import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gmloop/core";
 
-import { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
-import { annotateStaticFunctionOverridesTransform } from "./comments/annotate-static-overrides.js";
+import { markCallsMissingArgumentSeparatorsTransform } from "./argument-mark-missing-separators.js";
+import { annotateStaticFunctionOverridesTransform } from "./comment-annotate-static-overrides.js";
 
 const { stripCommentsTransform } = Core;
 
@@ -87,12 +87,12 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
     (transform) => transform.name
 ) as readonly ParserTransformName[];
 
-export { markCallsMissingArgumentSeparatorsTransform } from "./arguments/mark-missing-separators.js";
-export { annotateStaticFunctionOverridesTransform } from "./comments/annotate-static-overrides.js";
+export { markCallsMissingArgumentSeparatorsTransform } from "./argument-mark-missing-separators.js";
+export { annotateStaticFunctionOverridesTransform } from "./comment-annotate-static-overrides.js";
 export {
     applySanitizedIndexAdjustments,
     conditionalAssignmentSanitizerTransform,
     sanitizeConditionalAssignments
 } from "./conditional-assignment-sanitizer.js";
 export { stripCommentsTransform };
-export { CommentTracker } from "./comments/comment-tracker.js";
+export { CommentTracker } from "./comment-tracker.js";

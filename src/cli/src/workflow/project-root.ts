@@ -1,4 +1,5 @@
-import { lstat } from "node:fs/promises";
+import type { Stats } from "node:fs";
+import { stat } from "node:fs/promises";
 import path from "node:path";
 
 import { Semantic } from "@gmloop/semantic";
@@ -59,10 +60,18 @@ export async function resolveExistingGmloopConfigPath(
     configPathOption: string | undefined
 ): Promise<string> {
     const resolvedPath = configPathOption ? path.resolve(configPathOption) : path.resolve(projectRoot, "gmloop.json");
-    const stats = await lstat(resolvedPath).catch(() => null);
+    const stats = await resolveFileStatsOrNull(resolvedPath);
     if (!stats || !stats.isFile()) {
         throw new Error(`Could not find gmloop config file at ${resolvedPath}`);
     }
 
     return resolvedPath;
+}
+
+async function resolveFileStatsOrNull(filePath: string): Promise<Stats | null> {
+    try {
+        return await stat(filePath);
+    } catch {
+        return null;
+    }
 }

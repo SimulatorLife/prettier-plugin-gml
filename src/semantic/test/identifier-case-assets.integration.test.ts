@@ -9,17 +9,14 @@ import {
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { buildProjectIndex } from "../src/project-index/index.js";
-import {
-    createAssetCollisionProject,
-    createAssetRenameProject,
-    createTempProjectWorkspace
-} from "./identifier-case-asset-helpers.js";
+import { createAssetCollisionProject, createAssetRenameProject } from "./identifier-case-asset-helpers.js";
 import { getFormat } from "./identifier-case-test-helpers.js";
+import { createTempProjectWorkspace } from "./test-project-helpers.js";
 
 async function createAssetReservedProject() {
-    const { projectRoot, writeFile } = await createTempProjectWorkspace("gml-asset-reserved-");
+    const { projectRoot, writeProjectFile } = await createTempProjectWorkspace("gml-asset-reserved-");
 
-    await writeFile(
+    await writeProjectFile(
         "MyGame.yyp",
         `${JSON.stringify(
             {
@@ -39,7 +36,7 @@ async function createAssetReservedProject() {
         )}\n`
     );
 
-    await writeFile(
+    await writeProjectFile(
         "scripts/move_contact/MoveContactSolid.yy",
         `${JSON.stringify(
             {
@@ -53,7 +50,7 @@ async function createAssetReservedProject() {
     );
 
     const source = "function MoveContactSolid() {\n    return 3;\n}\n";
-    const scriptPath = await writeFile("scripts/move_contact/MoveContactSolid.gml", source);
+    const scriptPath = await writeProjectFile("scripts/move_contact/MoveContactSolid.gml", source);
 
     const projectIndex = await buildProjectIndex(projectRoot);
 

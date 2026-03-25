@@ -1,6 +1,6 @@
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gmloop/core";
 
-import { matchDegreesToRadians, replaceNodeWith } from "./traversal-normalization.js";
+import { matchDegreesToRadians, replaceNodeWith } from "./math-traversal-normalization.js";
 
 const { BINARY_EXPRESSION, LITERAL, PARENTHESIZED_EXPRESSION } = Core;
 

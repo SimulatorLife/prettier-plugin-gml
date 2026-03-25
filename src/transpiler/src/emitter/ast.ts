@@ -298,12 +298,18 @@ export interface FunctionDeclarationNode extends BaseNode {
     readonly body: GmlNode;
 }
 
+export interface ConstructorParentClauseNode extends BaseNode {
+    readonly type: "ConstructorParentClause";
+    readonly id: GmlNode | string | null;
+    readonly params: ReadonlyArray<GmlNode>;
+}
+
 export interface ConstructorDeclarationNode extends BaseNode {
     readonly type: "ConstructorDeclaration";
     readonly id?: string | null;
     readonly params: ReadonlyArray<GmlNode | string>;
     readonly body: GmlNode;
-    readonly parent?: GmlNode | string | null;
+    readonly parent?: ConstructorParentClauseNode | null;
 }
 
 export interface BreakStatementNode extends BaseNode {
@@ -395,7 +401,8 @@ export type GmlNode =
     | VariableDeclaratorNode
     | CatchClauseNode
     | FinallyClauseNode
-    | TemplateStringTextNode;
+    | TemplateStringTextNode
+    | ConstructorParentClauseNode;
 
 export interface EmitOptions {
     readonly globalsIdent: string;
