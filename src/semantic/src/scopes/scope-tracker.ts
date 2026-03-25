@@ -96,7 +96,9 @@ export class ScopeTracker {
     }
 
     private normalizeTrackedPath(path: string): string {
-        return path.replaceAll("\\", "/");
+        // Most tracked paths are already POSIX-style, so avoid the replaceAll()
+        // scan and string allocation on that common case.
+        return path.includes("\\") ? path.replaceAll("\\", "/") : path;
     }
 
     private collectFilePathsForSymbolSummaries(

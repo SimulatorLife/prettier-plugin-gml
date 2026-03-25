@@ -1,4 +1,5 @@
-import { Core } from "@gmloop/core";
+import { getNodeEndIndex, getNodeStartIndex } from "../ast/locations.js";
+import { isObjectLike } from "../utils/object.js";
 
 type NodeWithDocComments = {
     type?: string;
@@ -18,7 +19,7 @@ type FunctionDocTarget = {
 };
 
 function isFunctionDocTagComment(comment: unknown): comment is CommentNodeWithAttachmentFlag {
-    if (!Core.isObjectLike(comment)) {
+    if (!isObjectLike(comment)) {
         return false;
     }
 
@@ -31,7 +32,7 @@ function isFunctionDocTagComment(comment: unknown): comment is CommentNodeWithAt
 }
 
 function isFunctionLikeInitializer(initializer: unknown): boolean {
-    if (!Core.isObjectLike(initializer)) {
+    if (!isObjectLike(initializer)) {
         return false;
     }
 
@@ -53,7 +54,7 @@ function isFunctionInitializedVariableDeclaration(node: NodeWithDocComments): bo
     }
 
     const declarator = node.declarations[0] as { init?: unknown } | undefined;
-    if (!declarator || !Core.isObjectLike(declarator)) {
+    if (!declarator || !isObjectLike(declarator)) {
         return false;
     }
 
@@ -61,7 +62,7 @@ function isFunctionInitializedVariableDeclaration(node: NodeWithDocComments): bo
 }
 
 function isFunctionDocTargetNode(node: unknown): node is NodeWithDocComments {
-    if (!Core.isObjectLike(node)) {
+    if (!isObjectLike(node)) {
         return false;
     }
 
@@ -90,14 +91,14 @@ function collectFunctionDocTargets(rootNode: unknown): FunctionDocTarget[] {
             return;
         }
 
-        if (!Core.isObjectLike(value)) {
+        if (!isObjectLike(value)) {
             return;
         }
 
         visitedNodes.add(value);
 
         if (isFunctionDocTargetNode(value)) {
-            const startIndex = Core.getNodeStartIndex(value);
+            const startIndex = getNodeStartIndex(value);
             if (typeof startIndex === "number") {
                 targets.push({ node: value, startIndex });
             }
@@ -202,15 +203,18 @@ function attachFunctionDocCommentToTarget(comment: CommentNodeWithAttachmentFlag
 }
 
 /**
- * Performs parser-owned normalization for `@function` / `@func` doc comments.
+ * Attach legacy `@function` / `@func` line comments to the nearest reachable
+ * function-like AST node without mutating the comment text itself.
  *
- * The formatter should not repair misattached doc-comments. This pass runs in
- * the parser after AST construction and pre-attaches function-tag comments to
- * the nearest reachable function-like declaration node.
+ * This is a shared AST normalization primitive used by parser-adjacent
+ * workflows, so it lives in `@gmloop/core` rather than inside the parser
+ * workspace. Keeping the helper in Core enforces the target-state boundary
+ * that parser-specific internals should remain focused on GML → AST
+ * construction while reusable normalization behavior is centralized.
  *
  * @param rootNode - Parsed AST root node.
- * @param comments - Parser-extracted comment node list.
- * @param sourceText - Parser source text used for location offsets.
+ * @param comments - Parsed comment node list.
+ * @param sourceText - Original source text used to validate reachability.
  */
 export function normalizeFunctionDocCommentAttachments(
     rootNode: unknown,
@@ -231,7 +235,7 @@ export function normalizeFunctionDocCommentAttachments(
             continue;
         }
 
-        const commentEndIndexExclusive = Core.getNodeEndIndex(comment);
+        const commentEndIndexExclusive = getNodeEndIndex(comment);
         if (typeof commentEndIndexExclusive !== "number") {
             continue;
         }
