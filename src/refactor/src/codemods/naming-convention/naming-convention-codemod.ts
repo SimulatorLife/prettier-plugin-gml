@@ -3,9 +3,9 @@ import path from "node:path";
 import { Core } from "@gmloop/core";
 
 import { evaluateNamingConvention, resolveNamingConventionRules } from "../../naming-convention-policy.js";
-import type { RefactorEngine } from "../../refactor-engine.js";
 import type {
     ApplyWorkspaceEditOptions,
+    CodemodEngine,
     NamingConventionCodemodPlan,
     NamingConventionTarget,
     NamingConventionViolation,
@@ -49,7 +49,7 @@ function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit)
  * Plan naming-policy-driven edits for the selected project paths.
  */
 export async function planNamingConventionCodemod(
-    engine: RefactorEngine,
+    engine: CodemodEngine,
     parameters: {
         projectRoot: string;
         config: RefactorProjectConfig;
@@ -242,7 +242,7 @@ function splitIntoRenameChunks(
  * Execute a naming-convention codemod plan when it contains no blocking errors.
  */
 export async function executeNamingConventionCodemod(
-    engine: RefactorEngine,
+    engine: CodemodEngine,
     parameters: {
         projectRoot: string;
         config: RefactorProjectConfig;

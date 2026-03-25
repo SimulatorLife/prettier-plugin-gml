@@ -2,8 +2,8 @@ import { Core } from "@gmloop/core";
 
 import { executeNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
-import type { RefactorEngine } from "./refactor-engine.js";
 import type {
+    CodemodEngine,
     ConfiguredCodemodRunRequest,
     ConfiguredCodemodRunResult,
     ConfiguredCodemodSummary,
@@ -20,7 +20,7 @@ type RegisteredCodemodDefinition<T extends RefactorCodemodId> = {
     description: string;
     normalizeConfig: (value: unknown, context: string) => RefactorCodemodConfigEntry<T>;
     execute: (
-        engine: RefactorEngine,
+        engine: CodemodEngine,
         request: ConfiguredCodemodRunRequest,
         effectiveConfig: RefactorCodemodConfigMap[T]
     ) => Promise<ConfiguredCodemodExecutionResult>;
@@ -106,7 +106,7 @@ const REGISTERED_CODEMOD_DEFINITIONS: RegisteredCodemodDefinitions = Object.free
         description: "Hoist repeated loop-length helper calls out of for-loop test expressions.",
         normalizeConfig: normalizeLoopLengthHoistingConfig,
         async execute(
-            engine: RefactorEngine,
+            engine: CodemodEngine,
             request: ConfiguredCodemodRunRequest,
             effectiveConfig: RefactorCodemodConfigMap["loopLengthHoisting"]
         ): Promise<ConfiguredCodemodExecutionResult> {
@@ -148,7 +148,7 @@ const REGISTERED_CODEMOD_DEFINITIONS: RegisteredCodemodDefinitions = Object.free
         description: "Plan and apply naming-policy-driven renames using namingConventionPolicy.",
         normalizeConfig: normalizeNamingConventionConfig,
         async execute(
-            engine: RefactorEngine,
+            engine: CodemodEngine,
             request: ConfiguredCodemodRunRequest,
             effectiveConfig: RefactorCodemodConfigMap["namingConvention"]
         ): Promise<ConfiguredCodemodExecutionResult> {
@@ -246,7 +246,7 @@ export function listConfiguredCodemods(
  * Execute the configured codemod set in stable registry order.
  */
 export async function executeRegisteredCodemods(
-    engine: RefactorEngine,
+    engine: CodemodEngine,
     request: ConfiguredCodemodRunRequest
 ): Promise<ConfiguredCodemodRunResult> {
     Core.assertArray(request.targetPaths, {
