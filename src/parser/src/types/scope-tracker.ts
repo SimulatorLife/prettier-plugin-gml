@@ -13,12 +13,12 @@ export interface GlobalIdentifierTracker {
 }
 
 /**
- * Identifier role management.
+ * Identifier role context control.
  *
- * Provides role tracking and manipulation operations for identifiers
- * without coupling to global tracking or scope lifecycle.
+ * Provides role-stack lifecycle operations without coupling to role
+ * annotation application.
  */
-export interface IdentifierRoleManager {
+export interface IdentifierRoleContextController {
     /**
      * Execute a callback within an identifier role context.
      *
@@ -53,11 +53,38 @@ export interface IdentifierRoleManager {
      * @param name Identifier name being annotated
      * @param node AST node to receive role metadata
      */
+}
+
+/**
+ * Identifier role application.
+ *
+ * Provides role annotation behavior for identifier nodes without coupling
+ * to role-stack lifecycle management.
+ */
+export interface IdentifierRoleApplicator {
+    /**
+     * Apply the current active role to an identifier node.
+     *
+     * Annotates the node with metadata from the role stack, including
+     * classification tags and scope information. This enables downstream
+     * semantic analysis and code generation.
+     *
+     * @param name Identifier name being annotated
+     * @param node AST node to receive role metadata
+     */
     applyCurrentRoleToIdentifier(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined
     ): void;
 }
+
+/**
+ * Complete identifier role manager interface.
+ *
+ * Combines role context and role application contracts for consumers that
+ * require both capabilities.
+ */
+export interface IdentifierRoleManager extends IdentifierRoleContextController, IdentifierRoleApplicator {}
 
 /**
  * Scope lifecycle management.
@@ -99,7 +126,7 @@ export interface ScopeLifecycle {
  * both packages to evolve independently.
  *
  * Consumers should prefer depending on the minimal interface they need
- * (GlobalIdentifierTracker, IdentifierRoleManager, ScopeLifecycle) rather
+ * (GlobalIdentifierTracker, IdentifierRoleContextController, IdentifierRoleApplicator, ScopeLifecycle) rather
  * than this composite interface when possible.
  */
 export interface ScopeTracker extends GlobalIdentifierTracker, IdentifierRoleManager, ScopeLifecycle {}
