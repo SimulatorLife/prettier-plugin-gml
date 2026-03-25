@@ -23,7 +23,7 @@ import type {
     VariableDeclarationNode,
     VariableDeclaratorNode
 } from "../types.js";
-import { getNodeType, hasType, isNode } from "./basics.js";
+import { getNodeType, hasType, isNode, unwrapParenthesizedExpression } from "./basics.js";
 
 const identifierResolvers: Readonly<Record<string, (node: GameMakerAstNode) => string | null>> = Object.freeze({
     Identifier: resolveNodeName,
@@ -364,6 +364,35 @@ export function getIdentifierDetails(node: unknown): { identifier: IdentifierNod
 export function getIdentifierName(node: GameMakerAstNode | null | undefined): string | null {
     const details = getIdentifierDetails(node);
     return details ? details.name : null;
+}
+
+/**
+ * Extract the name of an identifier expression after unwrapping parenthesized layers.
+ *
+ * This helper is the canonical home for identifier-name checks that should not
+ * depend on lint-rule or transform-specific modules. Math normalization used to
+ * keep an equivalent predicate inline, but the logic is general AST traversal
+ * behavior and belongs alongside the rest of Core's identifier helpers.
+ *
+ * @param node Candidate expression or identifier node.
+ * @returns The unwrapped identifier name, or `null` when the expression is not
+ *          ultimately an identifier.
+ */
+export function getUnwrappedIdentifierName(node: GameMakerAstNode | null | undefined): string | null {
+    const expression = unwrapParenthesizedExpression(node);
+    return expression ? getIdentifierName(expression) : null;
+}
+
+/**
+ * Check whether `node` resolves to an identifier with the exact `name` after
+ * unwrapping any parenthesized layers.
+ *
+ * @param node Candidate identifier expression.
+ * @param name Expected identifier text.
+ * @returns `true` when the unwrapped expression is an identifier named `name`.
+ */
+export function isUnwrappedIdentifierWithName(node: GameMakerAstNode | null | undefined, name: string): boolean {
+    return getUnwrappedIdentifierName(node) === name;
 }
 
 /**

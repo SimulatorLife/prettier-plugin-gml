@@ -4,7 +4,7 @@
  */
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
-import { findFirstAstNodeBy } from "../../rule-base-helpers.js";
+import { findFirstAstNodeBy } from "../rule-base-helpers.js";
 
 const {
     ASSIGNMENT_EXPRESSION,
@@ -392,8 +392,8 @@ function combineLengthdirScalarAssignments(ast) {
             continue;
         }
 
-        const baseName = getUnwrappedIdentifierName(declarator.id);
-        if (!baseName || getUnwrappedIdentifierName(assignment.left) !== baseName) {
+        const baseName = Core.getUnwrappedIdentifierName(declarator.id);
+        if (!baseName || Core.getUnwrappedIdentifierName(assignment.left) !== baseName) {
             continue;
         }
 
@@ -484,7 +484,7 @@ function matchLengthdirReassignment(expression, identifierName) {
         return null;
     }
 
-    const functionName = getUnwrappedIdentifierName(callExpression.object);
+    const functionName = Core.getUnwrappedIdentifierName(callExpression.object);
     if (functionName !== "lengthdir_x") {
         return null;
     }
@@ -506,7 +506,7 @@ function matchLengthdirReassignment(expression, identifierName) {
         return null;
     }
 
-    if (!isIdentifierNamed(difference.left, identifierName)) {
+    if (!Core.isUnwrappedIdentifierWithName(difference.left, identifierName)) {
         return null;
     }
 
@@ -546,9 +546,9 @@ function matchIdentifierTimesFactor(expression, identifierName) {
     let factorValue;
 
     if (operator === "*") {
-        if (isIdentifierNamed(unwrapped.left, identifierName)) {
+        if (Core.isUnwrappedIdentifierWithName(unwrapped.left, identifierName)) {
             factorNode = unwrapped.right;
-        } else if (isIdentifierNamed(unwrapped.right, identifierName)) {
+        } else if (Core.isUnwrappedIdentifierWithName(unwrapped.right, identifierName)) {
             factorNode = unwrapped.left;
         } else {
             return null;
@@ -556,7 +556,7 @@ function matchIdentifierTimesFactor(expression, identifierName) {
 
         factorValue = parseNumericFactor(factorNode);
     } else if (operator === "/") {
-        if (!isIdentifierNamed(unwrapped.left, identifierName)) {
+        if (!Core.isUnwrappedIdentifierWithName(unwrapped.left, identifierName)) {
             return null;
         }
 
@@ -677,17 +677,8 @@ function findFirstNumericLiteral(node) {
     return null;
 }
 
-/**
- * Checks whether a node is an Identifier with the given name.
- *
- * LOCATION SMELL: This is a general identifier utility that should live in Core's
- * identifier-utils module alongside other identifier predicates, not in the math
- * normalization transform.
- */
-function isIdentifierNamed(node, name) {
-    const identifierName = getUnwrappedIdentifierName(node);
-    return typeof identifierName === "string" && identifierName === name;
-}
+// Shared identifier-name matching now lives in `@gmloop/core` so this math
+// transform does not retain generic AST helpers that belong in the core layer.
 
 function isIdentityReplacementSafeExpression(node) {
     if (!isObjectLike(node)) {
@@ -2431,7 +2422,7 @@ function attemptConvertPointDistanceCall(node, context) {
         return false;
     }
 
-    const calleeName = getUnwrappedIdentifierName(node.object);
+    const calleeName = Core.getUnwrappedIdentifierName(node.object);
     const callArguments = Core.getCallExpressionArguments(node);
 
     let distanceExpression;
@@ -2481,7 +2472,7 @@ function attemptConvertPowerToSqrt(node, context) {
         return false;
     }
 
-    const calleeName = getUnwrappedIdentifierName(node.object);
+    const calleeName = Core.getUnwrappedIdentifierName(node.object);
     if (calleeName !== "power") {
         return false;
     }
@@ -2506,7 +2497,7 @@ function attemptConvertPowerToExp(node, context) {
         return false;
     }
 
-    const calleeName = getUnwrappedIdentifierName(node.object);
+    const calleeName = Core.getUnwrappedIdentifierName(node.object);
     if (calleeName !== "power") {
         return false;
     }
@@ -2533,7 +2524,7 @@ function attemptConvertPointDirection(node, context) {
         return false;
     }
 
-    const calleeName = getUnwrappedIdentifierName(node.object);
+    const calleeName = Core.getUnwrappedIdentifierName(node.object);
     if (calleeName !== "arctan2") {
         return false;
     }
@@ -2573,7 +2564,7 @@ function attemptSimplifyTrigonometricCall(node) {
         return false;
     }
 
-    const rawCalleeName = getUnwrappedIdentifierName(node.object);
+    const rawCalleeName = Core.getUnwrappedIdentifierName(node.object);
     if (typeof rawCalleeName !== "string") {
         return false;
     }
@@ -2629,7 +2620,7 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
     if (
         !wrappedCall ||
         wrappedCall.type !== CALL_EXPRESSION ||
-        getUnwrappedIdentifierName(wrappedCall.object)?.toLowerCase() !== "degtorad"
+        Core.getUnwrappedIdentifierName(wrappedCall.object)?.toLowerCase() !== "degtorad"
     ) {
         return false;
     }
@@ -2658,7 +2649,7 @@ function applyOuterTrigConversion(node, conversionMap) {
         return false;
     }
 
-    const innerName = getUnwrappedIdentifierName(firstArg.object);
+    const innerName = Core.getUnwrappedIdentifierName(firstArg.object);
     if (typeof innerName !== "string") {
         return false;
     }
@@ -2858,7 +2849,7 @@ function matchLengthdirScaledOperand(node, context) {
         return null;
     }
 
-    const calleeName = getUnwrappedIdentifierName(expression.object);
+    const calleeName = Core.getUnwrappedIdentifierName(expression.object);
     if (calleeName !== "lengthdir_x" && calleeName !== "lengthdir_y") {
         return null;
     }
@@ -3014,7 +3005,7 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
     }
 
     const minuend = Core.unwrapParenthesizedExpression(leftExpression.left);
-    const identifierName = getUnwrappedIdentifierName(minuend);
+    const identifierName = Core.getUnwrappedIdentifierName(minuend);
     const scaledOperandInfo = matchScaledOperand(leftExpression.right, context);
 
     if (!minuend || !scaledOperandInfo || !scaledOperandInfo.base) {
@@ -3153,7 +3144,7 @@ function promoteLengthdirHalfDifference(
         return;
     }
 
-    if (getUnwrappedIdentifierName(assignment.left) !== identifierName) {
+    if (Core.getUnwrappedIdentifierName(assignment.left) !== identifierName) {
         return;
     }
 
@@ -3438,7 +3429,7 @@ function identifyTrigCall(node) {
         return null;
     }
 
-    const calleeName = getUnwrappedIdentifierName(expression.object);
+    const calleeName = Core.getUnwrappedIdentifierName(expression.object);
     if (!Array.isArray(expression.arguments) || expression.arguments.length !== 1) {
         return null;
     }
@@ -3477,7 +3468,7 @@ function matchDegToRadCall(argument) {
     if (
         !expression ||
         expression.type !== CALL_EXPRESSION ||
-        getUnwrappedIdentifierName(expression.object) !== "degtorad" ||
+        Core.getUnwrappedIdentifierName(expression.object) !== "degtorad" ||
         !Array.isArray(expression.arguments) ||
         expression.arguments.length !== 1
     ) {
@@ -3976,8 +3967,8 @@ function areNodesEquivalent(a, b) {
             return left.operator === right.operator && areNodesEquivalent(left.argument, right.argument);
         }
         case CALL_EXPRESSION: {
-            const leftName = getUnwrappedIdentifierName(left.object);
-            const rightName = getUnwrappedIdentifierName(right.object);
+            const leftName = Core.getUnwrappedIdentifierName(left.object);
+            const rightName = Core.getUnwrappedIdentifierName(right.object);
 
             if (leftName !== rightName) {
                 return false;
@@ -4065,18 +4056,6 @@ function areAllSafe(nodes) {
     }
 
     return nodes.every((node) => isSafeOperand(node));
-}
-
-/**
- * Extract the identifier name from an expression, unwrapping parenthesized layers.
- */
-function getUnwrappedIdentifierName(node: unknown): string | null {
-    const expression = Core.unwrapParenthesizedExpression(node);
-    if (!expression) {
-        return null;
-    }
-
-    return Core.getIdentifierName(expression);
 }
 
 function mutateToCallExpression(target, name, args, template) {
@@ -4188,7 +4167,7 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
         return;
     }
 
-    const baseName = getUnwrappedIdentifierName(declarator.id);
+    const baseName = Core.getUnwrappedIdentifierName(declarator.id);
     if (typeof baseName !== "string" || baseName.length === 0) {
         return;
     }
@@ -4241,7 +4220,7 @@ function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
     }
 
     const declarator = findVariableDeclaratorForInit(root, simplifiedNode);
-    const baseName = getUnwrappedIdentifierName(declarator?.id);
+    const baseName = Core.getUnwrappedIdentifierName(declarator?.id);
 
     if (typeof baseName !== "string" || baseName.length === 0) {
         return;
@@ -4515,7 +4494,7 @@ function findVariableDeclarationByName(root: any, identifierName: string): any {
         }
 
         const [declarator] = node.declarations;
-        return getUnwrappedIdentifierName(declarator?.id) === identifierName;
+        return Core.getUnwrappedIdentifierName(declarator?.id) === identifierName;
     });
 }
 
@@ -4663,7 +4642,11 @@ function trySimplifyZeroDivision(node, context) {
 
 function isLnCall(node) {
     const expression = Core.unwrapParenthesizedExpression(node);
-    if (!expression || expression.type !== CALL_EXPRESSION || getUnwrappedIdentifierName(expression.object) !== "ln") {
+    if (
+        !expression ||
+        expression.type !== CALL_EXPRESSION ||
+        Core.getUnwrappedIdentifierName(expression.object) !== "ln"
+    ) {
         return false;
     }
 
