@@ -40,12 +40,9 @@ async function runConfiguredIntegrationRefactorStage(
         gmlFilePaths: ["input.gml"],
         config: Refactor.normalizeRefactorProjectConfig(config.refactor),
         readFile: async (filePath) =>
-            await readFile(
-                path.isAbsolute(filePath) ? filePath : path.join(tempProjectDirectoryPath, filePath),
-                "utf8"
-            ),
+            readFile(path.isAbsolute(filePath) ? filePath : path.join(tempProjectDirectoryPath, filePath), "utf8"),
         writeFile: async (filePath, content) =>
-            await writeFile(
+            writeFile(
                 path.isAbsolute(filePath) ? filePath : path.join(tempProjectDirectoryPath, filePath),
                 content,
                 "utf8"
@@ -53,7 +50,7 @@ async function runConfiguredIntegrationRefactorStage(
         dryRun: false
     });
 
-    return await readFile(projectFilePath, "utf8");
+    return readFile(projectFilePath, "utf8");
 }
 
 export function createIntegrationFixtureAdapter() {
@@ -74,7 +71,7 @@ export function createIntegrationFixtureAdapter() {
                 const refactoredText = hasConfiguredRefactorStage(config)
                     ? await runProfiledStage("refactor", async () => {
                           temporaryRefactorWorkspacePath = await createIntegrationRefactorWorkspace(inputText ?? "");
-                          return await runConfiguredIntegrationRefactorStage(config, temporaryRefactorWorkspacePath);
+                          return runConfiguredIntegrationRefactorStage(config, temporaryRefactorWorkspacePath);
                       })
                     : (inputText ?? "");
 
@@ -102,17 +99,14 @@ export function createIntegrationFixtureAdapter() {
                     eslintByRuleConfigKey.set(cacheKey, eslint);
                 }
 
-                const [result] = await runProfiledStage(
-                    "lint",
-                    async () =>
-                        await eslint.lintText(refactoredText, {
-                            filePath: `${fixtureCase.caseId}.gml`
-                        })
+                const [result] = await runProfiledStage("lint", async () =>
+                    eslint.lintText(refactoredText, {
+                        filePath: `${fixtureCase.caseId}.gml`
+                    })
                 );
                 const lintedOutput = result.output ?? refactoredText;
-                const outputText = await runProfiledStage(
-                    "format",
-                    async () => await Format.format(lintedOutput, formatOptions)
+                const outputText = await runProfiledStage("format", async () =>
+                    Format.format(lintedOutput, formatOptions)
                 );
 
                 return {
