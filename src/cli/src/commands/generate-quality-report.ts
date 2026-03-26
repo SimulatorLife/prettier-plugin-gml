@@ -11,8 +11,8 @@ import { XMLParser } from "fast-xml-parser";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, handleCliError } from "../cli-core/errors.js";
 import { ParseResultStatus, ScanStatus, TestCaseStatus } from "../modules/quality-report/index.js";
+import { scanProjectHealth } from "../modules/quality-report/project-health.js";
 import { traverseDirectoryEntries } from "../shared/directory-traversal.js";
-import { scanProjectHealth } from "../shared/project-health.js";
 
 const {
     assertArray,
