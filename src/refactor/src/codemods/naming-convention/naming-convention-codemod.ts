@@ -12,24 +12,7 @@ import type {
     RefactorProjectConfig
 } from "../../types.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
-
-function resolveSelectedTargetPath(projectRoot: string, selectedPath: string): string {
-    return path.isAbsolute(selectedPath) ? selectedPath : path.resolve(projectRoot, selectedPath);
-}
-
-function isPathSelected(projectRoot: string, selectedPaths: ReadonlyArray<string>, targetPath: string): boolean {
-    if (selectedPaths.length === 0) {
-        return true;
-    }
-
-    const absoluteTargetPath = path.resolve(projectRoot, targetPath);
-    return selectedPaths.some((selectedPath) => {
-        const absoluteSelectedPath = resolveSelectedTargetPath(projectRoot, selectedPath);
-        return (
-            absoluteTargetPath === absoluteSelectedPath || Core.isPathInside(absoluteTargetPath, absoluteSelectedPath)
-        );
-    });
-}
+import { isPathSelectedByLists } from "./path-selection.js";
 
 function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit): void {
     for (const edit of source.edits) {
@@ -98,7 +81,7 @@ export async function planNamingConventionCodemod(
     let localRenameCount = 0;
 
     const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) =>
-        isPathSelected(parameters.projectRoot, parameters.targetPaths, filePath)
+        isPathSelectedByLists(parameters.projectRoot, filePath, parameters.targetPaths, [])
     );
 
     const forEachSelectedTarget = async (
@@ -116,7 +99,7 @@ export async function planNamingConventionCodemod(
                     absoluteResourcePath
                 ]);
                 await Core.runSequentially(targetsForFile, async (target) => {
-                    if (isPathSelected(parameters.projectRoot, parameters.targetPaths, target.path)) {
+                    if (isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])) {
                         await visitor(target);
                     }
                 });
@@ -126,7 +109,7 @@ export async function planNamingConventionCodemod(
 
         const targets = await semantic.listNamingConventionTargets();
         await Core.runSequentially(targets, async (target) => {
-            if (isPathSelected(parameters.projectRoot, parameters.targetPaths, target.path)) {
+            if (isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])) {
                 await visitor(target);
             }
         });
