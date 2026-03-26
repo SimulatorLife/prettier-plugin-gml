@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 
-import { scanProjectHealth } from "../src/shared/project-health.js";
+import { scanProjectHealth } from "../src/modules/quality-report/project-health.js";
 
 const tempDirectories: Array<string> = [];
 
