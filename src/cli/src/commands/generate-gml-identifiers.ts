@@ -5,13 +5,17 @@ import vm from "node:vm";
 
 import { Core } from "@gmloop/core";
 import { Command, Option } from "commander";
-import { parseHTML } from "linkedom";
 import type { Element } from "linkedom/types/interface/element.js";
 
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
+import {
+    getDirectElementChildren,
+    parseManualDocument,
+    replaceBreakElementsWithNewlines
+} from "../modules/manual/html.js";
 import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../modules/manual/payload-validation.js";
 import { getManualRootMetadataPath, readManualText, resolveManualSourceCommitHash } from "../modules/manual/source.js";
 import { type ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
@@ -389,22 +393,6 @@ const REPLACEMENT_PRIORITY = new Map<DeprecatedReplacementKind, number>([
     [DIRECT_RENAME_REPLACEMENT_KIND, 2]
 ]);
 
-function parseDocument(html: string) {
-    return parseHTML(html).document;
-}
-
-function getDirectChildren(element: Element | null | undefined, selector?: string): Array<Element> {
-    const predicate = selector ? (child: Element) => child.matches?.(selector) === true : () => true;
-    return Array.from(element?.children ?? []).filter(predicate);
-}
-
-function replaceBreaksWithNewlines(clone: Element) {
-    const document = clone.ownerDocument;
-    for (const br of clone.querySelectorAll("br")) {
-        br.parentNode?.replaceChild(document.createTextNode("\n"), br);
-    }
-}
-
 function normalizeCellIdentifierText(rawText: string): string {
     return rawText.replaceAll("\u00A0", " ").replaceAll(/\s+/g, "");
 }
@@ -415,7 +403,7 @@ function extractCellIdentifierText(cell: Element | null | undefined): string | n
     }
 
     const clone = cell.cloneNode(true) as Element;
-    replaceBreaksWithNewlines(clone);
+    replaceBreakElementsWithNewlines(clone);
     const normalized = normalizeCellIdentifierText(clone.textContent ?? "");
     return normalized.length > 0 ? normalized : null;
 }
@@ -689,7 +677,7 @@ function classifyObsoleteTableIdentifiers(
     const identifiers: Array<ObsoleteIdentifierDescriptor> = [];
 
     for (const row of table.querySelectorAll("tr")) {
-        for (const cell of getDirectChildren(row, "td")) {
+        for (const cell of getDirectElementChildren(row, "td")) {
             const identifierText = extractCellIdentifierText(cell);
             if (!identifierText) {
                 continue;
@@ -740,7 +728,7 @@ function inferTableLegacyUsage(paragraphText: string | null): DeprecatedLegacyUs
 function parseObsoleteIdentifierTableEntries(
     obsoleteFunctionsHtml: string
 ): ReadonlyArray<ObsoleteIdentifierDescriptor> {
-    const document = parseDocument(obsoleteFunctionsHtml);
+    const document = parseManualDocument(obsoleteFunctionsHtml);
     const identifiers: Array<ObsoleteIdentifierDescriptor> = [];
     const seenKeys = new Set<string>();
 
@@ -756,7 +744,7 @@ function parseObsoleteIdentifierTableEntries(
         }
 
         let currentUsageHint: DeprecatedLegacyUsage | null = null;
-        for (const child of getDirectChildren(section)) {
+        for (const child of getDirectElementChildren(section)) {
             if (child.matches?.("p")) {
                 currentUsageHint = inferTableLegacyUsage(child.textContent);
                 continue;
