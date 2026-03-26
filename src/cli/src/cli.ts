@@ -121,7 +121,10 @@ const program = applyStandardCommandOptions(new Command())
             "Provides formatting, benchmarking, and manual data generation commands.",
             resolveDefaultAction() === FORMAT_ACTION
                 ? `Defaults to running the ${FORMAT_ACTION} command when no command is provided.`
-                : `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`
+                : [
+                      `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`,
+                      `Tip: passing only a file or directory path runs '${FORMAT_ACTION}' for that target.`
+                  ].join(" ")
         ].join(" \n")
     )
     .version(resolveCliVersion(), "-V, --version", "Show CLI version information.");
