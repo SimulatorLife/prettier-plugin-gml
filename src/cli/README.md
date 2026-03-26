@@ -487,12 +487,12 @@ pnpm run cli -- watch-status --endpoint ready
 pnpm run cli -- watch-status --format json
 
 # Query custom host/port
-pnpm run cli -- watch-status --host 127.0.0.1 --port 18000
+pnpm run cli -- watch-status --status-host 127.0.0.1 --status-port 18000
 ```
 
 **Options:**
-- `--host <host>` - Status server host (default: 127.0.0.1, env: WATCH_STATUS_HOST)
-- `--port <port>` - Status server port (default: 17891, env: WATCH_STATUS_PORT)
+- `--status-host <host>` - Status server host (default: 127.0.0.1, env: WATCH_STATUS_HOST)
+- `--status-port <port>` - Status server port (default: 17891, env: WATCH_STATUS_PORT)
 - `--format <format>` - Output format: `pretty` (default) or `json`
 - `--endpoint <endpoint>` - Endpoint to query: `status` (default), `health`, `ping`, or `ready`
 
