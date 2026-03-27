@@ -60,3 +60,35 @@ void test("Parse error messages are user-friendly without stack traces", async (
         await rm(testDir, { recursive: true, force: true });
     }
 });
+
+void test("format command ignores PRETTIER_PLUGIN_GML_ON_PARSE_ERROR fallback and still aborts by default", async () => {
+    const testDir = await mkdtemp(path.join(os.tmpdir(), "parse-error-env-"));
+    const badFile = path.join(testDir, "bad.gml");
+
+    try {
+        await writeFile(
+            badFile,
+            `function broken() {
+    var value = {
+`,
+            "utf8"
+        );
+
+        const { exitCode, stderr } = await runCliTestCommand({
+            argv: ["format", badFile],
+            cwd: testDir,
+            env: {
+                PRETTIER_PLUGIN_GML_ON_PARSE_ERROR: "skip"
+            }
+        });
+
+        assert.notEqual(
+            exitCode,
+            0,
+            "Expected parse failures to abort formatting even when PRETTIER_PLUGIN_GML_ON_PARSE_ERROR=skip is set"
+        );
+        assert.match(stderr, /Formatting failed for 1 file/, "Expected failure summary for parse-error abort mode");
+    } finally {
+        await rm(testDir, { recursive: true, force: true });
+    }
+});
