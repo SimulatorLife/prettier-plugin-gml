@@ -17,6 +17,10 @@ Wraps the Prettier plugin to format GameMaker Language files with enhanced diagn
 
 ```bash
 pnpm run cli -- format path/to/project
+# Implicit format mode with path-only input
+pnpm run cli -- path/to/project
+# Show format command options while using path-only invocation style
+pnpm run cli -- path/to/project --help
 ```
 
 **Options:**
