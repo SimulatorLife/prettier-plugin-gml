@@ -2576,6 +2576,8 @@ export class ScopeTracker {
      * collects the file path recorded in each dependent scope's metadata.
      * This gives callers a single flat set of paths to clear and re-analyse
      * rather than requiring them to navigate the scope graph manually.
+     * Returned paths are normalized to forward-slash separators to prevent
+     * duplicate work when callers provide mixed slash conventions.
      *
      * Scopes without a `path` in their metadata (e.g. anonymous blocks) are
      * silently skipped—only named file scopes contribute to the result.
@@ -2608,8 +2610,8 @@ export class ScopeTracker {
                 continue;
             }
 
-            // Include the changed file itself.
-            result.add(filePath);
+            // Include the changed file itself with normalized separators.
+            result.add(trackedPath);
 
             for (const scopeId of scopeIds) {
                 let transitiveDeps = transitiveDependentsCache.get(scopeId);
@@ -2622,7 +2624,7 @@ export class ScopeTracker {
                     const depScope = this.scopesById.get(dep.dependentScopeId);
                     const depPath = depScope?.metadata.path;
                     if (depPath) {
-                        result.add(depPath);
+                        result.add(this.normalizeTrackedPath(depPath));
                     }
                 }
             }
