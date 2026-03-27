@@ -1,10 +1,7 @@
-import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
+import { Core, type EmptyTransformOptions, type MutableGameMakerAstNode } from "@gmloop/core";
 
 import { collectIdentifierNamesInSubtree } from "../rule-base-helpers.js";
-import {
-    applyLogicalExpressionCondensation,
-    type OptimizeLogicalExpressionsOptions
-} from "./logical-expression-condensation.js";
+import { applyLogicalExpressionCondensation } from "./logical-expression-condensation.js";
 
 type StatementList = Array<MutableGameMakerAstNode | null | undefined>;
 type MutableAstRecord = MutableGameMakerAstNode & Record<string, unknown>;
@@ -19,8 +16,8 @@ const IGNORED_CHILD_KEYS = new Set([
     "followingNode"
 ]);
 
-function execute(ast: MutableGameMakerAstNode, options: OptimizeLogicalExpressionsOptions): MutableGameMakerAstNode {
-    applyLogicalExpressionCondensation(ast, options.helpers);
+function execute(ast: MutableGameMakerAstNode, _options: EmptyTransformOptions): MutableGameMakerAstNode {
+    applyLogicalExpressionCondensation(ast);
     eliminateRedundantTemporaryReturns(ast);
     optimizeConditionalMemberAccessCaching(ast);
     return ast;
@@ -671,7 +668,7 @@ function walkNode(
 }
 
 /** Pre-instantiated transform exposed for parser-normalization pipelines. */
-export const optimizeLogicalExpressionsTransform = Core.createParserTransform<OptimizeLogicalExpressionsOptions>(
+export const optimizeLogicalExpressionsTransform = Core.createParserTransform<EmptyTransformOptions>(
     "optimize-logical-expressions",
     {},
     execute
