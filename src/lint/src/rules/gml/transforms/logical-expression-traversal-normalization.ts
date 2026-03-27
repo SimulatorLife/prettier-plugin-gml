@@ -49,7 +49,8 @@ function traverseAndSimplify(node: any): boolean {
 
         const child = node[key];
         if (Array.isArray(child)) {
-            for (const element of child) {
+            const childSnapshot = [...child];
+            for (const element of childSnapshot) {
                 if (traverseAndSimplify(element)) {
                     changed = true;
                 }
