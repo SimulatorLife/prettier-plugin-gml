@@ -64,6 +64,10 @@ files.
 
 `lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
 
+If a target does not contain any `.gml` files, `lint` now prints an explicit
+guidance message explaining that only `.gml` sources are processed and includes
+an example invocation.
+
 ### `fix` - Project-Wide Fix Workflow
 
 Runs the project-wide write workflow in one command:
