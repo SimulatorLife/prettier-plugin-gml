@@ -17,7 +17,7 @@ export interface FixtureSuiteRegistration {
     adapter: FixtureAdapter;
 }
 
-type LintRuleEntries = ReturnType<typeof Lint.services.projectConfig.createLintRuleEntriesFromProjectConfig>;
+type LintRuleEntries = ReturnType<typeof Lint.configs.projectConfig.createLintRuleEntriesFromProjectConfig>;
 type RefactorFixtureSymbolOccurrence = {
     path: string;
     start: number;
@@ -91,7 +91,7 @@ function createLintRuleEntriesCacheKey(ruleEntries: LintRuleEntries): string {
 }
 
 function createSingleRuleFixtureConfig(config: Record<string, unknown>): LintRuleEntries {
-    const ruleEntries = Lint.services.projectConfig.createLintRuleEntriesFromProjectConfig(config);
+    const ruleEntries = Lint.configs.projectConfig.createLintRuleEntriesFromProjectConfig(config);
     const enabledRuleIds = Object.keys(ruleEntries);
     if (enabledRuleIds.length !== 1) {
         throw new Error(`Lint fixture config must enable exactly one rule, received ${enabledRuleIds.length}.`);
