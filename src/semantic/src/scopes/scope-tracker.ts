@@ -2485,6 +2485,7 @@ export class ScopeTracker {
                 scopeIdsToRemove.add(descId);
             }
         }
+        const declaredNamesToInvalidate = new Set<string>();
 
         for (const scopeId of scopeIdsToRemove) {
             const scope = this.scopesById.get(scopeId);
@@ -2496,7 +2497,7 @@ export class ScopeTracker {
             // since any scope in the tracker could have cached a lookup that resolved
             // to a declaration in this scope.
             for (const name of scope.symbolMetadata.keys()) {
-                this.identifierCache.invalidate(name);
+                declaredNamesToInvalidate.add(name);
                 const scopeSummaryMap = this.symbolToScopesIndex.get(name);
                 if (scopeSummaryMap) {
                     scopeSummaryMap.delete(scopeId);
@@ -2554,6 +2555,10 @@ export class ScopeTracker {
             if (this.rootScope?.id === scopeId) {
                 this.rootScope = null;
             }
+        }
+
+        for (const name of declaredNamesToInvalidate) {
+            this.identifierCache.invalidate(name);
         }
 
         // The lookup cache is keyed on identifier names resolved at a specific
