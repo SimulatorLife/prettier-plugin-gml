@@ -5,6 +5,7 @@ import {
     createMeta,
     getNodeEndIndex,
     getNodeStartIndex,
+    isAssignmentExpressionNodeWithOperator,
     isAstNodeRecord,
     isStandaloneStatementParentKey,
     sourceRangeContainsCommentToken,
@@ -40,13 +41,7 @@ type PreferArrayPushCandidate = Readonly<{
 type UnwrapParenthesizedExpressionInput = Parameters<typeof CoreWorkspace.Core.unwrapParenthesizedExpression>[0];
 
 function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
-    return (
-        isAstNodeRecord(node) &&
-        node.type === "AssignmentExpression" &&
-        node.operator === "=" &&
-        Object.hasOwn(node, "left") &&
-        Object.hasOwn(node, "right")
-    );
+    return isAssignmentExpressionNodeWithOperator(node, (operator): operator is "=" => operator === "=");
 }
 
 function isMemberIndexExpressionNode(node: unknown): node is MemberIndexExpressionNode {

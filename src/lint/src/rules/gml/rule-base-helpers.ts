@@ -41,6 +41,33 @@ export function isAstNodeWithType(value: unknown): value is AstNodeWithType {
     return isAstNodeRecord(value) && typeof value.type === "string";
 }
 
+/**
+ * Determines whether a value is an assignment-expression node whose operator
+ * satisfies the provided guard.
+ *
+ * @param value Candidate node-like value.
+ * @param operatorGuard Predicate that validates the `operator` field.
+ * @returns Whether the candidate is a typed assignment-expression record.
+ */
+export function isAssignmentExpressionNodeWithOperator<TOperator extends string>(
+    value: unknown,
+    operatorGuard: (operator: unknown) => operator is TOperator
+): value is AstNodeRecord &
+    Readonly<{
+        type: "AssignmentExpression";
+        operator: TOperator;
+        left: unknown;
+        right: unknown;
+    }> {
+    return (
+        isAstNodeRecord(value) &&
+        value.type === "AssignmentExpression" &&
+        operatorGuard(value.operator) &&
+        Object.hasOwn(value, "left") &&
+        Object.hasOwn(value, "right")
+    );
+}
+
 export function isCommentOnlyLine(line: string): boolean {
     // returns true if the line consists solely of whitespace and/or comment tokens
     // (single-line comments or block comments). This is a simple heuristic used by

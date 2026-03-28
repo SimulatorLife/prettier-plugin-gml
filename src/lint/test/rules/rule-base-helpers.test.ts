@@ -5,12 +5,17 @@ import {
     cloneAstNodeWithoutTraversalLinks,
     createCommentTokenRangeIndex,
     findFirstAstNodeBy,
+    isAssignmentExpressionNodeWithOperator,
     rangeContainsCommentToken,
     resolveLocFromIndex,
     sourceRangeContainsCommentToken,
     walkAstNodes
 } from "../../src/rules/gml/rule-base-helpers.js";
 import { assertEquals } from "../assertions.js";
+
+const isIncrementAssignmentOperator = (operator: unknown): operator is "+=" | "-=" =>
+    operator === "+=" || operator === "-=";
+const isSimpleAssignmentOperator = (operator: unknown): operator is "=" => operator === "=";
 
 void test("findFirstAstNodeBy returns the first matching node in source order", () => {
     const astRoot = {
@@ -149,6 +154,43 @@ void test("rangeContainsCommentToken uses the prefix index to detect comment mar
     assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, plainStart, plainEnd), false);
     assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, inlineStart, inlineEnd), true);
     assert.equal(rangeContainsCommentToken(commentTokenRangeIndex, blockStart, blockEnd), true);
+});
+
+void test("isAssignmentExpressionNodeWithOperator matches assignment nodes with accepted operators", () => {
+    const node = {
+        type: "AssignmentExpression",
+        operator: "+=",
+        left: { type: "Identifier", name: "count" },
+        right: { type: "Literal", value: "1" }
+    };
+
+    assert.equal(isAssignmentExpressionNodeWithOperator(node, isIncrementAssignmentOperator), true);
+});
+
+void test("isAssignmentExpressionNodeWithOperator rejects non-assignment and missing-key candidates", () => {
+    assert.equal(
+        isAssignmentExpressionNodeWithOperator(
+            {
+                type: "AssignmentExpression",
+                operator: "=",
+                left: { type: "Identifier", name: "value" }
+            },
+            isSimpleAssignmentOperator
+        ),
+        false
+    );
+    assert.equal(
+        isAssignmentExpressionNodeWithOperator(
+            {
+                type: "BinaryExpression",
+                operator: "=",
+                left: { type: "Identifier", name: "value" },
+                right: { type: "Literal", value: "1" }
+            },
+            isSimpleAssignmentOperator
+        ),
+        false
+    );
 });
 
 // Helper that produces a minimal Rule.RuleContext stub for resolveLocFromIndex tests.
