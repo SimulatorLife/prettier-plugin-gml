@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createSampleLimitRuntimeOption } from "../src/runtime-options/sample-limits.js";
+import {
+    createSampleLimitRuntimeOption,
+    ignoredFileSampleLimit,
+    skippedDirectorySampleLimit,
+    unsupportedExtensionSampleLimit
+} from "../src/runtime-options/sample-limits.js";
 
 const TEST_SAMPLE_LIMIT_ENV_VAR = "PRETTIER_PLUGIN_GML_TEST_SAMPLE_LIMIT";
 
@@ -40,5 +45,18 @@ void describe("createSampleLimitRuntimeOption", () => {
 
         applyEnvOverride({ [TEST_SAMPLE_LIMIT_ENV_VAR]: "5" });
         assert.strictEqual(getDefault(), 5);
+    });
+
+    void it("returns a frozen runtime option and exported options remain frozen without extra wrappers", () => {
+        const created = createSampleLimitRuntimeOption({
+            defaultValue: 1,
+            envVar: TEST_SAMPLE_LIMIT_ENV_VAR,
+            subjectLabel: "Test sample"
+        });
+
+        assert.strictEqual(Object.isFrozen(created), true);
+        assert.strictEqual(Object.isFrozen(ignoredFileSampleLimit), true);
+        assert.strictEqual(Object.isFrozen(skippedDirectorySampleLimit), true);
+        assert.strictEqual(Object.isFrozen(unsupportedExtensionSampleLimit), true);
     });
 });

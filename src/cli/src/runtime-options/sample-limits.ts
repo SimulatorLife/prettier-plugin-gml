@@ -102,13 +102,11 @@ export function createSampleLimitRuntimeOption(
  * Each configuration is frozen and exported under its original name to ensure
  * drop-in compatibility with existing consumers.
  */
-export const ignoredFileSampleLimit = Object.freeze(
-    createSampleLimitRuntimeOption({
-        defaultValue: 5,
-        envVar: "PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT",
-        subjectLabel: "Ignored file"
-    })
-);
+export const ignoredFileSampleLimit = createSampleLimitRuntimeOption({
+    defaultValue: 5,
+    envVar: "PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT",
+    subjectLabel: "Ignored file"
+});
 
 export const {
     defaultValue: DEFAULT_IGNORED_FILE_SAMPLE_LIMIT,
@@ -119,13 +117,11 @@ export const {
     applyEnvOverride: applyIgnoredFileSampleLimitEnvOverride
 } = ignoredFileSampleLimit;
 
-export const skippedDirectorySampleLimit = Object.freeze(
-    createSampleLimitRuntimeOption({
-        defaultValue: 5,
-        envVar: "PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT",
-        subjectLabel: "Skipped directory"
-    })
-);
+export const skippedDirectorySampleLimit = createSampleLimitRuntimeOption({
+    defaultValue: 5,
+    envVar: "PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT",
+    subjectLabel: "Skipped directory"
+});
 
 export const {
     defaultValue: DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT,
@@ -136,13 +132,11 @@ export const {
     applyEnvOverride: applySkippedDirectorySampleLimitEnvOverride
 } = skippedDirectorySampleLimit;
 
-export const unsupportedExtensionSampleLimit = Object.freeze(
-    createSampleLimitRuntimeOption({
-        defaultValue: 5,
-        envVar: "PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT",
-        subjectLabel: "Unsupported extension"
-    })
-);
+export const unsupportedExtensionSampleLimit = createSampleLimitRuntimeOption({
+    defaultValue: 5,
+    envVar: "PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT",
+    subjectLabel: "Unsupported extension"
+});
 
 export const {
     defaultValue: DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT,
