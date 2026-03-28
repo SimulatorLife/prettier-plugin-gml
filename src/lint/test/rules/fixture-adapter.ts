@@ -1,6 +1,7 @@
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
 import { ESLint } from "eslint";
 
+import { createLintRuleEntriesFromProjectConfig } from "../../src/configs/index.js";
 import { Lint } from "../../src/index.js";
 import { resolveFixtureLintRecoveryMode } from "./recovery-mode.js";
 
@@ -11,7 +12,7 @@ function createRuleEntriesCacheKey(ruleEntries: Record<string, unknown>): string
 }
 
 function createSingleRuleFixtureConfig(config: Record<string, unknown>) {
-    const ruleEntries = Lint.services.projectConfig.createLintRuleEntriesFromProjectConfig(config);
+    const ruleEntries = createLintRuleEntriesFromProjectConfig(config);
     const enabledRuleIds = Object.keys(ruleEntries);
     if (enabledRuleIds.length !== 1) {
         throw new Error(`Lint fixture config must enable exactly one rule, received ${enabledRuleIds.length}.`);
@@ -64,12 +65,10 @@ export function createLintFixtureAdapter(): FixtureAdapter {
                 eslintByRuleConfigKey.set(cacheKey, eslint);
             }
 
-            const [result] = await runProfiledStage(
-                "lint",
-                async () =>
-                    await eslint.lintText(inputText ?? "", {
-                        filePath: `${fixtureCase.caseId}.gml`
-                    })
+            const [result] = await runProfiledStage("lint", async () =>
+                eslint.lintText(inputText ?? "", {
+                    filePath: `${fixtureCase.caseId}.gml`
+                })
             );
             const lintedOutput = result.output ?? inputText ?? "";
 

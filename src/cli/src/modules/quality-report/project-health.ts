@@ -3,8 +3,8 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
-import { formatByteSizeDisplay } from "./byte-format.js";
-import { traverseDirectoryEntries } from "./directory-traversal.js";
+import { formatByteSizeDisplay } from "../../shared/byte-format.js";
+import { traverseDirectoryEntries } from "../../shared/directory-traversal.js";
 
 const { readTextFileSync } = Core;
 

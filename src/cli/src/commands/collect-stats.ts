@@ -6,8 +6,8 @@ import { Command } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
+import { scanProjectHealth } from "../modules/quality-report/project-health.js";
 import { ensureDirSync } from "../shared/ensure-dir.js";
-import { scanProjectHealth } from "../shared/project-health.js";
 
 export function createCollectStatsCommand() {
     return applyStandardCommandOptions(

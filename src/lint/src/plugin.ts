@@ -1,4 +1,8 @@
-import { createLintConfigsWithPlugins } from "./configs/index.js";
+import {
+    createLintConfigsWithPlugins,
+    createLintRuleEntriesFromProjectConfig,
+    normalizeLintRulesConfig
+} from "./configs/index.js";
 import { gmlLanguage } from "./language/index.js";
 import { featherLintRules, gmlLintRules } from "./rules/index.js";
 
@@ -26,6 +30,16 @@ const lintConfigs = createLintConfigsWithPlugins({
     featherPlugin: featherPluginObject
 });
 
+const lintProjectConfigHelpers = Object.freeze({
+    normalizeLintRulesConfig,
+    createLintRuleEntriesFromProjectConfig
+});
+
+const lintConfigNamespace = Object.freeze({
+    ...lintConfigs,
+    projectConfig: lintProjectConfigHelpers
+});
+
 export const plugin = gmlPluginObject;
 export const featherPlugin = featherPluginObject;
-export const configs = lintConfigs;
+export const configs = lintConfigNamespace;

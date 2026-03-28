@@ -87,7 +87,9 @@ The `format:gml` workspace script now pins the `format` subcommand so the help
 output spotlights formatter-specific flags. Pair it with the
 [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) when
 scripting automation, and fall back to `pnpm run cli -- --help` for the global
-command inventory.
+command inventory. The global CLI help also notes that passing just a file or
+directory path runs the `format` command implicitly, which is useful for quick
+one-off formatting checks.
 
 When you're ready to try the wrapper against a project, provide the target
 directory explicitly so the command has GameMaker sources to process:

@@ -167,6 +167,14 @@ export class GmlTranspiler {
         return lines.join("\n");
     }
 
+    private createTranspileError(contextLabel: string, error: unknown): Error {
+        const cause = Core.isErrorLike(error) ? error : undefined;
+        const message = cause?.message ?? (Core.isNonEmptyString(error) ? error : "Unknown transpilation error");
+        return new Error(`Failed to transpile ${contextLabel}: ${message}`, {
+            cause
+        });
+    }
+
     transpileScript(request: TranspileScriptRequest): ScriptPatch {
         if (!request || typeof request !== "object") {
             throw new TypeError("transpileScript requires a request object");
@@ -217,10 +225,7 @@ export class GmlTranspiler {
             };
             return patch;
         } catch (error) {
-            const message = Core.isErrorLike(error) ? error.message : String(error);
-            throw new Error(`Failed to transpile script ${symbolId}: ${message}`, {
-                cause: Core.isErrorLike(error) ? error : undefined
-            });
+            throw this.createTranspileError(`script ${symbolId}`, error);
         }
     }
 
@@ -235,10 +240,7 @@ export class GmlTranspiler {
             const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
             return emitter.emit(ast);
         } catch (error) {
-            const message = Core.isErrorLike(error) ? error.message : String(error);
-            throw new Error(`Failed to transpile expression: ${message}`, {
-                cause: Core.isErrorLike(error) ? error : undefined
-            });
+            throw this.createTranspileError("expression", error);
         }
     }
 
@@ -305,10 +307,7 @@ export class GmlTranspiler {
             };
             return patch;
         } catch (error) {
-            const message = Core.isErrorLike(error) ? error.message : String(error);
-            throw new Error(`Failed to transpile event ${symbolId}: ${message}`, {
-                cause: Core.isErrorLike(error) ? error : undefined
-            });
+            throw this.createTranspileError(`event ${symbolId}`, error);
         }
     }
 }

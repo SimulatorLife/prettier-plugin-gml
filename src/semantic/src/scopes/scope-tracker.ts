@@ -2485,6 +2485,7 @@ export class ScopeTracker {
                 scopeIdsToRemove.add(descId);
             }
         }
+        const declaredNamesToInvalidate = new Set<string>();
 
         for (const scopeId of scopeIdsToRemove) {
             const scope = this.scopesById.get(scopeId);
@@ -2496,7 +2497,7 @@ export class ScopeTracker {
             // since any scope in the tracker could have cached a lookup that resolved
             // to a declaration in this scope.
             for (const name of scope.symbolMetadata.keys()) {
-                this.identifierCache.invalidate(name);
+                declaredNamesToInvalidate.add(name);
                 const scopeSummaryMap = this.symbolToScopesIndex.get(name);
                 if (scopeSummaryMap) {
                     scopeSummaryMap.delete(scopeId);
@@ -2556,6 +2557,10 @@ export class ScopeTracker {
             }
         }
 
+        for (const name of declaredNamesToInvalidate) {
+            this.identifierCache.invalidate(name);
+        }
+
         // The lookup cache is keyed on identifier names resolved at a specific
         // stack depth; clearing it conservatively ensures no stale hits remain.
         this.lookupCache.clear();
@@ -2571,6 +2576,8 @@ export class ScopeTracker {
      * collects the file path recorded in each dependent scope's metadata.
      * This gives callers a single flat set of paths to clear and re-analyse
      * rather than requiring them to navigate the scope graph manually.
+     * Returned paths are normalized to forward-slash separators to prevent
+     * duplicate work when callers provide mixed slash conventions.
      *
      * Scopes without a `path` in their metadata (e.g. anonymous blocks) are
      * silently skipped—only named file scopes contribute to the result.
@@ -2603,8 +2610,8 @@ export class ScopeTracker {
                 continue;
             }
 
-            // Include the changed file itself.
-            result.add(filePath);
+            // Include the changed file itself with normalized separators.
+            result.add(trackedPath);
 
             for (const scopeId of scopeIds) {
                 let transitiveDeps = transitiveDependentsCache.get(scopeId);
@@ -2617,7 +2624,7 @@ export class ScopeTracker {
                     const depScope = this.scopesById.get(dep.dependentScopeId);
                     const depPath = depScope?.metadata.path;
                     if (depPath) {
-                        result.add(depPath);
+                        result.add(this.normalizeTrackedPath(depPath));
                     }
                 }
             }

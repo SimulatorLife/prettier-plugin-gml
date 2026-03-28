@@ -76,7 +76,9 @@ jobs:
         id: ref
         run: |
           if [ "${{ matrix.target }}" = "base" ]; then
-            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            # Use the live base branch ref so the base leg stays aligned with the
+            # synthetic merge ref, which GitHub rebuilds against the current base tip.
+            echo "ref=${{ github.event.pull_request.base.ref }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ matrix.target }}" = "head" ]; then
             echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           else

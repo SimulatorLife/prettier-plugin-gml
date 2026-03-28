@@ -36,29 +36,52 @@ function extractReservedPrefix(identifier) {
 }
 
 function splitNumericSuffix(text) {
-    const match = text.match(/(_?\d+)$/);
-    if (!match) {
+    if (text.length === 0) {
         return { core: text, suffixSeparator: "", suffixDigits: "" };
     }
 
-    const [fullMatch] = match;
-    const suffixDigits = fullMatch.replace(/^_/, "");
-    const suffixSeparator = fullMatch.startsWith("_") ? "_" : "";
+    let suffixStart = text.length;
+    while (suffixStart > 0) {
+        const code = text.charCodeAt(suffixStart - 1);
+        if (code < 48 || code > 57) {
+            break;
+        }
+        suffixStart -= 1;
+    }
+
+    if (suffixStart === text.length) {
+        return { core: text, suffixSeparator: "", suffixDigits: "" };
+    }
+
+    let suffixSeparator = "";
+    if (suffixStart > 0 && text.charCodeAt(suffixStart - 1) === 95) {
+        suffixSeparator = "_";
+        suffixStart -= 1;
+    }
+
+    const suffixDigits = text.slice(suffixSeparator ? suffixStart + 1 : suffixStart);
+
     return {
-        core: text.slice(0, -fullMatch.length),
+        core: text.slice(0, suffixStart),
         suffixSeparator,
         suffixDigits
     };
 }
 
 function stripEdgeUnderscores(text) {
-    const leadingMatch = text.match(/^_+/);
-    const trailingMatch = text.match(/_+$/);
+    let start = 0;
+    while (start < text.length && text.charCodeAt(start) === 95) {
+        start += 1;
+    }
 
-    const leading = leadingMatch ? leadingMatch[0] : "";
-    const trailing = trailingMatch ? trailingMatch[0] : "";
+    let end = text.length;
+    while (end > 0 && text.charCodeAt(end - 1) === 95) {
+        end -= 1;
+    }
 
-    const core = text.slice(leading.length, text.length - trailing.length);
+    const leading = text.slice(0, start);
+    const trailing = text.slice(end);
+    const core = text.slice(start, end);
     return { core, leading, trailing };
 }
 

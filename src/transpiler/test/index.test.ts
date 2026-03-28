@@ -171,3 +171,18 @@ await test("transpileExpression handles parsing errors gracefully", () => {
         message: /Failed to transpile expression/
     });
 });
+
+await test("transpileScript preserves the original error as cause", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+
+    try {
+        transpiler.transpileScript({
+            sourceText: "invalid syntax %%%%",
+            symbolId: "gml/script/test"
+        });
+        assert.fail("Expected transpileScript to throw");
+    } catch (error) {
+        assert.ok(error instanceof Error);
+        assert.ok(error.cause instanceof Error);
+    }
+});

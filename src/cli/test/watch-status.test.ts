@@ -57,6 +57,10 @@ void describe("watch-status command", () => {
             errorMessages.some((msg) => msg.includes("Is the watch command running?")),
             "Should suggest watch command is not running"
         );
+        assert.ok(
+            errorMessages.some((msg) => msg.includes("pnpm run cli -- watch-status --status-host")),
+            "Should explain how to target a custom status host and port"
+        );
     });
 
     void it("should accept format option", () => {

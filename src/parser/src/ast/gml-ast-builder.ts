@@ -3,11 +3,14 @@ import type { Token } from "antlr4";
 
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
 import type {
+    GlobalIdentifierTracker,
+    IdentifierRoleApplicator,
+    IdentifierRoleContextController,
     ParserContext,
     ParserContextWithMethods,
     ParserOptions,
     ParserToken,
-    ScopeTracker
+    ScopeLifecycle
 } from "../types/index.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 
@@ -23,7 +26,9 @@ type MutableParserVisitor = ParserVisitorInstance & {
     [methodName: string]: (...args: Array<unknown>) => unknown;
 };
 
-type ParserScopeTracker = ScopeTracker | null;
+type ParserScopeTracker =
+    | (GlobalIdentifierTracker & IdentifierRoleContextController & IdentifierRoleApplicator & ScopeLifecycle)
+    | null;
 type DirectiveKeyword = "define" | "macro";
 type DirectiveKeywordRange = {
     start: number;

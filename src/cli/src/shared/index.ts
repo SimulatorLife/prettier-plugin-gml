@@ -7,6 +7,5 @@ export * from "./error-guards.js";
 export { safeStatOrNull, writeFileArtifact, writeJsonArtifact } from "./fs-artifacts.js";
 export * from "./module.js";
 export * from "./package-resolution.js";
-export * from "./project-health.js";
 export * from "./repo-root.js";
 export * from "./workspace-paths.js";

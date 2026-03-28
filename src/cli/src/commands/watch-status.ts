@@ -204,7 +204,12 @@ export async function runWatchStatusCommand(options: WatchStatusCommandOptions =
 
         if (message.includes("ECONNREFUSED") || message.includes("fetch failed")) {
             console.error(
-                `Failed to connect to watch status server at ${statusHost}:${statusPort}.\nIs the watch command running?`
+                [
+                    `Failed to connect to watch status server at ${statusHost}:${statusPort}.`,
+                    "Is the watch command running?",
+                    "Start it with: pnpm run cli -- watch",
+                    `If watch uses a custom status server address, query with: pnpm run cli -- watch-status --status-host ${statusHost} --status-port ${statusPort}`
+                ].join("\n")
             );
         } else {
             console.error(`Error querying watch status: ${message}`);

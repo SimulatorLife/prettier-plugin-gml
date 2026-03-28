@@ -442,12 +442,12 @@ export class GmlSemanticBridge {
             edit.addFileRename(resourceDir, newResourceDir);
         }
 
-        this.addResourceMetadataEdits(edit, resource, oldName, newName);
+        this.addResourceMetadataEdits(edit, resource, newName);
 
         return edit;
     }
 
-    private addResourceMetadataEdits(edit: WorkspaceEdit, resource: any, oldName: string, newName: string): void {
+    private addResourceMetadataEdits(edit: WorkspaceEdit, resource: any, newName: string): void {
         const resources = this.resources;
         if (!resources || !resource?.path) {
             return;

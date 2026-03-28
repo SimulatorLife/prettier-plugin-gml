@@ -14,8 +14,7 @@ function isValidMacroIdentifier(name: string): boolean {
 }
 
 function splitLineCommentOutsideStringLiterals(line: string): LineCommentParts {
-    let inSingleQuotedString = false;
-    let inDoubleQuotedString = false;
+    let activeQuoteDelimiter: '"' | "'" | null = null;
     let isEscapedCharacter = false;
 
     for (let index = 0; index < line.length - 1; index += 1) {
@@ -27,22 +26,22 @@ function splitLineCommentOutsideStringLiterals(line: string): LineCommentParts {
             continue;
         }
 
-        if ((inSingleQuotedString || inDoubleQuotedString) && character === "\\") {
+        if (activeQuoteDelimiter !== null && character === "\\") {
             isEscapedCharacter = true;
             continue;
         }
 
-        if (!inDoubleQuotedString && character === "'") {
-            inSingleQuotedString = !inSingleQuotedString;
+        if (activeQuoteDelimiter === null && (character === "'" || character === '"')) {
+            activeQuoteDelimiter = character;
             continue;
         }
 
-        if (!inSingleQuotedString && character === '"') {
-            inDoubleQuotedString = !inDoubleQuotedString;
+        if (activeQuoteDelimiter === character) {
+            activeQuoteDelimiter = null;
             continue;
         }
 
-        if (!inSingleQuotedString && !inDoubleQuotedString && character === "/" && nextCharacter === "/") {
+        if (activeQuoteDelimiter === null && character === "/" && nextCharacter === "/") {
             return Object.freeze({
                 codeText: line.slice(0, index),
                 commentText: line.slice(index)
@@ -136,21 +135,21 @@ function normalizeCommentedDirectiveLine(line: string): string {
 }
 
 function normalizeLegacyBlockKeywordLine(line: string): string | null {
-    const beginBlockMatch = /^(\s*)begin\s*;?\s*(\/\/.*)?$/u.exec(line);
+    const beginBlockMatch = /^(\s*)begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (beginBlockMatch) {
         const indentation = beginBlockMatch[1] ?? "";
         const commentText = beginBlockMatch[2] ?? "";
         return commentText.trim().length === 0 ? "" : appendTrailingLineComment(`${indentation}{`, commentText);
     }
 
-    const endBlockMatch = /^(\s*)end\s*;?\s*(\/\/.*)?$/u.exec(line);
+    const endBlockMatch = /^(\s*)end\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (endBlockMatch) {
         const indentation = endBlockMatch[1] ?? "";
         const commentText = endBlockMatch[2] ?? "";
         return commentText.trim().length === 0 ? null : appendTrailingLineComment(`${indentation}}`, commentText);
     }
 
-    const inlineBeginMatch = /^(\s*)(.+?)\s+begin\s*;?\s*(\/\/.*)?$/u.exec(line);
+    const inlineBeginMatch = /^(\s*)(.+?)\s+begin\s*(?:;\s*)?(\/\/.*)?$/u.exec(line);
     if (!inlineBeginMatch) {
         return line;
     }

@@ -104,6 +104,28 @@ function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
     return args.length > 0 ? args : ["."];
 }
 
+function formatLintTargetLocation(targets: ReadonlyArray<string>): string {
+    if (targets.length === 0) {
+        return "for the provided paths";
+    }
+
+    if (targets.length === 1) {
+        return `in ${targets[0]}`;
+    }
+
+    return `across ${targets.length} paths`;
+}
+
+function emitNoLintableFilesMessage(targets: ReadonlyArray<string>): void {
+    const location = formatLintTargetLocation(targets);
+    console.warn(
+        `No ${GML_FILE_EXTENSION} files were linted ${location}. ` +
+            `Lint only processes ${GML_FILE_EXTENSION} sources. ` +
+            "Provide a file or directory containing .gml files, for example: " +
+            "pnpm dlx prettier-plugin-gml lint path/to/project."
+    );
+}
+
 function shouldPreferBundledDefaultsForExternalTargets(parameters: {
     cwd: string;
     targets: ReadonlyArray<string>;
@@ -1190,6 +1212,12 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
     try {
         await warnOverlayWithoutLanguageWiringIfNeeded({ eslint, results, quiet: options.quiet });
+
+        if (results.length === 0) {
+            emitNoLintableFilesMessage(targets);
+            setProcessExitCode(0);
+            return;
+        }
 
         const processorPolicy = await enforceProcessorPolicyForGmlFiles({
             eslint,

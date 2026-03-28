@@ -4,7 +4,6 @@ import { isNonEmptyString } from "../utils/string.js";
 // This module centralizes line break handling so parser and printer code
 // can share a single implementation instead of duplicating logic.
 
-const LINE_BREAK_PATTERN = /\r\n|[\n\r\u2028\u2029\u0085]/gu;
 const LINE_BREAK_SPLIT_PATTERN = /\r\n|[\n\r\u2028\u2029\u0085]/u;
 const CHAR_CODE_CARRIAGE_RETURN = 0x0d;
 const CHAR_CODE_LINE_FEED = 0x0a;
@@ -24,12 +23,30 @@ export function getLineBreakSpans(text) {
     }
 
     const spans: Array<{ index: number; length: number }> = [];
+    const length = text.length;
 
-    LINE_BREAK_PATTERN.lastIndex = 0;
+    for (let index = 0; index < length; index += 1) {
+        const code = text.charCodeAt(index);
 
-    let match: RegExpExecArray | null;
-    while ((match = LINE_BREAK_PATTERN.exec(text))) {
-        spans.push({ index: match.index, length: match[0].length });
+        if (code === CHAR_CODE_CARRIAGE_RETURN) {
+            if (index + 1 < length && text.charCodeAt(index + 1) === CHAR_CODE_LINE_FEED) {
+                spans.push({ index, length: 2 });
+                index += 1;
+                continue;
+            }
+
+            spans.push({ index, length: 1 });
+            continue;
+        }
+
+        if (
+            code === CHAR_CODE_LINE_FEED ||
+            code === CHAR_CODE_LINE_SEPARATOR ||
+            code === CHAR_CODE_PARAGRAPH_SEPARATOR ||
+            code === CHAR_CODE_NEXT_LINE
+        ) {
+            spans.push({ index, length: 1 });
+        }
     }
 
     return spans;

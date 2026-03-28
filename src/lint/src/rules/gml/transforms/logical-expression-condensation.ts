@@ -53,35 +53,15 @@ const IGNORED_NODE_KEYS = new Set(COMMON_IGNORED_NODE_KEYS);
 const MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE = 10;
 
 /**
- * Options controlling how logical-expression condensation should interpret AST
- * comments while traversing.
- */
-export type OptimizeLogicalExpressionsOptions = {
-    helpers?: { hasComment: (node: unknown) => boolean } | ((node: unknown) => boolean) | null;
-};
-
-function resolveHelpers(helpers?: OptimizeLogicalExpressionsOptions["helpers"]) {
-    const resolvedHasComment =
-        typeof helpers === "function"
-            ? helpers
-            : Core.isObjectLike(helpers) && typeof helpers.hasComment === "function"
-              ? helpers.hasComment
-              : Core.hasComment;
-
-    return { hasComment: resolvedHasComment };
-}
-
-/**
  * Condenses logical control-flow branches into simplified boolean return
  * expressions.
  */
-export function applyLogicalExpressionCondensation(ast: any, helpers?: OptimizeLogicalExpressionsOptions["helpers"]) {
+export function applyLogicalExpressionCondensation(ast: any) {
     if (!isNode(ast)) {
         return ast;
     }
 
-    const normalizedHelpers = resolveHelpers(helpers);
-    visit(ast, normalizedHelpers);
+    visit(ast);
     return ast;
 }
 
@@ -149,7 +129,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
     }
 }
 
-function visit(node, helpers) {
+function visit(node) {
     // Walk child nodes and attempt to collapse boolean branches into normalized boolean formulas.
     if (!isNode(node)) {
         return;
@@ -157,16 +137,16 @@ function visit(node, helpers) {
 
     if (Array.isArray(node)) {
         for (const child of node) {
-            visit(child, helpers);
+            visit(child);
         }
         return;
     }
 
     const bodyStatements = Core.getBodyStatements(node as Record<string, unknown>);
     if (bodyStatements.length > 0) {
-        condenseWithinStatements(bodyStatements, helpers);
+        condenseWithinStatements(bodyStatements);
     } else if (isNode(node.body)) {
-        visit(node.body, helpers);
+        visit(node.body);
     }
 
     forEachNodeChild(node, (value, key) => {
@@ -174,12 +154,12 @@ function visit(node, helpers) {
             return;
         }
         if (isNode(value) || Array.isArray(value)) {
-            visit(value, helpers);
+            visit(value);
         }
     });
 }
 
-function condenseWithinStatements(statements, helpers) {
+function condenseWithinStatements(statements) {
     if (!isNonEmptyArray(statements)) {
         return;
     }
@@ -191,36 +171,36 @@ function condenseWithinStatements(statements, helpers) {
         }
 
         if (statement.type === "IfStatement") {
-            const extractedGuard = tryExtractEarlyExitGuardClause(statements, index, helpers);
+            const extractedGuard = tryExtractEarlyExitGuardClause(statements, index);
             if (extractedGuard) {
                 continue;
             }
 
-            const condensed = tryCondenseIfStatement(statements, index, helpers);
+            const condensed = tryCondenseIfStatement(statements, index);
             if (condensed) {
                 // Reprocess the new return statement in case nested condensing applies later.
                 continue;
             }
         }
 
-        visit(statement, helpers);
+        visit(statement);
     }
 }
 
-function tryExtractEarlyExitGuardClause(statements, index, helpers) {
+function tryExtractEarlyExitGuardClause(statements, index) {
     const statement = statements[index];
     if (!statement || statement.type !== "IfStatement") {
         return false;
     }
 
-    if (helpers.hasComment(statement) || helpers.hasComment(statement.test)) {
+    if (Core.hasComment(statement) || Core.hasComment(statement.test)) {
         return false;
     }
-    if (helpers.hasComment(statement.consequent) || helpers.hasComment(statement.alternate)) {
+    if (Core.hasComment(statement.consequent) || Core.hasComment(statement.alternate)) {
         return false;
     }
 
-    const extractedAlternateExit = extractEarlyExitStatement(statement.alternate, helpers);
+    const extractedAlternateExit = extractEarlyExitStatement(statement.alternate);
     if (!extractedAlternateExit) {
         return false;
     }
@@ -237,17 +217,17 @@ function tryExtractEarlyExitGuardClause(statements, index, helpers) {
     return true;
 }
 
-function tryCondenseIfStatement(statements, index, helpers) {
+function tryCondenseIfStatement(statements, index) {
     const statement = statements[index];
     if (!statement || statement.type !== "IfStatement") {
         return false;
     }
 
-    if (helpers.hasComment(statement) || helpers.hasComment(statement.test)) {
+    if (Core.hasComment(statement) || Core.hasComment(statement.test)) {
         return false;
     }
 
-    const consequentExpression = extractReturnExpression(statement.consequent, helpers);
+    const consequentExpression = extractReturnExpression(statement.consequent);
     if (!consequentExpression) {
         return false;
     }
@@ -257,7 +237,7 @@ function tryCondenseIfStatement(statements, index, helpers) {
     let removeFollowingReturn = false;
 
     if (statement.alternate) {
-        alternateExpression = extractReturnExpression(statement.alternate, helpers);
+        alternateExpression = extractReturnExpression(statement.alternate);
         alternateSourceNode = statement.alternate;
         if (!alternateExpression) {
             return false;
@@ -267,12 +247,12 @@ function tryCondenseIfStatement(statements, index, helpers) {
         if (!nextStatement || nextStatement.type !== "ReturnStatement") {
             return false;
         }
-        if (helpers.hasComment(nextStatement)) {
+        if (Core.hasComment(nextStatement)) {
             return false;
         }
 
         const nextArgument = nextStatement.argument ?? null;
-        if (nextArgument && helpers.hasComment(nextArgument)) {
+        if (nextArgument && Core.hasComment(nextArgument)) {
             return false;
         }
 
@@ -352,12 +332,12 @@ function extractConsequentStatementsForGuardClause(node) {
     return [node];
 }
 
-function extractEarlyExitStatement(node, helpers) {
+function extractEarlyExitStatement(node) {
     if (!node || !isNode(node)) {
         return null;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return null;
     }
 
@@ -368,7 +348,7 @@ function extractEarlyExitStatement(node, helpers) {
         }
 
         let firstStatementIndex = 0;
-        while (firstStatementIndex < body.length && isIgnorableEmptyStatement(body[firstStatementIndex], helpers)) {
+        while (firstStatementIndex < body.length && isIgnorableEmptyStatement(body[firstStatementIndex])) {
             firstStatementIndex += 1;
         }
 
@@ -377,12 +357,12 @@ function extractEarlyExitStatement(node, helpers) {
         }
 
         const firstStatement = body[firstStatementIndex];
-        if (!isNode(firstStatement) || !isEarlyExitStatement(firstStatement, helpers)) {
+        if (!isNode(firstStatement) || !isEarlyExitStatement(firstStatement)) {
             return null;
         }
 
         for (let index = firstStatementIndex + 1; index < body.length; index += 1) {
-            if (!canDropStatementAfterEarlyExit(body[index], helpers)) {
+            if (!canDropStatementAfterEarlyExit(body[index])) {
                 return null;
             }
         }
@@ -390,10 +370,10 @@ function extractEarlyExitStatement(node, helpers) {
         return firstStatement;
     }
 
-    return isEarlyExitStatement(node, helpers) ? node : null;
+    return isEarlyExitStatement(node) ? node : null;
 }
 
-function extractReturnExpression(node, helpers) {
+function extractReturnExpression(node) {
     if (!node) {
         return null;
     }
@@ -405,7 +385,7 @@ function extractReturnExpression(node, helpers) {
         }
 
         let firstStatementIndex = 0;
-        while (firstStatementIndex < body.length && isIgnorableEmptyStatement(body[firstStatementIndex], helpers)) {
+        while (firstStatementIndex < body.length && isIgnorableEmptyStatement(body[firstStatementIndex])) {
             firstStatementIndex += 1;
         }
 
@@ -421,13 +401,13 @@ function extractReturnExpression(node, helpers) {
             return null;
         }
 
-        const returnExpression = extractReturnExpression(firstStatement, helpers);
+        const returnExpression = extractReturnExpression(firstStatement);
         if (!returnExpression) {
             return null;
         }
 
         for (let index = firstStatementIndex + 1; index < body.length; index += 1) {
-            if (!canDropUnreachableStatement(body[index], helpers)) {
+            if (!canDropUnreachableStatement(body[index])) {
                 return null;
             }
         }
@@ -442,30 +422,30 @@ function extractReturnExpression(node, helpers) {
         return null;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return null;
     }
 
     const argument = node.argument ?? null;
-    if (argument && helpers.hasComment(argument)) {
+    if (argument && Core.hasComment(argument)) {
         return null;
     }
 
     return argument;
 }
 
-function canDropStatementAfterEarlyExit(node, helpers) {
+function canDropStatementAfterEarlyExit(node) {
     if (!isNode(node)) {
         return false;
     }
     if (typeof node.type !== "string") {
         return false;
     }
-    if (isEarlyExitStatement(node, helpers)) {
-        return !helpers.hasComment(node);
+    if (isEarlyExitStatement(node)) {
+        return !Core.hasComment(node);
     }
 
-    return canDropUnreachableStatement(node, helpers);
+    return canDropUnreachableStatement(node);
 }
 
 // Early-exit statement detection with plugin-specific constraints.
@@ -473,12 +453,12 @@ function canDropStatementAfterEarlyExit(node, helpers) {
 // comment presence and return argument nullity, which are specific to the logical
 // expression condensation logic. By building on the Core type guard, we eliminate
 // the duplicated type checks while preserving the transform-specific constraints.
-function isEarlyExitStatement(node, helpers) {
+function isEarlyExitStatement(node) {
     if (!isNode(node)) {
         return false;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -490,7 +470,7 @@ function isEarlyExitStatement(node, helpers) {
     // Special handling for return statements: only consider empty returns as early exits
     if (node.type === "ReturnStatement") {
         const argument = node.argument ?? null;
-        if (argument && helpers.hasComment(argument)) {
+        if (argument && Core.hasComment(argument)) {
             return false;
         }
 
@@ -501,7 +481,7 @@ function isEarlyExitStatement(node, helpers) {
     return true;
 }
 
-function isIgnorableEmptyStatement(node, helpers) {
+function isIgnorableEmptyStatement(node) {
     if (!isNode(node)) {
         return false;
     }
@@ -509,10 +489,10 @@ function isIgnorableEmptyStatement(node, helpers) {
         return false;
     }
 
-    return canDropUnreachableStatement(node, helpers);
+    return canDropUnreachableStatement(node);
 }
 
-function canDropUnreachableStatement(node, helpers) {
+function canDropUnreachableStatement(node) {
     if (!isNode(node)) {
         return false;
     }
@@ -520,7 +500,7 @@ function canDropUnreachableStatement(node, helpers) {
         return false;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -534,7 +514,7 @@ function canDropUnreachableStatement(node, helpers) {
         }
         case "ReturnStatement": {
             const argument = node.argument ?? null;
-            if (argument && helpers.hasComment(argument)) {
+            if (argument && Core.hasComment(argument)) {
                 return false;
             }
             return true;
@@ -545,10 +525,10 @@ function canDropUnreachableStatement(node, helpers) {
                 if (!isNode(declarator)) {
                     continue;
                 }
-                if (helpers.hasComment(declarator)) {
+                if (Core.hasComment(declarator)) {
                     return false;
                 }
-                if (declarator.init && isNode(declarator.init) && helpers.hasComment(declarator.init)) {
+                if (declarator.init && isNode(declarator.init) && Core.hasComment(declarator.init)) {
                     return false;
                 }
             }

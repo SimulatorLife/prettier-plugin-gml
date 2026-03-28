@@ -3,6 +3,18 @@ import { test } from "node:test";
 
 import { Format } from "../src/index.js";
 
+function toGmlSource(lines: ReadonlyArray<string>): string {
+    return lines.join("\n");
+}
+
+async function assertFormattedOutput(
+    sourceLines: ReadonlyArray<string>,
+    expectedLines: ReadonlyArray<string>
+): Promise<void> {
+    const formatted = await Format.format(toGmlSource(sourceLines));
+    assert.equal(formatted, toGmlSource(expectedLines));
+}
+
 void test("preserves triple-slash continuation lines adjacent to doc tags", async () => {
     const source = [
         "/// @description Base doc line.",
@@ -106,23 +118,19 @@ void test("does not collapse decorative slash banners into attached block commen
 });
 
 void test("preserves adjacent non-decorative block comment blocks as separate blocks", async () => {
-    const source = [
-        "function demo() {",
-        "    /*",
-        "    Block docs",
-        "    */",
-        "    /*",
-        "    Return an array",
-        "    */",
-        "    return [1, 2, 3];",
-        "}",
-        ""
-    ].join("\n");
-
-    const formatted = await Format.format(source);
-
-    assert.equal(
-        formatted,
+    await assertFormattedOutput(
+        [
+            "function demo() {",
+            "    /*",
+            "    Block docs",
+            "    */",
+            "    /*",
+            "    Return an array",
+            "    */",
+            "    return [1, 2, 3];",
+            "}",
+            ""
+        ],
         [
             "function demo() {",
             "    /*",
@@ -134,40 +142,32 @@ void test("preserves adjacent non-decorative block comment blocks as separate bl
             "    return [1, 2, 3];",
             "}",
             ""
-        ].join("\n")
+        ]
     );
 });
 
 void test("preserves adjacent non-decorative block comment blocks at top level as separate blocks", async () => {
-    const source = ["/*", "Block docs", "*/", "/*", "Return an array", "*/", "function demo() {}", ""].join("\n");
-
-    const formatted = await Format.format(source);
-
-    assert.equal(
-        formatted,
-        ["/*", "    Block docs", "*/", "/*", "    Return an array", "*/", "function demo() {}", ""].join("\n")
+    await assertFormattedOutput(
+        ["/*", "Block docs", "*/", "/*", "Return an array", "*/", "function demo() {}", ""],
+        ["/*", "    Block docs", "*/", "/*", "    Return an array", "*/", "function demo() {}", ""]
     );
 });
 
 void test("does not merge adjacent non-decorative block comment blocks separated by whitespace", async () => {
-    const source = [
-        "function demo() {",
-        "    /*",
-        "    Block docs",
-        "    */",
-        "",
-        "    /*",
-        "    Return an array",
-        "    */",
-        "    return [1, 2, 3];",
-        "}",
-        ""
-    ].join("\n");
-
-    const formatted = await Format.format(source);
-
-    assert.equal(
-        formatted,
+    await assertFormattedOutput(
+        [
+            "function demo() {",
+            "    /*",
+            "    Block docs",
+            "    */",
+            "",
+            "    /*",
+            "    Return an array",
+            "    */",
+            "    return [1, 2, 3];",
+            "}",
+            ""
+        ],
         [
             "function demo() {",
             "    /*",
@@ -180,7 +180,7 @@ void test("does not merge adjacent non-decorative block comment blocks separated
             "    return [1, 2, 3];",
             "}",
             ""
-        ].join("\n")
+        ]
     );
 });
 
