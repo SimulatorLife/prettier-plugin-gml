@@ -94,4 +94,13 @@ void describe("define directive normalization", () => {
 
         assert.strictEqual(result.output, expected);
     });
+
+    void it("preserves inline // inside strings while still capturing trailing comments", () => {
+        const input = ['#define MSG "https://gmloop.dev" // keep comment', ""].join("\n");
+        const expected = ['#macro MSG "https://gmloop.dev" // keep comment', ""].join("\n");
+
+        const result = lintWithRule("normalize-directives", input, {});
+
+        assert.strictEqual(result.output, expected);
+    });
 });

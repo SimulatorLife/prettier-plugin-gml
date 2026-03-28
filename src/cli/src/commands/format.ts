@@ -87,6 +87,7 @@ const ParseErrorAction = Object.freeze({
     SKIP: "skip",
     ABORT: "abort"
 });
+type ParseErrorActionValue = (typeof ParseErrorAction)[keyof typeof ParseErrorAction];
 
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
 const VALID_PRETTIER_LOG_LEVELS = new Set(["debug", "info", "warn", "error", "silent"]);
@@ -240,12 +241,11 @@ async function normalizeFormattedOutputWithFormat(formatted: string, source: str
     return normalizer(formatted, source);
 }
 
-// Default parse error action: abort formatting on parse errors unless the
-// environment override explicitly requests otherwise. Tests and consumers may
-// override this behaviour with PRETTIER_PLUGIN_GML_ON_PARSE_ERROR.
-const DEFAULT_PARSE_ERROR_ACTION =
-    parseErrorActionOption.normalize(process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR, ParseErrorAction.ABORT) ??
-    ParseErrorAction.ABORT;
+// Default parse error action is intentionally hard-coded to "abort" to enforce
+// the target-state malformed-code contract: formatter runs must fail fast when
+// parsing fails and must not silently downgrade behavior via ambient process
+// environment settings.
+const DEFAULT_PARSE_ERROR_ACTION: ParseErrorActionValue = ParseErrorAction.ABORT;
 
 const DEFAULT_PRETTIER_LOG_LEVEL =
     logLevelOption.normalize(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL, "warn") ?? "warn";
@@ -572,7 +572,7 @@ const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let formattingErrorCount = 0;
 const NEGATED_IGNORE_RULE_PATTERN = /^\s*!.*\S/m;
-let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
+let parseErrorAction: ParseErrorActionValue = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
 const formattedFileOriginalContents = new Map();
@@ -774,7 +774,7 @@ async function readSnapshotContents(snapshot) {
  *
  * @param {string} onParseError
  */
-async function resetFormattingSession(onParseError) {
+async function resetFormattingSession(onParseError: ParseErrorActionValue) {
     parseErrorAction = onParseError;
     abortRequested = false;
     revertTriggered = false;
@@ -1662,7 +1662,7 @@ async function prepareFormattingRun({
     skippedDirectorySampleLimitState.configureLimit(skippedDirectorySampleLimit);
     ignoredFileSampleLimitState.configureLimit(ignoredFileSampleLimit);
     unsupportedExtensionSampleLimitState.configureLimit(unsupportedExtensionSampleLimit);
-    const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
+    const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError) as ParseErrorActionValue;
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
     verboseTimingEnabled = verbose;
