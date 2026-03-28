@@ -1216,8 +1216,12 @@ function inferReturnDocTypeFromTextAfterLine(
     return docParamTypesByName.get(inferredParamName) ?? "any";
 }
 
+function isTextualNamedFunctionDeclarationLine(line: string): boolean {
+    return /^\s*function\s+[A-Za-z_]\w*\s*\(/u.test(line);
+}
+
 function countTopLevelFunctionHeaders(lines: ReadonlyArray<string>): number {
-    return lines.filter((line) => /^\s*function\b/.test(line)).length;
+    return lines.filter((line) => isTextualNamedFunctionDeclarationLine(line)).length;
 }
 
 function isTextualConstructorFunctionLine(line: string): boolean {
@@ -1318,7 +1322,7 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                         // just `{type:"Program"}` so the map will be empty; fall back to a
                         // simple regex to recognize function headers in that case.
                         const hasLeadingIndentation = /^\s+/u.test(line);
-                        const isTextualFunctionDeclaration = /^\s*function\b/u.test(line);
+                        const isTextualFunctionDeclaration = isTextualNamedFunctionDeclarationLine(line);
                         const isTextualFunctionAssignment = /^\s*(?:var|static)\s+[A-Za-z_]\w*\s*=\s*function\b/u.test(
                             line
                         );

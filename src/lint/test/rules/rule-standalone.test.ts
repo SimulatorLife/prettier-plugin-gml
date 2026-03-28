@@ -476,6 +476,28 @@ void test("normalize-doc-comments skips synthetic docs for inline struct propert
     assertEquals(result.output, input);
 });
 
+void test("normalize-doc-comments skips synthetic docs for anonymous inline callback arguments", () => {
+    const input = [
+        "call_later(",
+        "    1800,",
+        "    time_source_units_frames,",
+        "    function() {",
+        '        gml_pragma("forceinline");',
+        "        if (!(global.camera.is_in_view(x, y, z))) {",
+        "            instance_destroy();",
+        "        }",
+        "    },",
+        "    true",
+        ");",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("normalize-doc-comments", input, {});
+    assertEquals(result.output, input);
+    assert.doesNotMatch(result.output, /^\/\/\/ @description\b/m);
+    assert.doesNotMatch(result.output, /^\/\/\/ @returns\b/m);
+});
+
 void test("normalize-directives preserves spacing and semicolons on canonical #macro lines", () => {
     const input = [
         "#macro __SCRIBBLE_PARSER_INSERT_NUKTA  ds_grid_set_grid_region(_temp_grid, _glyph_grid, _i+1, 0, _glyph_count+3, __SCRIBBLE_GEN_GLYPH.__SIZE, 0, 0);",
