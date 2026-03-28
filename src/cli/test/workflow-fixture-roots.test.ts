@@ -42,4 +42,16 @@ void describe("workflow fixture root normalization", () => {
         assert.ok(normalized.includes(includedRoot));
         assert.equal(normalized.includes(excludedRoot), false);
     });
+
+    void it("normalizes iterable fixture roots without requiring array inputs", () => {
+        function* createFixtureRoots(): Iterable<string> {
+            yield DEFAULT_FIXTURE_DIRECTORIES[0];
+            yield DEFAULT_FIXTURE_DIRECTORIES[1];
+        }
+
+        const normalized = normalizeFixtureRoots(createFixtureRoots());
+
+        assert.ok(normalized.includes(DEFAULT_FIXTURE_DIRECTORIES[0]));
+        assert.ok(normalized.includes(DEFAULT_FIXTURE_DIRECTORIES[1]));
+    });
 });
