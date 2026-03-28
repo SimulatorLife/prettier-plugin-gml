@@ -1,8 +1,8 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex, isAstNodeRecord } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 import { isIdentifier } from "../rule-helpers.js";
 
 type GlobalVarStatementRange = Readonly<{

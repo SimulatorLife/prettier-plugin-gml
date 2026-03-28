@@ -367,6 +367,22 @@ void test("limited recovery comments out malformed _this multiplication statemen
     assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
 });
 
+void test("limited recovery replaces malformed numeric assignment statements with no-op statements", () => {
+    const source = "123 = value;\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
 void test("limited recovery appends missing closing braces at end of file", () => {
     const source = [
         "function func_args()",

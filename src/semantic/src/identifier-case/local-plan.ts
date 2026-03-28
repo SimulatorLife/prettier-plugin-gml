@@ -1,7 +1,7 @@
 import { Core } from "@gmloop/core";
 
 import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
-import { applyAssetRenames, planAssetRenames } from "./asset-renames.js";
+import { applyAssetRenames, planAssetRenames } from "./asset-renames/index.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-renames/policy.js";
 import {
     buildPatternMatchers,

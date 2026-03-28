@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { RuntimeWrapper } from "../index.js";
-import { restoreGlobalProperties, snapshotGlobalProperties } from "./runtime-global-state.js";
+import { restoreGlobalProperties, snapshotGlobalProperties } from "./test-helpers/runtime-global-state.js";
 
 type JsonGameSnapshot = {
     ScriptNames: Array<string>;

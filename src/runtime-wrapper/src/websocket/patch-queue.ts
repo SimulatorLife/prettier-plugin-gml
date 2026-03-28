@@ -374,12 +374,21 @@ function orderPatchesForDependencyBatching(patches: Array<unknown>): Array<unkno
         return patches;
     }
 
-    const readyQueue = orderedIds.filter((patchId) => (incomingEdges.get(patchId) ?? 0) === 0);
+    const readyQueue: Array<string> = [];
+    for (const patchId of orderedIds) {
+        if ((incomingEdges.get(patchId) ?? 0) === 0) {
+            readyQueue.push(patchId);
+        }
+    }
+
+    let readyQueueHead = 0;
     const reordered: Array<unknown> = [];
 
-    while (readyQueue.length > 0) {
-        const nextPatchId = readyQueue.shift();
-        if (!nextPatchId || queuedIds.has(nextPatchId)) {
+    while (readyQueueHead < readyQueue.length) {
+        const nextPatchId = readyQueue[readyQueueHead];
+        readyQueueHead += 1;
+
+        if (nextPatchId === undefined || queuedIds.has(nextPatchId)) {
             continue;
         }
 

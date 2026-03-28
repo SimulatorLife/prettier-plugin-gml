@@ -1,15 +1,16 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeRecord,
     createMeta,
     getNodeEndIndex,
     getNodeStartIndex,
+    isAssignmentExpressionNodeWithOperator,
     isAstNodeRecord,
     walkAstNodes
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 type SupportedArithmeticOperator = "+" | "-" | "*" | "/";
 type SupportedNullishOperator = "??";
@@ -75,13 +76,7 @@ function isBinaryExpressionNode(node: unknown): node is BinaryExpressionNode {
 }
 
 function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
-    return (
-        isAstNodeRecord(node) &&
-        node.type === "AssignmentExpression" &&
-        node.operator === "=" &&
-        Object.hasOwn(node, "left") &&
-        Object.hasOwn(node, "right")
-    );
+    return isAssignmentExpressionNodeWithOperator(node, (operator): operator is "=" => operator === "=");
 }
 
 function containsCommentToken(expressionText: string): boolean {

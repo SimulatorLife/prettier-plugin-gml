@@ -12,6 +12,35 @@ import {
 
 const { RefactorEngine: RefactorEngineClass, WorkspaceEdit: WorkspaceEditFactory, OccurrenceKind } = Refactor;
 
+interface VerifyPostEditIntegrityFixture {
+    readonly filePath: string;
+    readonly fileContent: string;
+    readonly oldName: string;
+    readonly newName: string;
+    readonly editStart: number;
+    readonly editEnd: number;
+    readonly replacementText: string;
+}
+
+function createSingleEditWorkspace(fixture: VerifyPostEditIntegrityFixture): WorkspaceEdit {
+    const workspace = new WorkspaceEditFactory();
+    workspace.addEdit(fixture.filePath, fixture.editStart, fixture.editEnd, fixture.replacementText);
+    return workspace;
+}
+
+async function verifyPostEditIntegrityForSingleEdit(
+    engine: InstanceType<typeof RefactorEngineClass>,
+    fixture: VerifyPostEditIntegrityFixture
+) {
+    return engine.verifyPostEditIntegrity({
+        symbolId: "gml/script/test",
+        oldName: fixture.oldName,
+        newName: fixture.newName,
+        workspace: createSingleEditWorkspace(fixture),
+        readFile: async () => fixture.fileContent
+    });
+}
+
 // verifyPostEditIntegrity tests.
 void test("verifyPostEditIntegrity validates input parameters", async () => {
     const engine = new RefactorEngineClass();
@@ -74,15 +103,14 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
 
 void test("verifyPostEditIntegrity works without semantic analyzer", async () => {
     const engine = new RefactorEngineClass();
-    const ws = new WorkspaceEditFactory();
-    ws.addEdit("test.gml", 0, 3, "new");
-
-    const result = await engine.verifyPostEditIntegrity({
-        symbolId: "gml/script/test",
+    const result = await verifyPostEditIntegrityForSingleEdit(engine, {
+        filePath: "test.gml",
+        fileContent: "function new() { return 42; }",
         oldName: "old",
         newName: "new",
-        workspace: ws,
-        readFile: async () => "function new() { return 42; }"
+        editStart: 0,
+        editEnd: 3,
+        replacementText: "new"
     });
 
     assert.equal(result.valid, true);
@@ -91,15 +119,14 @@ void test("verifyPostEditIntegrity works without semantic analyzer", async () =>
 
 void test("verifyPostEditIntegrity detects lingering old names", async () => {
     const engine = new RefactorEngineClass();
-    const ws = new WorkspaceEditFactory();
-    ws.addEdit("test.gml", 0, 3, "new");
-
-    const result = await engine.verifyPostEditIntegrity({
-        symbolId: "gml/script/test",
+    const result = await verifyPostEditIntegrityForSingleEdit(engine, {
+        filePath: "test.gml",
+        fileContent: "function new() { var old = 1; return old; }",
         oldName: "old",
         newName: "new",
-        workspace: ws,
-        readFile: async () => "function new() { var old = 1; return old; }"
+        editStart: 0,
+        editEnd: 3,
+        replacementText: "new"
     });
 
     assert.equal(result.valid, false);
@@ -108,15 +135,14 @@ void test("verifyPostEditIntegrity detects lingering old names", async () => {
 
 void test("verifyPostEditIntegrity detects old names in comments", async () => {
     const engine = new RefactorEngineClass();
-    const ws = new WorkspaceEditFactory();
-    ws.addEdit("test.gml", 0, 3, "new");
-
-    const result = await engine.verifyPostEditIntegrity({
-        symbolId: "gml/script/test",
+    const result = await verifyPostEditIntegrityForSingleEdit(engine, {
+        filePath: "test.gml",
+        fileContent: "function new() { // TODO: update old references\n return 42; }",
         oldName: "old",
         newName: "new",
-        workspace: ws,
-        readFile: async () => "function new() { // TODO: update old references\n return 42; }"
+        editStart: 0,
+        editEnd: 3,
+        replacementText: "new"
     });
 
     // Comments should generate warnings, not errors
@@ -126,15 +152,14 @@ void test("verifyPostEditIntegrity detects old names in comments", async () => {
 
 void test("verifyPostEditIntegrity warns if new name not found", async () => {
     const engine = new RefactorEngineClass();
-    const ws = new WorkspaceEditFactory();
-    ws.addEdit("test.gml", 0, 3, "new");
-
-    const result = await engine.verifyPostEditIntegrity({
-        symbolId: "gml/script/test",
+    const result = await verifyPostEditIntegrityForSingleEdit(engine, {
+        filePath: "test.gml",
+        fileContent: "function foo() { return 42; }",
         oldName: "old",
         newName: "new",
-        workspace: ws,
-        readFile: async () => "function foo() { return 42; }"
+        editStart: 0,
+        editEnd: 3,
+        replacementText: "new"
     });
 
     assert.ok(result.warnings.some((w) => w.includes("New name") && w.includes("does not appear")));
@@ -157,15 +182,14 @@ void test("verifyPostEditIntegrity detects conflicts with existing symbols", asy
         }
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
-    const ws = new WorkspaceEditFactory();
-    ws.addEdit("test.gml", 0, 3, "new");
-
-    const result = await engine.verifyPostEditIntegrity({
-        symbolId: "gml/script/test",
+    const result = await verifyPostEditIntegrityForSingleEdit(engine, {
+        filePath: "test.gml",
+        fileContent: "function new() { return 42; }",
         oldName: "old",
         newName: "new",
-        workspace: ws,
-        readFile: async () => "function new() { return 42; }"
+        editStart: 0,
+        editEnd: 3,
+        replacementText: "new"
     });
 
     assert.ok(result.warnings.some((w) => w.includes("already exists") && w.includes("other.gml")));
@@ -176,15 +200,14 @@ void test("verifyPostEditIntegrity detects reserved keyword conflicts", async ()
         getReservedKeywords: async () => ["if", "else", "for", "while"]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
-    const ws = new WorkspaceEditFactory();
-    ws.addEdit("test.gml", 0, 3, "if");
-
-    const result = await engine.verifyPostEditIntegrity({
-        symbolId: "gml/script/test",
+    const result = await verifyPostEditIntegrityForSingleEdit(engine, {
+        filePath: "test.gml",
+        fileContent: "function if() { return 42; }",
         oldName: "old",
         newName: "if",
-        workspace: ws,
-        readFile: async () => "function if() { return 42; }"
+        editStart: 0,
+        editEnd: 3,
+        replacementText: "if"
     });
 
     assert.equal(result.valid, false);
@@ -201,15 +224,14 @@ void test("verifyPostEditIntegrity validates parse correctness", async () => {
         }
     };
     const engine = new RefactorEngineClass({ parser: mockParser });
-    const ws = new WorkspaceEditFactory();
-    ws.addEdit("broken.gml", 0, 3, "new");
-
-    const result = await engine.verifyPostEditIntegrity({
-        symbolId: "gml/script/test",
+    const result = await verifyPostEditIntegrityForSingleEdit(engine, {
+        filePath: "broken.gml",
+        fileContent: "function new( { return 42; }",
         oldName: "old",
         newName: "new",
-        workspace: ws,
-        readFile: async () => "function new( { return 42; }" // Missing closing paren
+        editStart: 0,
+        editEnd: 3,
+        replacementText: "new"
     });
 
     assert.equal(result.valid, false);

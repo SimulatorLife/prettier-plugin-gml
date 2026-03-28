@@ -118,3 +118,24 @@ void test("identifier case plan helpers delegate through segregated services", {
         resetIdentifierCasePlanServiceProvider();
     }
 });
+
+void test("identifier case plan service providers validate required service methods", { concurrency: false }, () => {
+    resetIdentifierCasePlanServiceProvider();
+
+    registerIdentifierCasePlanPreparationProvider(() => ({}) as never);
+    assert.throws(() => resolveIdentifierCasePlanPreparationService(), /prepareIdentifierCasePlan function/);
+
+    registerIdentifierCaseRenameLookupProvider(() => ({}) as never);
+    assert.throws(() => resolveIdentifierCaseRenameLookupService(), /getIdentifierCaseRenameForNode function/);
+
+    registerIdentifierCasePlanSnapshotCaptureProvider(() => ({}) as never);
+    assert.throws(
+        () => resolveIdentifierCasePlanSnapshotCaptureService(),
+        /captureIdentifierCasePlanSnapshot function/
+    );
+
+    registerIdentifierCasePlanSnapshotApplyProvider(() => ({}) as never);
+    assert.throws(() => resolveIdentifierCasePlanSnapshotApplyService(), /applyIdentifierCasePlanSnapshot function/);
+
+    resetIdentifierCasePlanServiceProvider();
+});

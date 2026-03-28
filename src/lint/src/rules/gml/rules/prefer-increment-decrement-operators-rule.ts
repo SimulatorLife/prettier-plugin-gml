@@ -1,16 +1,17 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     createMeta,
     getNodeEndIndex,
     getNodeStartIndex,
+    isAssignmentExpressionNodeWithOperator,
     isAstNodeRecord,
     isStandaloneStatementParentKey,
     sourceRangeContainsCommentToken,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 type IncrementDecrementAssignmentOperator = "+=" | "-=";
 type IncrementDecrementOperator = "++" | "--";
@@ -39,13 +40,7 @@ function isIncrementDecrementAssignmentOperator(operator: unknown): operator is 
 }
 
 function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
-    return (
-        isAstNodeRecord(node) &&
-        node.type === "AssignmentExpression" &&
-        isIncrementDecrementAssignmentOperator(node.operator) &&
-        Object.hasOwn(node, "left") &&
-        Object.hasOwn(node, "right")
-    );
+    return isAssignmentExpressionNodeWithOperator(node, isIncrementDecrementAssignmentOperator);
 }
 
 function isNumericLiteralOne(node: unknown, sourceText: string): boolean {

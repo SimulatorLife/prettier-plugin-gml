@@ -118,7 +118,11 @@ export function createWebSocketClient({
     patchQueue,
     logger
 }: WebSocketClientOptions = {}): RuntimeWebSocketClient {
-    const queueEnabled = patchQueue?.enabled ?? false;
+    const requestedPatchQueueEnabled = patchQueue?.enabled ?? false;
+    const queueEnabled = requestedPatchQueueEnabled && wrapper !== null;
+    if (requestedPatchQueueEnabled && wrapper === null && logger) {
+        logger.warn("Patch queue is disabled because no runtime wrapper was provided.");
+    }
     const maxQueueSize = patchQueue?.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE;
     const flushIntervalMs = patchQueue?.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
     const maxPendingPatches = maxQueueSize;

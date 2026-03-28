@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { RuntimeWrapper } from "../index.js";
 import { Runtime } from "../src/index.js";
-import { restoreGlobalProperties, snapshotGlobalProperties } from "./runtime-global-state.js";
+import { restoreGlobalProperties, snapshotGlobalProperties } from "./test-helpers/runtime-global-state.js";
 
 const colorFunctionPropertyNames = ["make_colour_rgb", "make_color_rgb"] as const;
 const builtinPropertyNames = ["g_pBuiltIn"] as const;

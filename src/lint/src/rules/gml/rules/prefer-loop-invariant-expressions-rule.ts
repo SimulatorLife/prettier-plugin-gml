@@ -1,7 +1,6 @@
 import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeRecord,
     type AstNodeWithType,
@@ -17,6 +16,7 @@ import {
     walkAstNodes,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 type LoopNodeType = "ForStatement" | "WhileStatement" | "RepeatStatement" | "DoUntilStatement";
 

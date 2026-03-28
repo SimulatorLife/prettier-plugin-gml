@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { normalizeFunctionDocCommentAttachments } from "../../src/comments/function-doc-comment-attachments.js";
+import { normalizeFunctionDocCommentAttachments } from "../../src/comments/doc-comment/function-doc-comment-attachments.js";
 
 void test("normalizeFunctionDocCommentAttachments attaches reachable function tag comments", () => {
     const comment: {
