@@ -287,6 +287,22 @@ void test("strict parse fails while limited recovery succeeds for scientific not
     assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
 });
 
+void test("limited recovery projects malformed single-slash doc tags into parse-safe comment lines", () => {
+    const source = "function foo(argument0) {\n    / @param argument0 payload\n    return argument0;\n}\n";
+
+    const strictResult = parseWithOptions(source, "none");
+    assertEquals(strictResult.ok, false);
+
+    const limitedResult = parseWithOptions(source, "limited");
+    assertEquals(limitedResult.ok, true);
+
+    if (!limitedResult.ok) {
+        assert.fail("Expected limited recovery parse success.");
+    }
+
+    assert.deepEqual(limitedResult.parserServices.gml.recovery, []);
+});
+
 void test("limited recovery lowercases uppercase logical aliases only for parsing", () => {
     const source = "if (ready AND NOT done OR extra XOR flag) {\n    finish();\n}\n";
 
