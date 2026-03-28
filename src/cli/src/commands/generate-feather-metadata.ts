@@ -1,11 +1,15 @@
 import { Core } from "@gmloop/core";
 import { Command } from "commander";
-import { parseHTML } from "linkedom";
 import type { Element } from "linkedom/types/interface/element.js";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
+import {
+    getDirectElementChildren,
+    parseManualDocument,
+    replaceBreakElementsWithNewlines
+} from "../modules/manual/html.js";
 import { getManualRootMetadataPath, readManualText, resolveManualSourceCommitHash } from "../modules/manual/source.js";
 import { type ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
@@ -173,10 +177,6 @@ function getNormalizedTextContent(element, { trim = false } = {}) {
     return getNonEmptyTrimmedString(normalized);
 }
 
-function parseDocument(html) {
-    return parseHTML(html).document;
-}
-
 function isElement(node) {
     return node?.nodeType === node?.ownerDocument?.ELEMENT_NODE;
 }
@@ -185,27 +185,13 @@ function getTagName(element) {
     return element?.tagName?.toLowerCase() ?? "";
 }
 
-function getDirectChildren(element: Element | null | undefined, selector?: string) {
-    const predicate = selector ? (child: Element) => child.matches?.(selector) === true : () => true;
-
-    return Array.from(element?.children ?? []).filter(predicate);
-}
-
-function replaceBreaksWithNewlines(clone) {
-    const document = clone.ownerDocument;
-    for (const br of clone.querySelectorAll("br")) {
-        const textNode = document.createTextNode("\n");
-        br.parentNode?.replaceChild(textNode, br);
-    }
-}
-
 function splitCellLines(element: Element | null | undefined) {
     if (!element) {
         return [];
     }
 
-    const clone = element.cloneNode(true);
-    replaceBreaksWithNewlines(clone);
+    const clone = element.cloneNode(true) as Element;
+    replaceBreakElementsWithNewlines(clone);
 
     const lines =
         clone.textContent
@@ -221,7 +207,7 @@ function createTableExtractionState(): ManualTable {
 }
 
 function getRowCells(row) {
-    return getDirectChildren(row, "th, td");
+    return getDirectElementChildren(row, "th, td");
 }
 
 function extractCellValue(cell) {
@@ -352,7 +338,9 @@ function getHeadingLevel(tagName) {
 }
 
 function extractListItems(element) {
-    const items = getDirectChildren(element, "li").map((item) => extractText(item, { preserveLineBreaks: false }));
+    const items = getDirectElementChildren(element, "li").map((item) =>
+        extractText(item, { preserveLineBreaks: false })
+    );
 
     return compactArray(items);
 }
@@ -407,8 +395,8 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
         return "";
     }
 
-    const clone = element.cloneNode(true);
-    replaceBreaksWithNewlines(clone);
+    const clone = element.cloneNode(true) as Element;
+    replaceBreakElementsWithNewlines(clone);
 
     const text = getNormalizedTextContent(clone);
     if (preserveLineBreaks) {
@@ -477,7 +465,7 @@ function collectNamingRuleSectionOptions(listItem) {
         return [];
     }
 
-    const options = getDirectChildren(nestedList, "li").map((option) =>
+    const options = getDirectElementChildren(nestedList, "li").map((option) =>
         normalizeMultilineText(extractText(option, { preserveLineBreaks: false }))
     );
 
@@ -485,7 +473,7 @@ function collectNamingRuleSectionOptions(listItem) {
 }
 
 function createNamingRuleSection(listItem) {
-    const strongChildren = getDirectChildren(listItem, "strong");
+    const strongChildren = getDirectElementChildren(listItem, "strong");
     const title = getNormalizedTextContent(strongChildren[0], { trim: true });
     const description = extractText(listItem, { preserveLineBreaks: true });
     let normalizedDescription = normalizeMultilineText(description);
@@ -556,7 +544,7 @@ function collectNamingListMetadata(mainList) {
         updateNamingListMetadataFromStrongElement(strongEl, metadata);
     }
 
-    metadata.ruleSections = getDirectChildren(mainList, "li").map((item) => createNamingRuleSection(item));
+    metadata.ruleSections = getDirectElementChildren(mainList, "li").map((item) => createNamingRuleSection(item));
 
     return metadata;
 }
@@ -786,12 +774,12 @@ function collectDiagnosticsFromHeadings(headingElements) {
 }
 
 function parseDiagnostics(html) {
-    const document = parseDocument(html);
+    const document = parseManualDocument(html);
     return collectDiagnosticsFromHeadings(document.querySelectorAll("h3"));
 }
 
 function parseNamingRules(html) {
-    const document = parseDocument(html);
+    const document = parseManualDocument(html);
     const heading = document.querySelector("h2#s4");
     if (!heading) {
         return {
@@ -847,7 +835,7 @@ function parseNamingRules(html) {
 }
 
 function parseDirectiveSections(html) {
-    const document = parseDocument(html);
+    const document = parseManualDocument(html);
     const sections = [];
 
     for (const element of document.querySelectorAll("h2")) {
@@ -883,7 +871,7 @@ function parseBaseTypeTable(table: Element) {
             return;
         }
 
-        const cells = getDirectChildren(row, "th, td");
+        const cells = getDirectElementChildren(row, "th, td");
         if (cells.length < 3) {
             return;
         }
@@ -910,7 +898,7 @@ function parseTypeValidationTable(table: Element | null) {
         return null;
     }
 
-    const headerCells = getDirectChildren(headerRow, "th, td");
+    const headerCells = getDirectElementChildren(headerRow, "th, td");
     const columns = compactArray(
         headerCells.slice(1).map((cell) => getNonEmptyTrimmedString(extractText(cell, { preserveLineBreaks: false })))
     );
@@ -918,7 +906,7 @@ function parseTypeValidationTable(table: Element | null) {
     const rows = [];
     const dataRows = Array.from(table.querySelectorAll("tr")).slice(1);
     for (const row of dataRows) {
-        const cells = getDirectChildren(row, "th, td");
+        const cells = getDirectElementChildren(row, "th, td");
         if (cells.length === 0) {
             continue;
         }
@@ -944,7 +932,7 @@ function parseTypeValidationTable(table: Element | null) {
 }
 
 function parseTypeSystem(html) {
-    const document = parseDocument(html);
+    const document = parseManualDocument(html);
     const introBlocks = [];
     const articleBody = document.querySelector("h1");
     if (articleBody) {
