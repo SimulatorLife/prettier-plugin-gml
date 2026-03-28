@@ -378,6 +378,25 @@ void describe("ScopeTracker: getImpactedFilePaths", () => {
         assert.equal(traversalCount, 2, "Each unique scope should traverse dependents only once");
     });
 
+    void it("normalizes impacted paths to avoid duplicate slash variants", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: String.raw`C:\project\helpers.gml` });
+        declareAt(tracker, "sharedUtil");
+
+        tracker.enterScope("file", { path: String.raw`C:\project\player.gml` });
+        referenceAt(tracker, "sharedUtil");
+        tracker.exitScope();
+
+        tracker.exitScope();
+
+        const result = tracker.getImpactedFilePaths(["C:/project/helpers.gml", String.raw`C:\project\helpers.gml`]);
+
+        assert.ok(result.has("C:/project/helpers.gml"));
+        assert.ok(result.has("C:/project/player.gml"));
+        assert.equal(result.size, 2, "Impacted set should not include backslash duplicates");
+    });
+
     void it("ignores null and empty strings in the input iterable", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
