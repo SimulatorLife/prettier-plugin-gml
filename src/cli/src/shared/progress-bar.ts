@@ -1,6 +1,6 @@
 import { Core } from "@gmloop/core";
 
-import { createIntegerEnvConfiguredValue } from "../shared/env-configured-integer.js";
+import { createIntegerEnvConfiguredValue } from "./env-configured-integer.js";
 
 const { coercePositiveInteger, createNumericTypeErrorFormatter, describeValueForError, resolveIntegerOption } = Core;
 

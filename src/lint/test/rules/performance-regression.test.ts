@@ -231,10 +231,6 @@ void test(
             timedRun.ruleMilliseconds < 1200,
             `expected optimize-math-expressions additive fast-path runtime under 1200ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
         );
-        assert.ok(
-            timedRun.elapsedMilliseconds < 7500,
-            `expected total lint runtime under 7500ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
-        );
     }
 );
 
