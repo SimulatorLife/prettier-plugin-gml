@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { planAssetRenames } from "../src/identifier-case/asset-renames.js";
+import { planAssetRenames } from "../src/identifier-case/asset-renames/planner.js";
 import { IdentifierCaseStyle } from "../src/identifier-case/options.js";
 
 void describe("identifier case asset rename planning", () => {
