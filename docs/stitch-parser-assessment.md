@@ -214,7 +214,7 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
   - Reads resource metadata with `Core.parseJsonWithContext` and writes with `Core.stringifyJsonForFile`.
   - Updates references via generic `propertyPath` traversal and performs file renames directly.
   - This is the highest-value replacement target for `Yy.read`/`Yy.write`.
-- `src/semantic/src/identifier-case/asset-renames.ts`
+- `src/semantic/src/identifier-case/asset-renames/planner.ts`
   - Plans asset renames and reference mutations from project-index data.
   - Depends on `resourcePath`, `gmlRenames`, and `referenceMutations`; these structures should remain, but executor internals can move to `@bscotch/yy` I/O.
 - `src/cli/src/modules/refactor/semantic-bridge.ts`
@@ -357,7 +357,7 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
 - `packages/yy/src/Yy.parse.ts`
 - `packages/yy/src/Yy.stringify.ts`
 - `src/semantic/src/identifier-case/asset-rename-executor.ts`
-- `src/semantic/src/identifier-case/asset-renames.ts`
+- `src/semantic/src/identifier-case/asset-renames/planner.ts`
 - `src/semantic/src/project-index/resource-analysis.ts`
 - `src/cli/src/modules/refactor/semantic-bridge.ts`
 - `src/refactor/src/refactor-engine.ts`
