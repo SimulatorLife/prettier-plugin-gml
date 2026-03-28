@@ -434,6 +434,33 @@ function hasRuntimePatchChanged(
 }
 
 /**
+ * Drops stale patch entries that were emitted from the same source file but now
+ * use a different patch identifier.
+ *
+ * Watch mode can produce a new patch ID for the same file when the primary
+ * symbol changes (for example, after a script rename during iterative edits).
+ * Keeping older IDs alive in `lastSuccessfulPatches` causes avoidable steady
+ * memory growth and redundant replay payloads for late subscribers.
+ */
+function clearStalePatchesForSourcePath(
+    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>,
+    sourcePath: string,
+    nextPatchId: string
+): void {
+    for (const [patchId, patch] of lastSuccessfulPatches.entries()) {
+        if (patchId === nextPatchId) {
+            continue;
+        }
+
+        const metadata = Core.isObjectLike(patch.metadata) ? patch.metadata : null;
+        const patchSourcePath = Core.isNonEmptyString(metadata?.sourcePath) ? metadata.sourcePath : null;
+        if (patchSourcePath === sourcePath) {
+            lastSuccessfulPatches.delete(patchId);
+        }
+    }
+}
+
+/**
  * Transpiles a GML file and manages the complete lifecycle including metrics
  * tracking, patch validation, symbol extraction, and WebSocket broadcasting.
  *
@@ -509,6 +536,7 @@ export function transpileFile(
 
         addToBoundedCollection(context.metrics, metrics, context.maxPatchHistory);
 
+        clearStalePatchesForSourcePath(context.lastSuccessfulPatches, filePath, patchPayload.id);
         const previousPatch = context.lastSuccessfulPatches.get(patchPayload.id);
         const runtimePatchChanged = hasRuntimePatchChanged(previousPatch, patchPayload);
 
