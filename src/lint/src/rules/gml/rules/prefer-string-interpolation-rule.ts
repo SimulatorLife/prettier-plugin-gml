@@ -1,7 +1,6 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeRecord,
     createMeta,
@@ -10,6 +9,7 @@ import {
     isAstNodeRecord,
     isAstNodeWithType
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 import { shouldReportUnsafe } from "../rule-helpers.js";
 
 const { unwrapParenthesizedExpression } = CoreWorkspace.Core;

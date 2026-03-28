@@ -2,8 +2,8 @@ import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import { printNodeForAutofix } from "../../../language/index.js";
-import type { GmlRuleDefinition } from "../../catalog.js";
 import { cloneAstNodeWithoutTraversalLinks, createMeta } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expression-traversal-normalization.js";
 
 /**

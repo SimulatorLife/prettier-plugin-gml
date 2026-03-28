@@ -1,7 +1,6 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeWithType,
     createMeta,
@@ -11,6 +10,7 @@ import {
     walkAstNodes,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 import { readObjectOption, shouldReportUnsafe } from "../rule-helpers.js";
 
 const DEFAULT_HOIST_ACCESSORS = Object.freeze({
