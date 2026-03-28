@@ -12,6 +12,9 @@ export type FlatConfig = Readonly<{
     files: ReadonlyArray<string>;
     plugins?: Readonly<Record<string, LintPluginShape>>;
     language?: string;
+    languageOptions?: Readonly<{
+        recovery: "none" | "limited";
+    }>;
     rules: Readonly<Record<string, "off" | "warn" | "error">>;
 }>;
 
@@ -116,6 +119,10 @@ export function createLintConfigsWithPlugins(plugins: LintConfigPluginSet): Lint
             files: GML_LINT_FILES_GLOB,
             plugins: Object.freeze({ gml: plugins.gmlPlugin }),
             language: "gml/gml",
+            // Keep AST-based lint passes in strict mode by default so malformed
+            // code follows the two-tier strategy: tolerant/token-safe fixes first,
+            // then AST rules only after a successful parse.
+            languageOptions: Object.freeze({ recovery: "none" }),
             rules: RECOMMENDED_RULES
         }),
         Object.freeze({
