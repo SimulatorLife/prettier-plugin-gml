@@ -5,6 +5,7 @@ import {
     createMeta,
     getNodeEndIndex,
     getNodeStartIndex,
+    isAssignmentExpressionNodeWithOperator,
     isAstNodeRecord,
     isStandaloneStatementParentKey,
     sourceRangeContainsCommentToken,
@@ -39,13 +40,7 @@ function isIncrementDecrementAssignmentOperator(operator: unknown): operator is 
 }
 
 function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
-    return (
-        isAstNodeRecord(node) &&
-        node.type === "AssignmentExpression" &&
-        isIncrementDecrementAssignmentOperator(node.operator) &&
-        Object.hasOwn(node, "left") &&
-        Object.hasOwn(node, "right")
-    );
+    return isAssignmentExpressionNodeWithOperator(node, isIncrementDecrementAssignmentOperator);
 }
 
 function isNumericLiteralOne(node: unknown, sourceText: string): boolean {

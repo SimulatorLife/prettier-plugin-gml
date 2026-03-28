@@ -6,6 +6,7 @@ import {
     createMeta,
     getNodeEndIndex,
     getNodeStartIndex,
+    isAssignmentExpressionNodeWithOperator,
     isAstNodeRecord,
     walkAstNodes
 } from "../rule-base-helpers.js";
@@ -75,13 +76,7 @@ function isBinaryExpressionNode(node: unknown): node is BinaryExpressionNode {
 }
 
 function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
-    return (
-        isAstNodeRecord(node) &&
-        node.type === "AssignmentExpression" &&
-        node.operator === "=" &&
-        Object.hasOwn(node, "left") &&
-        Object.hasOwn(node, "right")
-    );
+    return isAssignmentExpressionNodeWithOperator(node, (operator): operator is "=" => operator === "=");
 }
 
 function containsCommentToken(expressionText: string): boolean {
