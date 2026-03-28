@@ -2,18 +2,7 @@
 export const ROLE_DEF = 1;
 export const ROLE_REF = 0;
 
-// The shape is documented in the TS file; at runtime we only need the
-// constants to be present for code that imports them.
-
-/** @typedef {[number, number, number, number]} Range4 */
-
-/**
- * @typedef {{ range: Range4; symbol: string; symbolRoles: number }} ScipOccurrence
- */
-
-/**
- * @typedef {{ relativePath: string; occurrences: ScipOccurrence[] }} ScipDocInput
- */
+// Runtime exports only; structural SCIP types live in ../scopes/types.ts.
 
 export default {
     ROLE_DEF,
