@@ -20,7 +20,7 @@
  * misattached `@function`/`@func` doc-comment attachments directly inside the
  * formatter. Normalizing comment-to-node attachment is the parser's
  * responsibility (see `normalize-function-doc-comment-attachments.ts` in
- * `@gmloop/parser`). The formatter must never attempt to repair AST
+ * `@gmloop/core`). The formatter must never attempt to repair AST
  * comment attachment—if the parser delivers misattached comments, the
  * parser pass must fix them upstream. (target-state.md §2.2, §3.2)
  *
