@@ -61,4 +61,12 @@ void describe("hasInlineCommentBetween", () => {
             true
         );
     });
+
+    void it("does not report comments that begin at or after the right node boundary", () => {
+        const sourceText = "alpha beta // trailing";
+        const left = { start: { index: 0 }, end: { index: 4 } };
+        const right = { start: { index: 10 }, end: { index: 13 } };
+
+        assert.equal(Core.hasInlineCommentBetween(left, right, sourceText), false);
+    });
 });
