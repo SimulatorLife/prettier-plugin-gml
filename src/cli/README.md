@@ -17,6 +17,10 @@ Wraps the Prettier plugin to format GameMaker Language files with enhanced diagn
 
 ```bash
 pnpm run cli -- format path/to/project
+# Implicit format mode with path-only input
+pnpm run cli -- path/to/project
+# Show format command options while using path-only invocation style
+pnpm run cli -- path/to/project --help
 ```
 
 **Options:**
@@ -63,6 +67,10 @@ plugin and language (`plugins: { gml: Lint.plugin }` and
 files.
 
 `lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
+
+If a target does not contain any `.gml` files, `lint` now prints an explicit
+guidance message explaining that only `.gml` sources are processed and includes
+an example invocation.
 
 ### `fix` - Project-Wide Fix Workflow
 

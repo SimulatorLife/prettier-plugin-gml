@@ -34,6 +34,7 @@ import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./com
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { createWatchStatusCommand, runWatchStatusCommand } from "./commands/watch-status.js";
+import { CLI_COMMAND_NAMES } from "./shared/command-names.js";
 import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 
 function normalizeWriteChunk(chunk: string | Uint8Array, encoding?: BufferEncoding): string {
@@ -81,10 +82,40 @@ function resolveHelpAliasArguments(args) {
     }
 
     if (!isHelpAliasCommand(args)) {
-        return args;
+        return normalizeFormatCommandHelpShortcut(args);
     }
 
     return resolveHelpAliasCommandArguments(args);
+}
+
+function normalizeFormatCommandHelpShortcut(args) {
+    if (!containsHelpFlag(args)) {
+        return args;
+    }
+
+    const firstArgument = args[0];
+    if (typeof firstArgument !== "string") {
+        return args;
+    }
+
+    const normalizedFirstArgument = firstArgument.trim().toLowerCase();
+    if (normalizedFirstArgument.length === 0) {
+        return args;
+    }
+
+    if (normalizedFirstArgument.startsWith("-")) {
+        return args;
+    }
+
+    if (CLI_COMMAND_NAMES.has(normalizedFirstArgument)) {
+        return args;
+    }
+
+    return [FORMAT_ACTION, "--help"];
+}
+
+function containsHelpFlag(args) {
+    return args.some((argument) => argument === "--help" || argument === "-h");
 }
 
 function isHelpRequest(input: unknown): boolean {
@@ -121,7 +152,10 @@ const program = applyStandardCommandOptions(new Command())
             "Provides formatting, benchmarking, and manual data generation commands.",
             resolveDefaultAction() === FORMAT_ACTION
                 ? `Defaults to running the ${FORMAT_ACTION} command when no command is provided.`
-                : `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`
+                : [
+                      `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`,
+                      `Tip: passing only a file or directory path runs '${FORMAT_ACTION}' for that target.`
+                  ].join(" ")
         ].join(" \n")
     )
     .version(resolveCliVersion(), "-V, --version", "Show CLI version information.");

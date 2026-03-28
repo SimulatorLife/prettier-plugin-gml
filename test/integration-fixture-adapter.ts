@@ -64,7 +64,7 @@ export function createIntegrationFixtureAdapter() {
         },
         async run({ fixtureCase, config, inputText, runProfiledStage }) {
             const formatOptions = Format.extractProjectFormatOptions(config);
-            const lintRuleEntries = Lint.services.projectConfig.createLintRuleEntriesFromProjectConfig(config);
+            const lintRuleEntries = Lint.configs.projectConfig.createLintRuleEntriesFromProjectConfig(config);
             let temporaryRefactorWorkspacePath: string | null = null;
 
             try {

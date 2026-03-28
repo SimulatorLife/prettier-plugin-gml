@@ -239,7 +239,7 @@ void describe("hot-reload invalidation performance", () => {
         }
 
         const start = performance.now();
-        const sorted = tracker.sortPathsForReanalysis([...inputPaths].reverse());
+        const sorted = tracker.sortPathsForReanalysis(inputPaths.toReversed());
         const elapsed = performance.now() - start;
 
         assert.equal(sorted.length, inputPaths.length, "All independent paths must be returned");

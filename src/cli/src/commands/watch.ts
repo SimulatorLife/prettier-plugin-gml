@@ -428,17 +428,18 @@ export function countSourceLines(source: string): number {
 }
 
 /**
- * Computes a short SHA-256 digest of source text for change-detection purposes.
+ * Computes a compact digest of source text for change-detection purposes.
  *
- * The digest is truncated to 32 hex characters (128-bit prefix of SHA-256), which
- * provides negligible collision probability even for large projects while keeping
- * per-file memory overhead minimal.
+ * MD5 is intentionally used here because this hash is not security-sensitive:
+ * we only need a fast, deterministic fingerprint to skip redundant transpilation
+ * when file bytes are unchanged. A 128-bit digest keeps memory overhead low while
+ * reducing per-change CPU cost versus SHA-256 in the watch hot path.
  *
  * @param {string} source - Source text to hash.
  * @returns {string} 32-character hex digest.
  */
 export function hashSourceContent(source: string): string {
-    return createHash("sha256").update(source, "utf8").digest("hex").slice(0, 32);
+    return createHash("md5").update(source, "utf8").digest("hex");
 }
 
 /**
