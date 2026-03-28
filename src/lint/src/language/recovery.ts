@@ -331,6 +331,23 @@ function buildNoOpStatementLineOfSameLength(lineContent: string): string {
     return `${lineContent.slice(0, statementStartIndex)}0;${" ".repeat(availableLength - 2)}`;
 }
 
+function classifyInvalidStandaloneLineForRecovery(
+    lineContent: string
+): "none" | "replace-with-no-op-statement" | "replace-with-comment" {
+    if (
+        ORPHAN_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent) ||
+        NUMERIC_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent)
+    ) {
+        return "replace-with-no-op-statement";
+    }
+
+    if (THIS_MULTIPLICATION_STATEMENT_PATTERN.test(lineContent)) {
+        return "replace-with-comment";
+    }
+
+    return "none";
+}
+
 function projectInvalidStandaloneLinesForRecovery(sourceText: string): string {
     const segments = sourceText.match(/[^\r\n]*(?:\r\n|\r|\n|$)/gu) ?? [];
     let changed = false;
@@ -339,20 +356,14 @@ function projectInvalidStandaloneLinesForRecovery(sourceText: string): string {
         const lineEndingMatch = /(?:\r\n|\r|\n)$/u.exec(segment);
         const lineEnding = lineEndingMatch?.[0] ?? "";
         const lineContent = lineEnding.length === 0 ? segment : segment.slice(0, -lineEnding.length);
+        const lineProjection = classifyInvalidStandaloneLineForRecovery(lineContent);
 
-        if (
-            !ORPHAN_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent) &&
-            !NUMERIC_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent) &&
-            !THIS_MULTIPLICATION_STATEMENT_PATTERN.test(lineContent)
-        ) {
+        if (lineProjection === "none") {
             return segment;
         }
 
         changed = true;
-        if (
-            ORPHAN_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent) ||
-            NUMERIC_ASSIGNMENT_STATEMENT_PATTERN.test(lineContent)
-        ) {
+        if (lineProjection === "replace-with-no-op-statement") {
             return `${buildNoOpStatementLineOfSameLength(lineContent)}${lineEnding}`;
         }
 
