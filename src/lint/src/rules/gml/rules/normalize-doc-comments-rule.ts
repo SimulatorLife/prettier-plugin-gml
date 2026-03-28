@@ -5,7 +5,6 @@ import {
     convertLegacyReturnsDescriptionLinesToMetadata,
     promoteLeadingDocCommentTextToDescription
 } from "../../../doc-comment/index.js";
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     type AstNodeWithType,
     computeLineStartOffsets,
@@ -15,6 +14,7 @@ import {
     reportFullTextRewrite,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 const { applyJsDocTagAliasReplacements } = CoreWorkspace.Core;
 

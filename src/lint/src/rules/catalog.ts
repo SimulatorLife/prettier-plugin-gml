@@ -2,14 +2,7 @@ import type { Rule } from "eslint";
 
 import { createFeatherRule, featherManifest } from "./feather/index.js";
 import { createGmlRule } from "./gml/index.js";
-
-export type GmlRuleDefinition = Readonly<{
-    mapKey: `Gml${string}`;
-    shortName: string;
-    fullId: `gml/${string}`;
-    messageId: string;
-    schema: ReadonlyArray<unknown>;
-}>;
+import type { GmlRuleDefinition } from "./gml/rule-definition.js";
 
 export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freeze([
     {

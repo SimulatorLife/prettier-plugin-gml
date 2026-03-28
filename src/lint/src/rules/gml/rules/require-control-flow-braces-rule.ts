@@ -1,7 +1,7 @@
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, getNodeEndIndex, getNodeStartIndex } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 type ControlFlowStatementNode = Readonly<Record<string, unknown> & { type: string }>;
 

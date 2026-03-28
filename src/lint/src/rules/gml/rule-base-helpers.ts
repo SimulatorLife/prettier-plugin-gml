@@ -2,7 +2,7 @@ import type { GameMakerAstNode } from "@gmloop/core";
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../catalog.js";
+import type { GmlRuleDefinition } from "./rule-definition.js";
 
 const { clamp, isObjectLike } = CoreWorkspace.Core;
 

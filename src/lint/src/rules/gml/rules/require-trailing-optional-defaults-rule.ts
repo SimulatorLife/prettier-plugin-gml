@@ -1,7 +1,6 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
     type AstNodeRecord,
@@ -12,6 +11,7 @@ import {
     type SourceTextEdit,
     walkAstNodes
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 const { getNodeStartIndex, getNodeEndIndex, unwrapParenthesizedExpression: unwrapParenthesized } = CoreWorkspace.Core;
 
