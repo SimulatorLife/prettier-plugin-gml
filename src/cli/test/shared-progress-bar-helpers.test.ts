@@ -7,7 +7,7 @@ import {
     type ProgressBarStream,
     renderProgressBar,
     resetProgressBarRegistryForTesting
-} from "../src/runtime-options/progress-bar.js";
+} from "../src/shared/progress-bar.js";
 
 const ESCAPE_PREFIX = String.fromCharCode(0x1b);
 const ANSI_ESCAPE_SEQUENCE_PATTERN = new RegExp(String.raw`${ESCAPE_PREFIX}\[[0-9;?]*[A-Za-z]`, "g");
