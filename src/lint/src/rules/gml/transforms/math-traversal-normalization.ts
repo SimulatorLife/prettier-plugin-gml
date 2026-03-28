@@ -4256,47 +4256,13 @@ function insertNodeBefore(root, target, statement) {
         return false;
     }
 
-    const stack = [root];
-    const visited = new Set();
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
-        }
-
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            let targetIndex = -1;
-            for (const [index, element] of node.entries()) {
-                if (element === target) {
-                    targetIndex = index;
-                    break;
-                }
-            }
-
-            if (targetIndex !== -1) {
-                node.splice(targetIndex, 0, statement);
-                return true;
-            }
-
-            for (const element of node) {
-                stack.push(element);
-            }
-            continue;
-        }
-
-        for (const key of Object.keys(node)) {
-            if (key === "parent") continue;
-            const value = node[key];
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
+    const targetEntry = findTargetArrayEntry(root, target, "forward");
+    if (!targetEntry) {
+        return false;
     }
 
-    return false;
+    targetEntry.nodeArray.splice(targetEntry.targetIndex, 0, statement);
+    return true;
 }
 
 function markPreviousSiblingForBlankLine(root, target, context) {
@@ -4304,41 +4270,13 @@ function markPreviousSiblingForBlankLine(root, target, context) {
         return null;
     }
 
-    const stack = [root];
-    const visited = new Set();
     const sourceText = getSourceTextFromContext(context);
-
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (!isObjectLike(node) || visited.has(node)) {
-            continue;
-        }
-
-        visited.add(node);
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                const element = node[index];
-
-                if (element === target) {
-                    return preserveBlankLineIfNeeded(node, index, target, sourceText);
-                }
-
-                stack.push(element);
-            }
-            continue;
-        }
-
-        for (const key of Object.keys(node)) {
-            if (key === "parent") continue;
-            const value = node[key];
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
+    const targetEntry = findTargetArrayEntry(root, target, "forward");
+    if (!targetEntry) {
+        return null;
     }
 
-    return null;
+    return preserveBlankLineIfNeeded(targetEntry.nodeArray, targetEntry.targetIndex, target, sourceText);
 }
 
 function preserveBlankLineIfNeeded(nodeArray: Array<any>, index: number, target: any, sourceText: string | null) {
@@ -4503,6 +4441,26 @@ function removeNodeFromAst(root, target) {
         return false;
     }
 
+    const targetEntry = findTargetArrayEntry(root, target, "reverse");
+    if (!targetEntry) {
+        return false;
+    }
+
+    targetEntry.nodeArray.splice(targetEntry.targetIndex, 1);
+    return true;
+}
+
+type TargetArraySearchDirection = "forward" | "reverse";
+type TargetArrayEntry = {
+    nodeArray: Array<any>;
+    targetIndex: number;
+};
+
+function findTargetArrayEntry(root: any, target: any, direction: TargetArraySearchDirection): TargetArrayEntry | null {
+    if (!isObjectLike(root) || !target) {
+        return null;
+    }
+
     const stack = [root];
     const visited = new Set();
 
@@ -4515,13 +4473,12 @@ function removeNodeFromAst(root, target) {
         visited.add(node);
 
         if (Array.isArray(node)) {
-            for (let index = node.length - 1; index >= 0; index -= 1) {
-                const element = node[index];
-                if (element === target) {
-                    node.splice(index, 1);
-                    return true;
-                }
+            const targetIndex = findTargetIndexInArray(node, target, direction);
+            if (targetIndex !== -1) {
+                return { nodeArray: node, targetIndex };
+            }
 
+            for (const element of node) {
                 stack.push(element);
             }
             continue;
@@ -4536,7 +4493,27 @@ function removeNodeFromAst(root, target) {
         }
     }
 
-    return false;
+    return null;
+}
+
+function findTargetIndexInArray(arrayNode: Array<any>, target: any, direction: TargetArraySearchDirection): number {
+    if (direction === "reverse") {
+        for (let index = arrayNode.length - 1; index >= 0; index -= 1) {
+            if (arrayNode[index] === target) {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    for (const [index, value] of arrayNode.entries()) {
+        if (value === target) {
+            return index;
+        }
+    }
+
+    return -1;
 }
 
 function normalizeTraversalContext(ast, context) {

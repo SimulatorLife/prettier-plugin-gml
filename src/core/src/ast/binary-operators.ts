@@ -40,7 +40,6 @@ export const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     "~": { prec: 14, assoc: "right", type: "unary", style: "symbol" },
     "!": { prec: 14, assoc: "right", type: "unary", style: "symbol" },
     not: { prec: 14, assoc: "right", type: "unary", style: "keyword", canonical: "!" },
-    // "-": { prec: 14, assoc: "left", type: "unary" }, // Negate
     "*": { prec: 13, assoc: "left", type: "arithmetic", style: "symbol" },
     "/": { prec: 13, assoc: "left", type: "arithmetic", style: "symbol" },
     div: { prec: 13, assoc: "left", type: "arithmetic", style: "keyword" }, // Note: `div` is integer division in GML; it is not an alias for `/`

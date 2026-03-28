@@ -80,4 +80,10 @@ void describe("cli help command normalization", () => {
 
         assert.deepEqual(normalized, ["format", "--check"]);
     });
+
+    void it("treats implicit format targets with --help as format help requests", async () => {
+        const { normalizeCommandLineArguments } = await loadCliTestUtilities();
+
+        assert.deepEqual(normalizeCommandLineArguments(["src", "--help"]), ["format", "--help"]);
+    });
 });

@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Lint } from "../index.js";
-
-const { projectConfig } = Lint.services;
+import { createLintRuleEntriesFromProjectConfig, normalizeLintRulesConfig } from "../src/configs/index.js";
 
 void test("normalizeLintRulesConfig validates and returns rule overrides", () => {
-    const rules = projectConfig.normalizeLintRulesConfig({
+    const rules = normalizeLintRulesConfig({
         lintRules: {
             "gml/no-globalvar": "error",
             "feather/gm1000": "warn"
@@ -20,14 +18,14 @@ void test("normalizeLintRulesConfig validates and returns rule overrides", () =>
 });
 
 void test("normalizeLintRulesConfig rejects malformed lintRules", () => {
-    assert.throws(() => projectConfig.normalizeLintRulesConfig({ lintRules: [] }), {
+    assert.throws(() => normalizeLintRulesConfig({ lintRules: [] }), {
         name: "TypeError",
         message: "gmloop.json lintRules must be an object."
     });
 });
 
 void test("createLintRuleEntriesFromProjectConfig builds enabled rule entries", () => {
-    const ruleEntries = projectConfig.createLintRuleEntriesFromProjectConfig({
+    const ruleEntries = createLintRuleEntriesFromProjectConfig({
         lintRules: {
             "gml/no-globalvar": "error"
         }
@@ -39,7 +37,7 @@ void test("createLintRuleEntriesFromProjectConfig builds enabled rule entries", 
 });
 
 void test("createLintRuleEntriesFromProjectConfig passes matching top-level rule options", () => {
-    const ruleEntries = projectConfig.createLintRuleEntriesFromProjectConfig({
+    const ruleEntries = createLintRuleEntriesFromProjectConfig({
         lintRules: {
             "gml/prefer-hoistable-loop-accessors": "warn"
         },
