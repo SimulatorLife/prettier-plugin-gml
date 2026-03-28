@@ -4,6 +4,7 @@ import path from "node:path";
 import { Core } from "@gmloop/core";
 import type { FixtureAdapter } from "@gmloop/fixture-runner";
 
+import { isPathSelectedByLists } from "../src/codemods/naming-convention/path-selection.js";
 import { normalizeRefactorProjectConfig } from "../src/project-config.js";
 import { RefactorEngine } from "../src/refactor-engine.js";
 
@@ -120,8 +121,7 @@ async function createFixtureSemanticAnalyzer(projectRoot: string, gmlFilePaths: 
                 return namingTargets;
             }
 
-            const selectedPaths = new Set(filePaths.map((entry) => path.resolve(projectRoot, entry)));
-            return namingTargets.filter((target) => selectedPaths.has(path.resolve(projectRoot, target.path)));
+            return namingTargets.filter((target) => isPathSelectedByLists(projectRoot, target.path, filePaths, []));
         },
         getSymbolOccurrences(symbolName: string) {
             return occurrencesByName.get(symbolName) ?? [];
