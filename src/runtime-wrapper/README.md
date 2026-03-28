@@ -592,13 +592,13 @@ Creates a WebSocket client for receiving live patches from a development server.
 - `autoConnect` (optional): When `true`, connects immediately. Default is `true`.
 - `logger` (optional): Logger instance for structured diagnostic logging. See [Diagnostic Logging](#diagnostic-logging) for details.
 - `patchQueue` (optional): Configuration for patch queuing and batching:
-  - `enabled` (optional): When `true`, enables patch queuing. Default is `false`.
+  - `enabled` (optional): When `true`, enables patch queuing. Default is `false`. Requires `wrapper`; otherwise queuing is automatically disabled.
   - `maxQueueSize` (optional): Maximum patches to buffer before forcing a flush. Default is `100`.
   - `flushIntervalMs` (optional): Time in milliseconds to wait before flushing queued patches. Default is `50`ms.
 
 **Patch Queuing:**
 
-When `patchQueue.enabled` is `true`, incoming patches are buffered and flushed in batches rather than applied immediately. This provides several benefits:
+When `patchQueue.enabled` is `true` **and** a `wrapper` is provided, incoming patches are buffered and flushed in batches rather than applied immediately. This provides several benefits:
 
 - **Reduced overhead**: Multiple patches are applied as a single atomic batch operation
 - **Improved throughput**: During rapid file changes, patches accumulate and are flushed together

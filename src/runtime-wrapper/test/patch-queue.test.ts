@@ -316,6 +316,19 @@ void test("getPatchQueueMetrics returns null when queuing is disabled", () => {
     assert.strictEqual(metrics, null);
 });
 
+void test("patch queue is disabled when enabled without a runtime wrapper", () => {
+    const client = createWebSocketClient({
+        wrapper: null,
+        autoConnect: false,
+        patchQueue: {
+            enabled: true
+        }
+    });
+
+    const metrics = client.getPatchQueueMetrics();
+    assert.strictEqual(metrics, null);
+});
+
 void test("getPatchQueueMetrics returns initial metrics when queuing is enabled", () => {
     const wrapper = createRuntimeWrapper();
     const client = createWebSocketClient({
