@@ -104,15 +104,18 @@ export class GmlTranspiler {
         return parser.parse();
     }
 
-    private resolveProgramAst(request: TranspileScriptRequest): ProgramNode {
+    private resolveProgramAst(request: TranspileScriptRequest | TranspileEventRequest): ProgramNode {
         const astCandidate = request.ast ?? this.parseProgram(request.sourceText);
         if (!Core.isObjectLike(astCandidate)) {
-            throw new TypeError("transpileScript requires ast to be a Program-like object when provided");
+            throw new TypeError("transpile request requires ast to be a Program-like object when provided");
         }
 
         const astRecord = astCandidate as Record<string, unknown>;
+        if (astRecord.type !== "Program") {
+            throw new TypeError("transpile request requires ast.type to be 'Program' when ast is provided");
+        }
         if (!Array.isArray(astRecord.body)) {
-            throw new TypeError("transpileScript requires ast.body to be an array when ast is provided");
+            throw new TypeError("transpile request requires ast.body to be an array when ast is provided");
         }
 
         return astCandidate as ProgramNode;
@@ -280,6 +283,9 @@ export class GmlTranspiler {
         }
         if (sourcePath !== undefined && (typeof sourcePath !== "string" || sourcePath.length === 0)) {
             throw new TypeError("transpileEvent requires sourcePath to be a non-empty string when provided");
+        }
+        if (request.thisName !== undefined && (typeof request.thisName !== "string" || request.thisName.length === 0)) {
+            throw new TypeError("transpileEvent requires thisName to be a non-empty string when provided");
         }
 
         try {
