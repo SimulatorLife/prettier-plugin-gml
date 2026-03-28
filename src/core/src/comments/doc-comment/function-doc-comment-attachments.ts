@@ -1,5 +1,5 @@
-import { getNodeEndIndex, getNodeStartIndex } from "../ast/locations.js";
-import { isObjectLike } from "../utils/object.js";
+import { getNodeEndIndex, getNodeStartIndex } from "../../ast/locations.js";
+import { isObjectLike } from "../../utils/object.js";
 
 type NodeWithDocComments = {
     type?: string;

@@ -8,8 +8,8 @@
  * removal, argument initializer inference) belong in `@gmloop/lint`.
  *
  * `filterMisattachedFunctionDocComments` was a parser-workaround that lived
- * in this module but has since been correctly migrated to the parser workspace
- * (`@gmloop/parser` → `normalize-function-doc-comment-attachments.ts`).
+ * in this module but has since been correctly migrated to the core workspace
+ * (`@gmloop/core` → `normalize-function-doc-comment-attachments.ts`).
  * It must NOT be re-introduced here; the parser now handles function-tag
  * comment pre-attachment before the formatter ever runs.
  *
@@ -72,7 +72,7 @@ void test("variable-declarator-layout does not export preferred-name resolver (r
 void test("variable-declarator-layout does not export parser-workaround (filterMisattachedFunctionDocComments)", () => {
     // This function was a formatter-side workaround for comments that Prettier
     // attached to the wrong AST node. It has been correctly migrated to the
-    // parser workspace: `@gmloop/parser` →
+    // core workspace: `@gmloop/core` →
     // `normalize-function-doc-comment-attachments.ts`. The parser's
     // `normalizeFunctionDocCommentAttachments` pass now pre-attaches
     // `@function`-tag comments to their target function node before the
