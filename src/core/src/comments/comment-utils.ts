@@ -224,6 +224,11 @@ function resolveInlineCommentSourceText(sourceContext: string | InlineCommentSou
     return typeof sourceContext.sourceText === "string" ? sourceContext.sourceText : "";
 }
 
+function containsTokenBetween(sourceText: string, token: string, startIndex: number, endIndex: number): boolean {
+    const tokenIndex = sourceText.indexOf(token, startIndex);
+    return tokenIndex !== -1 && tokenIndex < endIndex;
+}
+
 /**
  * Detects whether source text contains an inline comment between two node ranges.
  *
@@ -256,13 +261,14 @@ export function hasInlineCommentBetween(
         return false;
     }
 
-    const between = sourceText.slice(leftEnd, rightStart);
-
-    if (between.length === 0) {
-        return false;
-    }
-
-    return between.includes("/*") || between.includes("//") || between.includes("#");
+    // Hot-path optimization: avoid allocating an intermediate substring for
+    // every sibling-node check. Direct index scans on the original source text
+    // preserve behavior while reducing allocations during repeated AST walks.
+    return (
+        containsTokenBetween(sourceText, "/*", leftEnd, rightStart) ||
+        containsTokenBetween(sourceText, "//", leftEnd, rightStart) ||
+        containsTokenBetween(sourceText, "#", leftEnd, rightStart)
+    );
 }
 
 /**

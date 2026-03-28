@@ -17,11 +17,7 @@ export function normalizeFixtureRoots(
     filterOptions: WorkflowPathFilterOptions = {}
 ): Array<string> {
     const pathFilter = createWorkflowPathFilter(filterOptions);
-    const additionalRootEntries: Array<unknown> = [];
-
-    for (const rootCandidate of Array.isArray(additionalRoots) ? additionalRoots : toArray(additionalRoots)) {
-        additionalRootEntries.push(rootCandidate);
-    }
+    const additionalRootEntries = Array.isArray(additionalRoots) ? additionalRoots : toArray(additionalRoots);
 
     const normalizedCandidates = normalizeWorkflowPathList([...DEFAULT_FIXTURE_DIRECTORIES, ...additionalRootEntries]);
 
