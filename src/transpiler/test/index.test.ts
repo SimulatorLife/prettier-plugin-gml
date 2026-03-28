@@ -151,6 +151,22 @@ await test("transpileScript rejects malformed ast objects before property access
     );
 });
 
+await test("transpileScript rejects non-Program ast objects", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+
+    assert.throws(
+        () =>
+            transpiler.transpileScript({
+                sourceText: "x = 1 + 2",
+                symbolId: "gml/script/test",
+                ast: { type: "BinaryExpression", body: [] }
+            } as unknown as TranspileScriptArgs),
+        {
+            message: /ast\.type to be 'Program'/
+        }
+    );
+});
+
 await test("transpileScript handles parsing errors gracefully", () => {
     const transpiler = new Transpiler.GmlTranspiler();
 
