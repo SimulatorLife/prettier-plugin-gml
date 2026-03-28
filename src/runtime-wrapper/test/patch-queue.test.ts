@@ -120,6 +120,14 @@ function sendScriptPatchWithDependencies(
     ws.simulateMessage(JSON.stringify({ kind: "script", id, js_body: jsBody, metadata: { dependencies } }));
 }
 
+function sendChainedDependencyPatches(ws: MockWebSocket, count: number): void {
+    for (let index = count - 1; index >= 0; index -= 1) {
+        const patchId = `gml/script/chain_${index}`;
+        const dependencies = index === 0 ? [] : [`gml/script/chain_${index - 1}`];
+        sendScriptPatchWithDependencies(ws, patchId, dependencies, `return ${index};`);
+    }
+}
+
 function sendScriptPatchBatch(ws: MockWebSocket, patches: Array<{ id: string; js_body?: string }>): void {
     ws.simulateMessage(
         JSON.stringify(
@@ -264,6 +272,32 @@ void test("patch queue reorders dependency-linked patches before batch apply", a
 
         const metrics = client.getConnectionMetrics();
         assert.strictEqual(metrics.patchesApplied, 2);
+        assert.strictEqual(metrics.patchesFailed, 0);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
+void test("patch queue applies long dependency chains from reverse receive order", async () => {
+    const { wrapper, client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 1000,
+            maxQueueSize: 300
+        }
+    });
+
+    try {
+        sendChainedDependencyPatches(ws, 120);
+
+        const flushedCount = client.flushPatchQueue();
+        assert.strictEqual(flushedCount, 120);
+
+        assert.ok(wrapper.hasScript("gml/script/chain_0"), "First dependency patch should be applied");
+        assert.ok(wrapper.hasScript("gml/script/chain_119"), "Last dependent patch should be applied");
+
+        const metrics = client.getConnectionMetrics();
+        assert.strictEqual(metrics.patchesApplied, 120);
         assert.strictEqual(metrics.patchesFailed, 0);
     } finally {
         client.disconnect();
