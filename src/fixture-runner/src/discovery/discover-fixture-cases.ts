@@ -132,6 +132,45 @@ function isSupportedFixtureKind(kind: string): kind is FixtureCase["kind"] {
     return kind === "refactor" || TEXT_FIXTURE_KINDS.has(kind);
 }
 
+function collectFixtureCaseValidationErrors(
+    kind: FixtureProjectConfig["fixture"]["kind"],
+    assertion: FixtureAssertion,
+    fileNames: ReadonlySet<string>,
+    directoryNames: ReadonlySet<string>
+): Array<string> {
+    if (!isSupportedFixtureKind(kind)) {
+        return [`unsupported fixture kind ${JSON.stringify(kind)}`];
+    }
+
+    if (kind === "refactor") {
+        return validateRefactorFixtureCaseLayout(assertion, fileNames, directoryNames);
+    }
+
+    return validateTextFixtureCaseLayout(assertion, fileNames, directoryNames);
+}
+
+function deriveFixtureCasePaths(
+    fixturePath: string,
+    kind: FixtureCase["kind"],
+    fileNames: ReadonlySet<string>
+): Pick<FixtureCase, "inputFilePath" | "expectedFilePath" | "projectDirectoryPath" | "expectedDirectoryPath"> {
+    if (kind === "refactor") {
+        return {
+            inputFilePath: null,
+            expectedFilePath: null,
+            projectDirectoryPath: path.join(fixturePath, PROJECT_DIRECTORY_NAME),
+            expectedDirectoryPath: path.join(fixturePath, EXPECTED_DIRECTORY_NAME)
+        };
+    }
+
+    return {
+        inputFilePath: path.join(fixturePath, INPUT_FILE_NAME),
+        expectedFilePath: fileNames.has(EXPECTED_FILE_NAME) ? path.join(fixturePath, EXPECTED_FILE_NAME) : null,
+        projectDirectoryPath: null,
+        expectedDirectoryPath: null
+    };
+}
+
 async function createFixtureCase(rootPath: string, fixturePath: string): Promise<FixtureCase> {
     const configPath = path.join(fixturePath, GMLOOP_CONFIG_FILE_NAME);
     const config = await loadFixtureProjectConfig(configPath);
@@ -140,18 +179,18 @@ async function createFixtureCase(rootPath: string, fixturePath: string): Promise
     const directoryNames = new Set(entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name));
     const assertion = deriveDefaultAssertion(config, fileNames);
     const comparison = deriveDefaultComparison(config);
-    const validationErrors =
-        config.fixture.kind === "refactor"
-            ? validateRefactorFixtureCaseLayout(assertion, fileNames, directoryNames)
-            : validateTextFixtureCaseLayout(assertion, fileNames, directoryNames);
-
-    if (!isSupportedFixtureKind(config.fixture.kind)) {
-        validationErrors.push(`unsupported fixture kind ${JSON.stringify(config.fixture.kind)}`);
-    }
+    const validationErrors = collectFixtureCaseValidationErrors(
+        config.fixture.kind,
+        assertion,
+        fileNames,
+        directoryNames
+    );
 
     if (validationErrors.length > 0) {
         throw new Error(`${normalizeCaseId(rootPath, fixturePath)}: ${validationErrors.join(", ")}`);
     }
+
+    const casePaths = deriveFixtureCasePaths(fixturePath, config.fixture.kind, fileNames);
 
     return Object.freeze({
         caseId: normalizeCaseId(rootPath, fixturePath),
@@ -161,15 +200,7 @@ async function createFixtureCase(rootPath: string, fixturePath: string): Promise
         kind: config.fixture.kind,
         assertion,
         comparison,
-        inputFilePath: config.fixture.kind === "refactor" ? null : path.join(fixturePath, INPUT_FILE_NAME),
-        expectedFilePath:
-            config.fixture.kind === "refactor" || !fileNames.has(EXPECTED_FILE_NAME)
-                ? null
-                : path.join(fixturePath, EXPECTED_FILE_NAME),
-        projectDirectoryPath:
-            config.fixture.kind === "refactor" ? path.join(fixturePath, PROJECT_DIRECTORY_NAME) : null,
-        expectedDirectoryPath:
-            config.fixture.kind === "refactor" ? path.join(fixturePath, EXPECTED_DIRECTORY_NAME) : null
+        ...casePaths
     });
 }
 

@@ -110,6 +110,49 @@ void test("discoverFixtureCases rejects text fixtures that use the project-tree 
     }
 });
 
+void test("discoverFixtureCases assigns fixture paths by kind", async () => {
+    const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-paths-"));
+    await createTextFixtureCase(
+        rootPath,
+        "format-idempotent",
+        {
+            fixture: {
+                kind: "format",
+                assertion: "idempotent"
+            }
+        },
+        "var value = 1;\n"
+    );
+
+    const refactorCasePath = path.join(rootPath, "refactor-project-tree");
+    await mkdir(path.join(refactorCasePath, "project"), { recursive: true });
+    await mkdir(path.join(refactorCasePath, "expected"), { recursive: true });
+    await writeFile(
+        path.join(refactorCasePath, "gmloop.json"),
+        `${JSON.stringify({ fixture: { kind: "refactor", assertion: "project-tree" } }, null, 2)}\n`,
+        "utf8"
+    );
+
+    try {
+        const fixtureCases = await FixtureRunner.discoverFixtureCases(rootPath);
+        const textCase = fixtureCases.find((fixtureCase) => fixtureCase.caseId === "format-idempotent");
+        assert.ok(textCase);
+        assert.equal(textCase.inputFilePath, path.join(rootPath, "format-idempotent", "input.gml"));
+        assert.equal(textCase.expectedFilePath, null);
+        assert.equal(textCase.projectDirectoryPath, null);
+        assert.equal(textCase.expectedDirectoryPath, null);
+
+        const refactorCase = fixtureCases.find((fixtureCase) => fixtureCase.caseId === "refactor-project-tree");
+        assert.ok(refactorCase);
+        assert.equal(refactorCase.inputFilePath, null);
+        assert.equal(refactorCase.expectedFilePath, null);
+        assert.equal(refactorCase.projectDirectoryPath, path.join(rootPath, "refactor-project-tree", "project"));
+        assert.equal(refactorCase.expectedDirectoryPath, path.join(rootPath, "refactor-project-tree", "expected"));
+    } finally {
+        await rm(rootPath, { recursive: true, force: true });
+    }
+});
+
 void test("runFixtureSuite records profiling metrics and writes reports", async () => {
     const rootPath = await mkdtemp(path.join(os.tmpdir(), "fixture-runner-suite-"));
     const reportPath = path.join(rootPath, "fixture-profile.json");
