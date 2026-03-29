@@ -38,4 +38,23 @@ void describe("gml parser adapter", () => {
         const source = ["if (do_generic(0, 1 2, 3)) {", "    return 2;", "}"].join("\n");
         assert.throws(() => gmlParserAdapter.parse(source));
     });
+
+    void it("does not attach parser-owned function doc comments during formatter parsing", async () => {
+        const source = [
+            "// @function legacy_doc_alias(arg0)",
+            "function legacy_doc_alias(arg0) {",
+            "    return arg0;",
+            "}"
+        ].join("\n");
+
+        const ast = gmlParserAdapter.parse(source) as { body?: Array<{ type?: string; docComments?: unknown[] }> };
+        const functionDeclaration = (ast.body ?? []).find((node) => node?.type === "FunctionDeclaration");
+
+        assert.ok(functionDeclaration, "Expected a FunctionDeclaration node in the parsed AST.");
+        assert.deepStrictEqual(
+            functionDeclaration?.docComments ?? [],
+            [],
+            "Formatter parser path must not apply parser-side doc-comment attachment normalization; doc-comment promotion/attachment rewrites are lint-owned."
+        );
+    });
 });
