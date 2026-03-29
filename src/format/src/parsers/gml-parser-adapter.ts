@@ -9,7 +9,10 @@ import { Parser } from "@gmloop/parser";
 const PARSER_OPTIONS = {
     getLocations: true,
     simplifyLocations: false,
-    getComments: true
+    getComments: true,
+    // Formatter must remain layout-only; parser-side doc-comment attachment
+    // normalization is lint-owned and should not run in the formatter pipeline.
+    attachFunctionDocComments: false
 } as const;
 
 function parse(text: string): MutableGameMakerAstNode {
