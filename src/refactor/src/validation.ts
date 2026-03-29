@@ -6,6 +6,13 @@
 import { Core } from "@gmloop/core";
 
 import {
+    assertValidIdentifierName,
+    DEFAULT_RESERVED_KEYWORDS,
+    extractSymbolName,
+    parseSymbolIdParts,
+    tryNormalizeIdentifierName
+} from "./rename/index.js";
+import {
     type ConflictEntry,
     ConflictType,
     type FileSymbolProvider,
@@ -14,13 +21,6 @@ import {
     type SymbolOccurrence,
     type SymbolResolver
 } from "./types.js";
-import {
-    assertValidIdentifierName,
-    DEFAULT_RESERVED_KEYWORDS,
-    extractSymbolName,
-    parseSymbolIdParts,
-    tryNormalizeIdentifierName
-} from "./validation-utils.js";
 
 /**
  * Internal sentinel value to represent global (unscoped) symbol occurrences.

@@ -6,7 +6,7 @@ import {
     extractSymbolName,
     parseSymbolIdParts,
     tryNormalizeIdentifierName
-} from "../src/validation-utils.js";
+} from "../src/rename/index.js";
 
 void describe("assertValidIdentifierName", () => {
     void test("accepts valid identifier", () => {
