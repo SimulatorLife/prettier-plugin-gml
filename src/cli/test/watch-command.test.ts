@@ -10,6 +10,7 @@ import {
     createExtensionMatcher,
     createWatchCommand,
     hashSourceContent,
+    resolveDependentRetranspileConcurrency,
     resolveUnknownScanConcurrency,
     runWatchCommand
 } from "../src/commands/watch.js";
@@ -94,6 +95,14 @@ void describe("watch command", () => {
         assert.equal(resolveUnknownScanConcurrency(0), 1);
         assert.equal(resolveUnknownScanConcurrency(-5), 1);
         assert.equal(resolveUnknownScanConcurrency(8.7), 8);
+    });
+
+    void it("resolveDependentRetranspileConcurrency clamps values to at least one", () => {
+        assert.equal(resolveDependentRetranspileConcurrency(12), 12);
+        assert.equal(resolveDependentRetranspileConcurrency(1), 1);
+        assert.equal(resolveDependentRetranspileConcurrency(0), 1);
+        assert.equal(resolveDependentRetranspileConcurrency(-3), 1);
+        assert.equal(resolveDependentRetranspileConcurrency(5.9), 5);
     });
 });
 
