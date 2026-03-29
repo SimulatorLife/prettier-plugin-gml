@@ -905,6 +905,24 @@ type TestRecordEntry = { status?: string; node?: TestRecordNode };
 const FILE_NAME_SEPARATOR = "::";
 
 /**
+ * Normalize file/name identity fields from a parsed test record.
+ */
+function getNormalizedTestRecordIdentity(record: TestRecordEntry): {
+    file: string;
+    fileLowerCase: string;
+    name: string;
+} {
+    const file = typeof record.node?.file === "string" ? record.node.file.trim() : "";
+    const name = typeof record.node?.name === "string" ? record.node.name.trim() : "";
+
+    return {
+        file,
+        fileLowerCase: file.toLowerCase(),
+        name
+    };
+}
+
+/**
  * Build a secondary lookup of base failures keyed by `(file, testName)`.
  *
  * This is used to detect when a failing target test corresponds to an already-failing
@@ -920,10 +938,9 @@ function buildBaseFailuresByFileAndName(baseResults: Map<string, unknown>): Set<
         if (r.status !== TestCaseStatus.FAILED) {
             continue;
         }
-        const file = typeof r.node?.file === "string" ? r.node.file.trim() : "";
-        const name = typeof r.node?.name === "string" ? r.node.name.trim() : "";
-        if (file && name) {
-            index.add(`${file.toLowerCase()}${FILE_NAME_SEPARATOR}${name}`);
+        const { fileLowerCase, name } = getNormalizedTestRecordIdentity(r);
+        if (fileLowerCase && name) {
+            index.add(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`);
         }
     }
     return index;
@@ -944,9 +961,9 @@ function buildTargetFilesWithPassingTests(targetResults: Map<string, unknown>): 
     for (const record of targetResults.values()) {
         const r = record as TestRecordEntry;
         if (r.status === TestCaseStatus.PASSED) {
-            const file = typeof r.node?.file === "string" ? r.node.file.trim().toLowerCase() : "";
-            if (file) {
-                passingFiles.add(file);
+            const { fileLowerCase } = getNormalizedTestRecordIdentity(r);
+            if (fileLowerCase) {
+                passingFiles.add(fileLowerCase);
             }
         }
     }
@@ -965,13 +982,12 @@ function buildTargetFilesWithPassingTests(targetResults: Map<string, unknown>): 
  * crash is an infrastructure artifact that should not block auto-merge.
  */
 function isNodeRunnerFileLevelCrash(targetRecord: TestRecordEntry, targetFilesWithPassingTests: Set<string>): boolean {
-    const file = typeof targetRecord.node?.file === "string" ? targetRecord.node.file.trim() : "";
-    const name = typeof targetRecord.node?.name === "string" ? targetRecord.node.name.trim() : "";
+    const { file, fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
     if (!file || !name) {
         return false;
     }
     // The synthetic record's name is the relative path portion of the absolute file path.
-    if (!file.toLowerCase().endsWith(name.toLowerCase())) {
+    if (!fileLowerCase.endsWith(name.toLowerCase())) {
         return false;
     }
     // Confirm it looks like a test file path.
@@ -979,7 +995,7 @@ function isNodeRunnerFileLevelCrash(targetRecord: TestRecordEntry, targetFilesWi
         return false;
     }
     // If passing inner tests exist for this file, the crash is a runner artefact.
-    return targetFilesWithPassingTests.has(file.toLowerCase());
+    return targetFilesWithPassingTests.has(fileLowerCase);
 }
 
 function createRegressionRecord({
@@ -1011,9 +1027,8 @@ function createRegressionRecord({
     // (e.g., `<undefined>` wrapper tags), causing the suite-path prefix of existing
     // tests to change. Those renamed failures must not be reported as new regressions.
     if (baseStatus === undefined) {
-        const file = typeof targetRecord.node?.file === "string" ? targetRecord.node.file.trim() : "";
-        const name = typeof targetRecord.node?.name === "string" ? targetRecord.node.name.trim() : "";
-        if (file && name && baseFailuresByFileAndName.has(`${file.toLowerCase()}${FILE_NAME_SEPARATOR}${name}`)) {
+        const { fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
+        if (fileLowerCase && name && baseFailuresByFileAndName.has(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`)) {
             return null;
         }
         // Detect node test runner file-level crash records: synthetic testcases where
