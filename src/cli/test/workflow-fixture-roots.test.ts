@@ -29,14 +29,14 @@ void describe("workflow fixture root normalization", () => {
         assert.equal(normalized.includes(deniedRoot), false);
     });
 
-    void it("accepts allow/deny aliases for fixture path filtering", () => {
-        const root = path.resolve("/tmp", "fixture-roots", "aliases");
+    void it("applies canonical allowPaths/denyPaths for fixture path filtering", () => {
+        const root = path.resolve("/tmp", "fixture-roots", "canonical");
         const includedRoot = path.join(root, "included");
         const excludedRoot = path.join(includedRoot, "excluded");
 
         const normalized = normalizeFixtureRoots([includedRoot, excludedRoot], {
-            includePaths: [includedRoot],
-            excludePaths: [excludedRoot]
+            allowPaths: [includedRoot],
+            denyPaths: [excludedRoot]
         });
 
         assert.ok(normalized.includes(includedRoot));
