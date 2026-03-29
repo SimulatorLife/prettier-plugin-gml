@@ -15,17 +15,18 @@ const DOUBLE_INDENT_TO_SINGLE = new Map([
     ["\t\t", "\t"]
 ]);
 
-function collapseDuplicateBlankLines(formatted: string): string {
-    return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
+type NormalizationStep = (formatted: string) => string;
+
+function createPatternReplacementStep(pattern: RegExp, replacement: string): NormalizationStep {
+    return (formatted: string) => formatted.replaceAll(pattern, replacement);
 }
 
-function collapseWhitespaceOnlyBlankLines(formatted: string): string {
-    return formatted.replaceAll(WHITESPACE_ONLY_BLANK_LINE_PATTERN, "\n\n");
-}
-
-function collapseLineCommentToBlockCommentBlankLines(formatted: string): string {
-    return formatted.replaceAll(LINE_COMMENT_TO_BLOCK_COMMENT_BLANK_PATTERN, "$1\n");
-}
+const collapseDuplicateBlankLines = createPatternReplacementStep(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
+const collapseWhitespaceOnlyBlankLines = createPatternReplacementStep(WHITESPACE_ONLY_BLANK_LINE_PATTERN, "\n\n");
+const collapseLineCommentToBlockCommentBlankLines = createPatternReplacementStep(
+    LINE_COMMENT_TO_BLOCK_COMMENT_BLANK_PATTERN,
+    "$1\n"
+);
 
 function collapseBlockOpeningBlankLines(formatted: string): string {
     return formatted.replaceAll(BLOCK_OPENING_BLANK_PATTERN, (matched, offset, source) => {
@@ -46,13 +47,11 @@ function collapseBlockOpeningBlankLines(formatted: string): string {
     });
 }
 
-function trimDecorativeCommentBlankLines(formatted: string): string {
-    return formatted.replaceAll(DECORATIVE_COMMENT_BLANK_PATTERN, "{\n\n");
-}
-
-function normalizeInlineTrailingCommentSpacing(formatted: string): string {
-    return formatted.replaceAll(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
-}
+const trimDecorativeCommentBlankLines = createPatternReplacementStep(DECORATIVE_COMMENT_BLANK_PATTERN, "{\n\n");
+const normalizeInlineTrailingCommentSpacing = createPatternReplacementStep(
+    INLINE_TRAILING_COMMENT_SPACING_PATTERN,
+    " "
+);
 
 function normalizeSingleCommentBlockIndentation(formatted: string): string {
     const lines = formatted.split("\n");
