@@ -238,7 +238,7 @@ export function deduplicatePatchesById(patches: Array<unknown>): {
     patches: Array<unknown>;
     duplicateCount: number;
 } {
-    if (patches.length < 2 || !hasDuplicatePatchIds(patches)) {
+    if (patches.length < 2) {
         return { patches, duplicateCount: 0 };
     }
 
@@ -263,27 +263,12 @@ export function deduplicatePatchesById(patches: Array<unknown>): {
         deduplicatedReversed.push(patch);
     }
 
-    deduplicatedReversed.reverse();
-    return { patches: deduplicatedReversed, duplicateCount };
-}
-
-function hasDuplicatePatchIds(patches: Array<unknown>): boolean {
-    const seenIds = new Set<string>();
-
-    for (const patch of patches) {
-        const patchId = extractPatchId(patch);
-        if (patchId === null) {
-            continue;
-        }
-
-        if (seenIds.has(patchId)) {
-            return true;
-        }
-
-        seenIds.add(patchId);
+    if (duplicateCount === 0) {
+        return { patches, duplicateCount: 0 };
     }
 
-    return false;
+    deduplicatedReversed.reverse();
+    return { patches: deduplicatedReversed, duplicateCount };
 }
 
 function extractPatchId(patch: unknown): string | null {

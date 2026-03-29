@@ -2,6 +2,7 @@ import assert from "node:assert";
 import { test } from "node:test";
 
 import { Clients, Runtime } from "../src/index.js";
+import { deduplicatePatchesById } from "../src/websocket/patch-queue.js";
 
 const { createRuntimeWrapper } = Runtime;
 const { createWebSocketClient } = Clients;
@@ -251,6 +252,29 @@ void test("patch queue tracks patches received without double-counting on flush"
         client.disconnect();
         restoreRuntimeGlobals();
     }
+});
+
+void test("deduplicatePatchesById preserves input reference when no duplicate ids exist", () => {
+    const patches = [
+        { kind: "script", id: "gml/script/a", js_body: "return 1;" },
+        { kind: "script", id: "gml/script/b", js_body: "return 2;" },
+        { kind: "event", id: "obj_player#Step", js_body: "return;" }
+    ];
+
+    const result = deduplicatePatchesById(patches);
+    assert.strictEqual(result.duplicateCount, 0);
+    assert.strictEqual(result.patches, patches);
+});
+
+void test("deduplicatePatchesById keeps only the newest patch for duplicate ids", () => {
+    const firstVersion = { kind: "script", id: "gml/script/a", js_body: "return 1;" };
+    const newestVersion = { kind: "script", id: "gml/script/a", js_body: "return 99;" };
+    const uniquePatch = { kind: "script", id: "gml/script/b", js_body: "return 2;" };
+    const patches = [firstVersion, uniquePatch, newestVersion];
+
+    const result = deduplicatePatchesById(patches);
+    assert.strictEqual(result.duplicateCount, 1);
+    assert.deepStrictEqual(result.patches, [uniquePatch, newestVersion]);
 });
 
 void test("patch queue reorders dependency-linked patches before batch apply", async () => {
