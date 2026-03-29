@@ -939,6 +939,72 @@ void test("WebSocket client disconnects cleanly", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
+void test("WebSocket client removes socket observers on disconnect to prevent listener leaks", () => {
+    type Listener = (event?: Error | MessageEventLike) => void;
+    type ListenerMap = Record<WebSocketEvent, Array<Listener>>;
+
+    class ListenerTrackingWebSocket implements RuntimeWebSocketInstance {
+        public readyState = 0;
+        private readonly listeners: ListenerMap = {
+            open: [],
+            message: [],
+            close: [],
+            error: []
+        };
+
+        constructor(public readonly url: string) {
+            void this.url;
+        }
+
+        addEventListener(event: WebSocketEvent, handler: Listener): void {
+            this.listeners[event].push(handler);
+        }
+
+        removeEventListener(event: WebSocketEvent, handler: Listener): void {
+            const index = this.listeners[event].indexOf(handler);
+            if (index !== -1) {
+                this.listeners[event].splice(index, 1);
+            }
+        }
+
+        send(_data: string): void {}
+
+        close(): void {
+            this.readyState = 3;
+            for (const handler of this.listeners.close) {
+                handler();
+            }
+        }
+
+        countListeners(): number {
+            return (
+                this.listeners.open.length +
+                this.listeners.message.length +
+                this.listeners.close.length +
+                this.listeners.error.length
+            );
+        }
+    }
+
+    globalWithWebSocket.WebSocket = ListenerTrackingWebSocket as unknown as RuntimeWebSocketConstructor;
+
+    try {
+        const client = RuntimeWrapper.createWebSocketClient({
+            autoConnect: false
+        });
+        client.connect();
+        const socket = client.getWebSocket() as ListenerTrackingWebSocket;
+
+        assert.equal(socket.countListeners(), 4, "expected one listener per websocket event type after connect");
+
+        client.disconnect();
+
+        assert.equal(socket.countListeners(), 0, "disconnect() should remove all websocket listeners from the socket");
+    } finally {
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
 void test("WebSocket client reconnects after connection loss", async () => {
     let reconnectCount = 0;
 
