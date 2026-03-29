@@ -126,17 +126,11 @@ interface GameMakerLexerErrorListenerOptions {
     formatter?: SyntaxErrorFormatter;
 }
 
-function reportAmbiguity() {
-    
-}
+function reportAmbiguity() {}
 
-function reportAttemptingFullContext() {
-    
-}
+function reportAttemptingFullContext() {}
 
-function reportContextSensitivity() {
-    
-}
+function reportContextSensitivity() {}
 
 function resolveRuleInvocationStack(recognizer: unknown): Array<string> {
     if (!recognizer || typeof recognizer !== "object") {
