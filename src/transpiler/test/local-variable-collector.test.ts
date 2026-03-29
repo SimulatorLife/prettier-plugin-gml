@@ -73,6 +73,42 @@ void describe("collectLocalVariables", () => {
         strictEqual(locals.has("uninit"), true);
     });
 
+    void it("handles deeply nested AST nodes without recursion overflow", () => {
+        const nestingDepth = 20_000;
+
+        const root: Record<string, unknown> = {
+            type: "Program",
+            body: []
+        };
+
+        let cursor = root;
+        for (let index = 0; index < nestingDepth; index += 1) {
+            const next: Record<string, unknown> = {
+                type: "BlockStatement",
+                body: []
+            };
+            cursor.body = [next];
+            cursor = next;
+        }
+
+        cursor.body = [
+            {
+                type: "VariableDeclaration",
+                kind: "var",
+                declarations: [
+                    {
+                        type: "VariableDeclarator",
+                        id: { type: "Identifier", name: "deep_local" },
+                        init: null
+                    }
+                ]
+            }
+        ];
+
+        const locals = collectLocalVariables(root as unknown as ProgramNode);
+        strictEqual(locals.has("deep_local"), true);
+    });
+
     void it("handles a realistic event body with mixed declarations", () => {
         const source = [
             "var spd = 5;",

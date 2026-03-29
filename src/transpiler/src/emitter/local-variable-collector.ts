@@ -41,22 +41,33 @@ function collectVarDeclaratorNames(node: AstRecord, localNames: Set<string>): vo
     }
 }
 
-function visitNodeForLocalVariables(node: unknown, localNames: Set<string>): void {
-    if (Array.isArray(node)) {
-        for (const entry of node) {
-            visitNodeForLocalVariables(entry, localNames);
+function collectVarDeclarationsFromTree(root: unknown, localNames: Set<string>): void {
+    const traversalStack: unknown[] = [root];
+
+    while (traversalStack.length > 0) {
+        const currentNode = traversalStack.pop();
+        if (currentNode === undefined) {
+            continue;
         }
-        return;
-    }
 
-    if (!isAstRecord(node) || isFunctionScopeBoundary(node)) {
-        return;
-    }
+        if (Array.isArray(currentNode)) {
+            for (let index = currentNode.length - 1; index >= 0; index -= 1) {
+                traversalStack.push(currentNode[index]);
+            }
+            continue;
+        }
 
-    collectVarDeclaratorNames(node, localNames);
+        if (!isAstRecord(currentNode) || isFunctionScopeBoundary(currentNode)) {
+            continue;
+        }
 
-    for (const child of Object.values(node)) {
-        visitNodeForLocalVariables(child, localNames);
+        collectVarDeclaratorNames(currentNode, localNames);
+
+        for (const key in currentNode) {
+            if (Object.hasOwn(currentNode, key)) {
+                traversalStack.push(currentNode[key]);
+            }
+        }
     }
 }
 
@@ -86,6 +97,6 @@ function visitNodeForLocalVariables(node: unknown, localNames: Set<string>): voi
  */
 export function collectLocalVariables(ast: ProgramNode): ReadonlySet<string> {
     const localNames = new Set<string>();
-    visitNodeForLocalVariables(ast, localNames);
+    collectVarDeclarationsFromTree(ast, localNames);
     return localNames;
 }
