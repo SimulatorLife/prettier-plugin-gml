@@ -46,6 +46,7 @@ pnpm run cli -- lint --fix path/to/project
 
 **Options:**
 - `--fix` - Apply automatic fixes
+- `--warn-ignored` - Include ignored-file warnings from ESLint (disabled by default to reduce noisy output)
 - `--formatter <name>` - Formatter output (`stylish|json|checkstyle`)
 - `--max-warnings <count>` - Fail when warning count exceeds limit
 - `--config <path>` - Use an explicit flat config

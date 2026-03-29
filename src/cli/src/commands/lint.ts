@@ -37,6 +37,7 @@ const LINT_NAMESPACE = LintWorkspace.Lint;
 
 type LintCommandOptions = {
     fix?: boolean;
+    warnIgnored?: boolean;
     formatter?: string;
     maxWarnings?: number;
     quiet?: boolean;
@@ -576,6 +577,7 @@ function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<Lin
 
     return {
         fix: options.fix === true,
+        warnIgnored: options.warnIgnored === true,
         formatter: normalizeFormatterName(options.formatter),
         maxWarnings: normalizeMaxWarnings(options.maxWarnings),
         quiet: options.quiet === true,
@@ -976,10 +978,15 @@ async function loadRequestedFormatter(
     };
 }
 
-function createEslintConstructorOptions(cwd: string, fix: boolean): ConstructorParameters<typeof ESLint>[0] {
+function createEslintConstructorOptions(
+    cwd: string,
+    fix: boolean,
+    warnIgnored: boolean
+): ConstructorParameters<typeof ESLint>[0] {
     return {
         cwd,
-        fix
+        fix,
+        warnIgnored
     };
 }
 
@@ -1098,6 +1105,7 @@ export function createLintCommand(): Command {
             .description("Lint GameMaker Language files using @gmloop/lint")
             .argument("[paths...]", "File or directory paths to lint")
             .option("--fix", "Apply automatic fixes", false)
+            .option("--warn-ignored", "Report ignored-file warnings from ESLint output", false)
             .option("--formatter <name>", "Formatter output (stylish|json|checkstyle)", "stylish")
             .option("--max-warnings <count>", "Maximum warning count before exit code 1", "-1")
             .option("--config <path>", "Explicit eslint flat config path")
@@ -1124,7 +1132,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
     const targets = normalizeLintTargets(command);
     const commandCwd = process.cwd();
     const eslintCwd = resolveEslintCwd({ cwd: commandCwd, targets });
-    const eslintConstructorOptions = createEslintConstructorOptions(eslintCwd, options.fix);
+    const eslintConstructorOptions = createEslintConstructorOptions(eslintCwd, options.fix, options.warnIgnored);
 
     if (!isSupportedFormatter(options.formatter)) {
         console.error(
@@ -1307,6 +1315,7 @@ export const __lintCommandTest__ = Object.freeze({
     toLintProgressDisplayPath,
     emitLintFixProgressForResults,
     resolveEslintCwd,
+    createEslintConstructorOptions,
     shouldPreferBundledDefaultsForExternalTargets,
     normalizeFormatterName,
     isSupportedFormatter,
