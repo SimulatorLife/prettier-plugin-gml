@@ -456,6 +456,21 @@ export function resolveUnknownScanConcurrency(configuredMaximum: number): number
 }
 
 /**
+ * Resolves concurrency for dependent script retranspilation.
+ *
+ * Dependent retranspilation happens on the hot-reload critical path and should
+ * remain bounded so large dependency fans do not create unbounded I/O bursts
+ * or event-loop pressure. Reuse the watch command's concurrency cap to keep
+ * throughput high while controlling latency variance.
+ *
+ * @param {number} configuredMaximum - User-configured concurrency ceiling.
+ * @returns {number} Safe retranspile concurrency value (minimum 1).
+ */
+export function resolveDependentRetranspileConcurrency(configuredMaximum: number): number {
+    return Math.max(1, Math.trunc(configuredMaximum));
+}
+
+/**
  * Creates the watch command for monitoring GML source files.
  *
  * @returns {Command} Commander command instance
@@ -1486,20 +1501,23 @@ async function retranspileDependentFiles(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    // Process dependent files concurrently to minimise hot-reload latency.
-    // Each callback has an independent try/catch so a single failure does not
-    // abort sibling retranspilations. Node.js single-threaded execution keeps
-    // dependency-tracker mutations safe without explicit locking.
-    await Core.runInParallel(dependentFiles, async (dependentFile) => {
-        try {
-            await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
-        } catch (error) {
-            const message = getErrorMessage(error, {
-                fallback: "Unknown file read error"
-            });
-            console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
-        }
-    });
+    // Process dependent files concurrently to minimise hot-reload latency while
+    // keeping fan-out bounded to avoid unbounded event-loop pressure on large
+    // dependency graphs.
+    await Core.runInParallelWithLimit(
+        dependentFiles,
+        async (dependentFile) => {
+            try {
+                await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
+            } catch (error) {
+                const message = getErrorMessage(error, {
+                    fallback: "Unknown file read error"
+                });
+                console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
+            }
+        },
+        resolveDependentRetranspileConcurrency(runtimeContext.maxConcurrentDirs)
+    );
 }
 
 function areSymbolSetsEqual(left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean {

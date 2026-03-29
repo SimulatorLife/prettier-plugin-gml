@@ -140,6 +140,10 @@ function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeNam
     type EnumValue = T[keyof T];
     const values = Object.values(enumObj);
     const validValues = values.join(", ");
+    const formatInvalidEnumMessage = (value: unknown, context?: string): string => {
+        const contextInfo = context ? ` (in ${context})` : "";
+        return `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`;
+    };
 
     const coreHelpers = createEnumeratedOptionHelpers(values, {
         caseSensitive: true,
@@ -154,20 +158,11 @@ function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeNam
             return coreHelpers.normalize(value) as EnumValue | null;
         },
         require: (value: unknown, context?: string): EnumValue => {
-            if (typeof value !== "string") {
-                const contextInfo = context ? ` (in ${context})` : "";
-                throw new TypeError(
-                    `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
-                );
+            const normalized = typeof value === "string" ? coreHelpers.normalize(value) : null;
+            if (normalized === null) {
+                throw new TypeError(formatInvalidEnumMessage(value, context));
             }
-            const normalized = coreHelpers.normalize(value);
-            if (normalized !== null) {
-                return normalized as EnumValue;
-            }
-            const contextInfo = context ? ` (in ${context})` : "";
-            throw new TypeError(
-                `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
-            );
+            return normalized as EnumValue;
         }
     };
 }
