@@ -139,6 +139,39 @@ void test("executeConfiguredCodemods defaults to dry-run for loop-length hoistin
     assert.match(result.appliedFiles.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
 });
 
+void test("executeConfiguredCodemods deduplicates repeated target and gml file paths", async () => {
+    const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
+    const engine = new Refactor.RefactorEngine();
+    const reads = new Map<string, number>();
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project", "/project"],
+        gmlFilePaths: ["scripts/example.gml", "scripts/example.gml"],
+        config: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        },
+        readFile: async (filePath) => {
+            reads.set(filePath, (reads.get(filePath) ?? 0) + 1);
+            return sourceText;
+        }
+    });
+
+    assert.equal(reads.get("scripts/example.gml"), 2);
+    assert.deepEqual(result.summaries, [
+        {
+            id: "loopLengthHoisting",
+            changed: true,
+            changedFiles: ["scripts/example.gml"],
+            warnings: [],
+            errors: []
+        }
+    ]);
+    assert.match(result.appliedFiles.get("scripts/example.gml") ?? "", /var len = array_length\(items\);/);
+});
+
 void test("executeConfiguredCodemods avoids retaining full file content in write mode", async () => {
     const sourceText = "for (var i = 0; i < array_length(items); i++) {\n    total += i;\n}\n";
     const writes = new Map<string, string>();
