@@ -9,11 +9,12 @@ const STATEMENT_TERMINATION_KEYWORDS = Object.freeze(["if", "for", "while", "swi
  * rules to the mechanics that mutate the output buffer.
  */
 export function isStatementTerminated(code: string): boolean {
+    const trimmedEnd = code.trimEnd();
     const trimmed = code.trimStart();
 
     return (
-        code.endsWith(";") ||
-        code.endsWith("}") ||
+        trimmedEnd.endsWith(";") ||
+        trimmedEnd.endsWith("}") ||
         STATEMENT_TERMINATION_KEYWORDS.some((keyword) => trimmed.startsWith(keyword))
     );
 }
