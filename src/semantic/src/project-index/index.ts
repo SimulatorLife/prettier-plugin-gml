@@ -1,7 +1,6 @@
 export * from "./abort-guard.js";
 export * from "./bootstrap-descriptor.js";
 export { buildProjectIndex, createProjectIndexCoordinator } from "./builder.js";
-export * from "./built-in-identifiers.js";
 export * from "./cache.js";
 export * from "./concurrency.js";
 export * from "./constants.js";
