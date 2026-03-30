@@ -348,6 +348,41 @@ void describe("ScopeTracker: getChangedFilePaths", () => {
         assert.ok(changedPaths.has("/project/player.gml"));
         assert.ok(!changedPaths.has("/project/config.gml"));
     });
+
+    void it("drops a previous path from changed-file results after metadata path moves", async () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        const scope = tracker.enterScope("program", { path: "/project/old.gml" });
+        tracker.declare("x", { name: "x" });
+        tracker.exitScope();
+
+        const snapshotTimestamp = Date.now();
+        await delay();
+
+        tracker.updateScopeMetadata(scope.id, { path: "/project/new.gml" });
+
+        const changedPaths = tracker.getChangedFilePaths(snapshotTimestamp);
+        assert.equal(changedPaths.size, 1);
+        assert.ok(changedPaths.has("/project/new.gml"));
+        assert.ok(!changedPaths.has("/project/old.gml"));
+    });
+
+    void it("removes cleared file paths from changed-file exports", async () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "/project/removed.gml" });
+        tracker.declare("x", { name: "x" });
+        tracker.exitScope();
+
+        const snapshotTimestamp = Date.now();
+        await delay();
+
+        const removedCount = tracker.clearScopesForPath("/project/removed.gml");
+        assert.ok(removedCount > 0);
+
+        const changedPaths = tracker.getChangedFilePaths(snapshotTimestamp);
+        assert.equal(changedPaths.size, 0);
+    });
 });
 
 void describe("ScopeTracker: file-path query integration for hot reload", () => {
