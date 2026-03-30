@@ -89,6 +89,10 @@ function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Arr
     return [...deduplicatedByStart.values()];
 }
 
+function deduplicateStableValues(values: ReadonlyArray<string>): Array<string> {
+    return [...new Set(values)];
+}
+
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
@@ -1082,6 +1086,8 @@ export class RefactorEngine {
             dryRunOverlayReadCacheMaxEntries = 32,
             dryRunOverlayStorageBackend
         } = request;
+        const targetPaths = deduplicateStableValues(request.targetPaths);
+        const gmlFilePaths = deduplicateStableValues(request.gmlFilePaths);
 
         Core.assertNonEmptyString(projectRoot, {
             errorMessage: "executeConfiguredCodemods requires a projectRoot"
@@ -1211,6 +1217,8 @@ export class RefactorEngine {
         try {
             const result = await executeRegisteredCodemods(this, {
                 ...request,
+                targetPaths,
+                gmlFilePaths,
                 config: {
                     ...request.config,
                     codemods: configuredCodemods
