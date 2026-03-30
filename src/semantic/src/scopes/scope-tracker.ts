@@ -73,6 +73,7 @@ export class ScopeTracker {
     private scopeChildrenIndex: Map<string, Set<string>>;
     private symbolToScopesIndex: Map<string, Map<string, ScopeSummary>>;
     private pathToScopesIndex: Map<string, Set<string>>;
+    private pathLastModifiedIndex: Map<string, number>;
     private enabled: boolean;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
@@ -124,6 +125,52 @@ export class ScopeTracker {
         }
 
         return paths;
+    }
+
+    private updatePathLastModifiedForScope(scope: Scope): void {
+        const path = scope.metadata.path;
+        if (!path) {
+            return;
+        }
+
+        const timestamp = scope.lastModifiedTimestamp;
+        if (timestamp < 0) {
+            return;
+        }
+
+        const trackedPath = this.normalizeTrackedPath(path);
+        const previousTimestamp = this.pathLastModifiedIndex.get(trackedPath);
+        if (previousTimestamp === undefined || timestamp > previousTimestamp) {
+            this.pathLastModifiedIndex.set(trackedPath, timestamp);
+        }
+    }
+
+    private recomputePathLastModified(path: string): void {
+        const trackedPath = this.normalizeTrackedPath(path);
+        const scopeIds = this.pathToScopesIndex.get(trackedPath);
+        if (!scopeIds || scopeIds.size === 0) {
+            this.pathLastModifiedIndex.delete(trackedPath);
+            return;
+        }
+
+        let latestTimestamp = -1;
+        for (const scopeId of scopeIds) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            if (scope.lastModifiedTimestamp > latestTimestamp) {
+                latestTimestamp = scope.lastModifiedTimestamp;
+            }
+        }
+
+        if (latestTimestamp < 0) {
+            this.pathLastModifiedIndex.delete(trackedPath);
+            return;
+        }
+
+        this.pathLastModifiedIndex.set(trackedPath, latestTimestamp);
     }
 
     private getTrackedSymbolSummaries(name: string | null | undefined): Map<string, ScopeSummary> | null {
@@ -212,6 +259,7 @@ export class ScopeTracker {
         this.scopeChildrenIndex = new Map();
         this.symbolToScopesIndex = new Map();
         this.pathToScopesIndex = new Map();
+        this.pathLastModifiedIndex = new Map();
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
@@ -477,6 +525,7 @@ export class ScopeTracker {
         }
 
         scope.markModified();
+        this.updatePathLastModifiedForScope(scope);
 
         let scopeSummaryMap = this.symbolToScopesIndex.get(name);
         if (!scopeSummaryMap) {
@@ -1785,6 +1834,7 @@ export class ScopeTracker {
         }
 
         let metadataChanged = false;
+        const previousTrackedPath = scope.metadata.path ? this.normalizeTrackedPath(scope.metadata.path) : null;
 
         if (Object.hasOwn(metadata, "name")) {
             if (scope.metadata.name !== metadata.name) {
@@ -1861,6 +1911,15 @@ export class ScopeTracker {
 
         if (metadataChanged) {
             scope.markModified();
+            const nextTrackedPath = scope.metadata.path ? this.normalizeTrackedPath(scope.metadata.path) : null;
+
+            if (previousTrackedPath && previousTrackedPath !== nextTrackedPath) {
+                this.recomputePathLastModified(previousTrackedPath);
+            }
+
+            if (nextTrackedPath) {
+                this.updatePathLastModifiedForScope(scope);
+            }
         }
 
         return this.getScopeMetadata(scopeId);
@@ -1906,13 +1965,9 @@ export class ScopeTracker {
         }
 
         const paths = new Set<string>();
-        for (const [trackedPath, scopeIds] of this.pathToScopesIndex) {
-            for (const scopeId of scopeIds) {
-                const scope = this.scopesById.get(scopeId);
-                if (scope && scope.lastModifiedTimestamp > sinceTimestamp) {
-                    paths.add(trackedPath);
-                    break;
-                }
+        for (const [trackedPath, lastModified] of this.pathLastModifiedIndex) {
+            if (lastModified > sinceTimestamp) {
+                paths.add(trackedPath);
             }
         }
 
@@ -2486,6 +2541,7 @@ export class ScopeTracker {
             }
         }
         const declaredNamesToInvalidate = new Set<string>();
+        const pathsToRecompute = new Set<string>();
 
         for (const scopeId of scopeIdsToRemove) {
             const scope = this.scopesById.get(scopeId);
@@ -2541,6 +2597,7 @@ export class ScopeTracker {
             const scopePath = scope.metadata.path;
             if (scopePath) {
                 const trackedScopePath = this.normalizeTrackedPath(scopePath);
+                pathsToRecompute.add(trackedScopePath);
                 const scopeSet = this.pathToScopesIndex.get(trackedScopePath);
                 if (scopeSet) {
                     scopeSet.delete(scopeId);
@@ -2559,6 +2616,10 @@ export class ScopeTracker {
 
         for (const name of declaredNamesToInvalidate) {
             this.identifierCache.invalidate(name);
+        }
+
+        for (const pathToRecompute of pathsToRecompute) {
+            this.recomputePathLastModified(pathToRecompute);
         }
 
         // The lookup cache is keyed on identifier names resolved at a specific
