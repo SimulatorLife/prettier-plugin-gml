@@ -6,6 +6,7 @@ import { Command, Option } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
+import { CliUsageError } from "../cli-core/errors.js";
 import { SKIP_CLI_RUN_ENV_VAR } from "../shared/skip-cli-run.js";
 import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 import { runFormatCommand } from "./format.js";
@@ -89,6 +90,27 @@ function createStubCommand(parameters: StubCommandParameters): CommanderCommandL
 function normalizeFixProjectArgument(command: CommanderCommandLike): string | undefined {
     const projectArgument = Array.isArray(command.args) ? command.args[0] : undefined;
     return typeof projectArgument === "string" && projectArgument.length > 0 ? projectArgument : undefined;
+}
+
+function getFixCommandUsage(command: CommanderCommandLike): string {
+    return command.helpInformation();
+}
+
+function createFixCommandValidationError(error: unknown, command: CommanderCommandLike): CliUsageError {
+    const message = error instanceof Error ? error.message : "Invalid fix command options.";
+    const usage = getFixCommandUsage(command);
+
+    if (!message.includes("Could not find gmloop config file")) {
+        return new CliUsageError(message, { usage });
+    }
+
+    return new CliUsageError(
+        [
+            message,
+            "Run this command from a project directory containing gmloop.json or pass --config <path-to-gmloop.json>."
+        ].join(" "),
+        { usage }
+    );
 }
 
 async function validateFixCommandOptions(command: CommanderCommandLike): Promise<ValidatedFixCommandOptions> {
@@ -329,7 +351,12 @@ export function createFixCommand(): Command {
  * 3. formatting
  */
 export async function runFixCommand(command: CommanderCommandLike): Promise<void> {
-    const options = await validateFixCommandOptions(command);
+    let options: ValidatedFixCommandOptions;
+    try {
+        options = await validateFixCommandOptions(command);
+    } catch (error) {
+        throw createFixCommandValidationError(error, command);
+    }
 
     console.log(`Project root: ${options.projectRoot}`);
 
