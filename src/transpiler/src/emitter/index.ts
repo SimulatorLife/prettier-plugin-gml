@@ -1,4 +1,3 @@
-export { EventContextOracle } from "../event-context/index.js";
 export type * from "./ast.js";
 export { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 export { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
