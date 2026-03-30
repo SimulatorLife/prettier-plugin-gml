@@ -14,6 +14,11 @@ import {
     resolveUnknownScanConcurrency,
     runWatchCommand
 } from "../src/commands/watch.js";
+import {
+    DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT,
+    DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS,
+    DEFAULT_WATCH_POLLING_INTERVAL_MS
+} from "../src/commands/watch-constants.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 void describe("watch command", () => {
@@ -43,7 +48,20 @@ void describe("watch command", () => {
         const pollingIntervalOption = command.options.find((opt) => opt.long === "--polling-interval");
 
         assert.ok(pollingIntervalOption);
-        assert.equal(pollingIntervalOption.defaultValue, 1000);
+        assert.equal(pollingIntervalOption.defaultValue, DEFAULT_WATCH_POLLING_INTERVAL_MS);
+    });
+
+    void it("exposes configurable transient empty-file retry defaults", () => {
+        const command = createWatchCommand();
+        const retryCountOption = command.options.find((opt) => opt.long === "--transient-empty-file-read-retry-count");
+        const retryDelayOption = command.options.find(
+            (opt) => opt.long === "--transient-empty-file-read-retry-delay-ms"
+        );
+
+        assert.ok(retryCountOption);
+        assert.ok(retryDelayOption);
+        assert.equal(retryCountOption.defaultValue, DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT);
+        assert.equal(retryDelayOption.defaultValue, DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS);
     });
 
     void it("normalizes extensions case-insensitively", () => {
