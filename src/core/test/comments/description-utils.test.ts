@@ -20,3 +20,25 @@ void test("collectDescriptionContinuationText normalizes multiline description p
         linesConsumed: 4
     });
 });
+
+void test("description continuation helpers reuse the same description anchor lookup", () => {
+    const docLines = ["/// @description Build the packet", "/// first line", "/// @param value"];
+
+    assert.deepStrictEqual(Core.collectDescriptionContinuations(docLines), ["/// first line"]);
+
+    const applied = Core.applyDescriptionContinuations(docLines, ["/// second line"]);
+    assert.deepStrictEqual(applied, [
+        "/// @description Build the packet",
+        "/// second line",
+        "/// first line",
+        "/// @param value"
+    ]);
+
+    Core.ensureDescriptionContinuations(docLines);
+    assert.deepStrictEqual(docLines, [
+        "/// @description Build the packet",
+        "/// second line",
+        "/// first line",
+        "/// @param value"
+    ]);
+});
