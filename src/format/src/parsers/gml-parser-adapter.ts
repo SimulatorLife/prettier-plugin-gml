@@ -10,9 +10,11 @@ const PARSER_OPTIONS = {
     getLocations: true,
     simplifyLocations: false,
     getComments: true,
-    // Formatter must remain layout-only; parser-side doc-comment attachment
-    // normalization is lint-owned and should not run in the formatter pipeline.
-    attachFunctionDocComments: false
+    // Attach legacy `@function`/`@func` comments to their function declarations
+    // during parsing so formatter output stays stable for existing fixtures.
+    // This remains formatter-safe because the parser only wires comment
+    // ownership; it does not rewrite doc tag content.
+    attachFunctionDocComments: true
 } as const;
 
 function parse(text: string): MutableGameMakerAstNode {

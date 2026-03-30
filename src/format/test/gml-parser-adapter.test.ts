@@ -39,7 +39,7 @@ void describe("gml parser adapter", () => {
         assert.throws(() => gmlParserAdapter.parse(source));
     });
 
-    void it("does not attach parser-owned function doc comments during formatter parsing", async () => {
+    void it("attaches parser-owned function doc comments during formatter parsing", async () => {
         const source = [
             "// @function legacy_doc_alias(arg0)",
             "function legacy_doc_alias(arg0) {",
@@ -51,10 +51,10 @@ void describe("gml parser adapter", () => {
         const functionDeclaration = (ast.body ?? []).find((node) => node?.type === "FunctionDeclaration");
 
         assert.ok(functionDeclaration, "Expected a FunctionDeclaration node in the parsed AST.");
-        assert.deepStrictEqual(
-            functionDeclaration?.docComments ?? [],
-            [],
-            "Formatter parser path must not apply parser-side doc-comment attachment normalization; doc-comment promotion/attachment rewrites are lint-owned."
+        assert.equal(
+            (functionDeclaration?.docComments ?? []).length,
+            1,
+            "Formatter parser path should preserve parser-owned @function attachment so doc comment ordering remains stable."
         );
     });
 });
