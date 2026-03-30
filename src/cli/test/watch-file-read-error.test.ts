@@ -6,6 +6,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { delayFileReadRetry, runWatchCommand } from "../src/commands/watch.js";
+import { DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS } from "../src/commands/watch-constants.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 import { createMockWatchFactory } from "./test-helpers/watch-fixtures.js";
 
@@ -81,7 +82,7 @@ void describe("Watch command file read errors", () => {
                     timeout,
                     ...args
                 );
-                if (timeout === 25) {
+                if (timeout === DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS) {
                     retryTimerIds.add(timeoutId);
                     originalSetTimeout(() => {
                         abortController.abort();
@@ -100,7 +101,8 @@ void describe("Watch command file read errors", () => {
                         }
                         return originalClearTimeout(timeoutId);
                     }) as typeof clearTimeout,
-                    async () => delayFileReadRetry(25, abortController.signal)
+                    async () =>
+                        delayFileReadRetry(DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS, abortController.signal)
                 )
         );
 
