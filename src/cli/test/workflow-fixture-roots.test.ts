@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import * as WorkflowFixtureRoots from "../src/workflow/fixture-roots.js";
 import { DEFAULT_FIXTURE_DIRECTORIES, normalizeFixtureRoots } from "../src/workflow/fixture-roots.js";
 
 void describe("workflow fixture root normalization", () => {
@@ -53,5 +54,13 @@ void describe("workflow fixture root normalization", () => {
 
         assert.ok(normalized.includes(DEFAULT_FIXTURE_DIRECTORIES[0]));
         assert.ok(normalized.includes(DEFAULT_FIXTURE_DIRECTORIES[1]));
+    });
+
+    void it("does not re-export REPO_ROOT from workflow fixture-roots", () => {
+        assert.equal(
+            Object.hasOwn(WorkflowFixtureRoots, "REPO_ROOT"),
+            false,
+            "workflow fixture-roots should not keep the legacy REPO_ROOT pass-through export"
+        );
     });
 });
