@@ -62,6 +62,14 @@ void describe("watch command", () => {
         assert.ok(matcher.matches("event.yy"));
     });
 
+    void it("treats dotfiles as extension-less while matching nested paths", () => {
+        const matcher = createExtensionMatcher([".gml"]);
+
+        assert.equal(matcher.matches(".gml"), false);
+        assert.equal(matcher.matches("objects/player/create.GML"), true);
+        assert.equal(matcher.matches(String.raw`objects\player\create.GML`), true);
+    });
+
     void it("counts source lines across newline conventions", () => {
         assert.equal(countSourceLines(""), 1);
         assert.equal(countSourceLines("one"), 1);

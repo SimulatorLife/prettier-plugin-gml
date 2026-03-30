@@ -404,13 +404,33 @@ async function runAutoInjectHotReload(
  */
 export function createExtensionMatcher(extensions: ReadonlyArray<string>): ExtensionMatcher {
     const normalized = normalizeExtensions(extensions);
-
     const normalizedSet = new Set(normalized);
 
     return {
         extensions: normalizedSet,
-        matches: (fileName: string) => normalizedSet.has(path.extname(fileName).toLowerCase())
+        matches: (fileName: string) => {
+            const extension = resolveLowercaseExtension(fileName);
+            return extension === "" ? false : normalizedSet.has(extension);
+        }
     };
+}
+
+/**
+ * Resolves the lowercase extension for a filename/path without allocating via
+ * node:path. The behavior intentionally matches path.extname semantics:
+ * dotfiles such as ".gml" are treated as extension-less.
+ */
+function resolveLowercaseExtension(fileName: string): string {
+    const lastForwardSlashIndex = fileName.lastIndexOf("/");
+    const lastBackwardSlashIndex = fileName.lastIndexOf("\\");
+    const lastPathSeparatorIndex = Math.max(lastForwardSlashIndex, lastBackwardSlashIndex);
+    const lastDotIndex = fileName.lastIndexOf(".");
+
+    if (lastDotIndex <= lastPathSeparatorIndex + 1) {
+        return "";
+    }
+
+    return fileName.slice(lastDotIndex).toLowerCase();
 }
 
 /**
