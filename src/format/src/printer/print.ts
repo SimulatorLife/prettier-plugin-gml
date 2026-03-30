@@ -444,8 +444,8 @@ function sortDocCommentsBySourceOrder(docCommentDocs: MutableDocCommentLines): v
     }
 
     indexedEntries.sort((left, right) => {
-        const leftStart = typeof left.startIndex === NUMBER_TYPE ? left.startIndex : Number.POSITIVE_INFINITY;
-        const rightStart = typeof right.startIndex === NUMBER_TYPE ? right.startIndex : Number.POSITIVE_INFINITY;
+        const leftStart = typeof left.startIndex === NUMBER_TYPE ? left.startIndex : Number.NEGATIVE_INFINITY;
+        const rightStart = typeof right.startIndex === NUMBER_TYPE ? right.startIndex : Number.NEGATIVE_INFINITY;
         if (leftStart !== rightStart) {
             return leftStart - rightStart;
         }
