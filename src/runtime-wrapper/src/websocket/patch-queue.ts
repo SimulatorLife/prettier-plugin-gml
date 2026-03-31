@@ -338,7 +338,18 @@ function orderPatchesForDependencyBatching(patches: Array<unknown>): Array<unkno
             continue;
         }
 
-        for (const dependencyId of extractPatchDependencies(patch)) {
+        const dependencyIds = extractPatchDependencies(patch);
+        if (dependencyIds.length === 0) {
+            continue;
+        }
+
+        const uniqueDependencies = new Set<string>();
+        for (const dependencyId of dependencyIds) {
+            if (uniqueDependencies.has(dependencyId)) {
+                continue;
+            }
+            uniqueDependencies.add(dependencyId);
+
             if (!patchIds.has(dependencyId) || dependencyId === patchId) {
                 continue;
             }
