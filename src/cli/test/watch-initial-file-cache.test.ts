@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { takeInitialFileData } from "../src/commands/watch.js";
+import { clearInitialFileDataCache, takeInitialFileData } from "../src/commands/watch.js";
 
 void describe("watch command initial file cache", () => {
     void it("removes consumed startup cache entries to release memory during the initial scan", () => {
@@ -34,5 +34,26 @@ void describe("watch command initial file cache", () => {
 
         assert.equal(consumedEntry, undefined, "missing files should not produce cached data");
         assert.equal(fileDataCache.size, 1, "unrelated cached entries should be preserved");
+    });
+
+    void it("clears unconsumed startup cache entries after the initial scan", () => {
+        const fileDataCache = new Map([
+            [
+                "/project/scripts/leftover.gml",
+                {
+                    content: "function leftover() { return 3; }",
+                    ast: { type: "Program" }
+                }
+            ]
+        ]);
+
+        clearInitialFileDataCache(fileDataCache);
+
+        assert.equal(fileDataCache.size, 0, "all startup cache entries should be removed after startup");
+    });
+
+    void it("handles missing startup cache when clearing", () => {
+        clearInitialFileDataCache(undefined);
+        assert.ok(true, "clearing an absent cache should be a no-op");
     });
 });
