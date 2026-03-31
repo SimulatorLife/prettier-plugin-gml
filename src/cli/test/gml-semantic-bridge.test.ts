@@ -657,6 +657,40 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(targets.some((target) => target.category === "catchArgument" && target.name === "err_value"));
     });
 
+    void it("listNamingConventionTargets classifies constructor-backed script resources as constructorFunction targets", async () => {
+        const mockProjectIndex = {
+            resources: {
+                "scripts/Vector3/Vector3.yy": {
+                    path: "scripts/Vector3/Vector3.yy",
+                    name: "Vector3",
+                    resourceType: "GMScript"
+                }
+            },
+            identifiers: {
+                scripts: {
+                    "scope:script:Vector3": {
+                        identifierId: "script:scope:script:Vector3",
+                        name: "Vector3",
+                        resourcePath: "scripts/Vector3/Vector3.yy",
+                        declarations: [
+                            {
+                                name: "Vector3",
+                                filePath: "scripts/Vector3/Vector3.gml",
+                                classifications: ["function", "constructor", "struct"]
+                            }
+                        ]
+                    }
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const targets = await bridge.listNamingConventionTargets();
+
+        assert.ok(targets.some((target) => target.category === "constructorFunction" && target.name === "Vector3"));
+        assert.ok(!targets.some((target) => target.category === "scriptResourceName" && target.name === "Vector3"));
+    });
+
     void it("listNamingConventionTargets refines local variables into static and loop-index categories", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-local-categories-"));
         const relativeFilePath = "scripts/demo_script/demo_script.gml";
