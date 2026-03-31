@@ -116,8 +116,9 @@ export class SemanticQueryCache {
     /**
      * Get all occurrences of a symbol, using cached results if available.
      */
-    getSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return this.getOrFetch(this.occurrenceCache, symbolName, () => this.fetchSymbolOccurrences(symbolName));
+    getSymbolOccurrences(symbolName: string, symbolId: string | null = null): Promise<Array<SymbolOccurrence>> {
+        const cacheKey = symbolId === null ? symbolName : `${symbolId}::${symbolName}`;
+        return this.getOrFetch(this.occurrenceCache, cacheKey, () => this.fetchSymbolOccurrences(symbolName, symbolId));
     }
 
     /**
@@ -348,12 +349,12 @@ export class SemanticQueryCache {
      * Fetch symbol occurrences from the semantic analyzer.
      * @private
      */
-    private fetchSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
+    private fetchSymbolOccurrences(symbolName: string, symbolId: string | null): Promise<Array<SymbolOccurrence>> {
         if (!this.semantic || !Core.hasMethods(this.semantic, "getSymbolOccurrences")) {
             return Promise.resolve<Array<SymbolOccurrence>>([]);
         }
 
-        return Promise.resolve(this.semantic.getSymbolOccurrences(symbolName));
+        return Promise.resolve(this.semantic.getSymbolOccurrences(symbolName, symbolId));
     }
 
     /**

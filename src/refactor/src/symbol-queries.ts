@@ -132,7 +132,8 @@ export async function validateSymbolExists(
  */
 export async function gatherSymbolOccurrences(
     symbolName: string,
-    semantic: PartialSemanticAnalyzer | null
+    semantic: PartialSemanticAnalyzer | null,
+    symbolId: string | null = null
 ): Promise<Array<SymbolOccurrence>> {
     if (!semantic) {
         return [];
@@ -144,7 +145,7 @@ export async function gatherSymbolOccurrences(
     // both the location (path, offset) and the kind (definition vs. reference)
     // of each occurrence, which later phases use to construct text edits.
     if (Core.hasMethods(semantic, "getSymbolOccurrences")) {
-        return await semantic.getSymbolOccurrences(symbolName);
+        return await semantic.getSymbolOccurrences(symbolName, symbolId);
     }
 
     // If occurrence tracking isn't available, return an empty array so the

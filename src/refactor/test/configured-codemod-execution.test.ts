@@ -537,6 +537,57 @@ void test("executeConfiguredCodemods applies structDeclaration policy to constru
     );
 });
 
+void test("executeConfiguredCodemods preserves allowed leading underscores for resource renames", async () => {
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "__input_error",
+                category: "scriptResourceName",
+                path: "scripts/__input_error/__input_error.gml",
+                scopeId: null,
+                symbolId: "gml/scripts/__input_error",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const preparedRenameRequests: Array<Array<{ newName: string; symbolId: string }>> = [];
+
+    Object.assign(engine, {
+        async prepareBatchRenamePlan(
+            request: Array<{ symbolId: string; newName: string }>
+        ): Promise<BatchRenamePlanSummary> {
+            preparedRenameRequests.push(request);
+            return createBatchRenamePlanSummary([]);
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/__input_error/__input_error.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    resource: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => "",
+        dryRun: true
+    });
+
+    assert.deepEqual(preparedRenameRequests, []);
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, false);
+    assert.deepEqual(result.summaries[0]?.warnings, []);
+});
+
 void test("executeConfiguredCodemods applies namingConvention write-mode renames through one merged workspace", async () => {
     const namingTargets = Array.from({ length: 65 }, (_, index) => ({
         name: `bad_name_${index}`,

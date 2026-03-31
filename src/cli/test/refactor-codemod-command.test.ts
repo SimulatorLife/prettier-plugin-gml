@@ -35,6 +35,32 @@ async function writeScriptResource(projectRoot: string, scriptName: string, sour
 }
 
 /**
+ * Create an object resource with event source files.
+ */
+async function writeObjectResource(
+    projectRoot: string,
+    objectName: string,
+    eventFiles: Record<string, string>
+): Promise<void> {
+    await writeProjectFile(
+        projectRoot,
+        `objects/${objectName}/${objectName}.yy`,
+        `${JSON.stringify(
+            {
+                resourceType: "GMObject",
+                name: objectName
+            },
+            null,
+            4
+        )}\n`
+    );
+
+    for (const [relativeEventFilePath, sourceText] of Object.entries(eventFiles)) {
+        await writeProjectFile(projectRoot, `objects/${objectName}/${relativeEventFilePath}`, sourceText);
+    }
+}
+
+/**
  * Create a temporary GameMaker project root for CLI codemod tests.
  */
 async function createSyntheticProject(config: Record<string, unknown>): Promise<string> {
@@ -151,6 +177,177 @@ void test("refactor codemod --write applies configured namingConvention renames 
         assert.match(consumerSource, /demoScript\(\)/);
         assert.match(renamedMetadata, /"name"\s*:\s*"demoScript"/);
         await assert.rejects(access(path.join(projectRoot, "scripts/demo_script/demo_script.gml")));
+        assert.match(result.stdout, /\[namingConvention\] changed/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write preserves allowed leading underscores while applying safe snake-case renames", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    resource: {
+                        caseStyle: "lower_snake"
+                    },
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "__InputError",
+            "function __InputError() {\n    var _TargetShader = 1;\n    return _TargetShader;\n}\n"
+        );
+        await writeScriptResource(
+            projectRoot,
+            "consumer_script",
+            "function consumer_script() {\n    return __InputError();\n}\n"
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        await access(path.join(projectRoot, "scripts/__input_error/__input_error.gml"));
+        const renamedSource = await readFile(path.join(projectRoot, "scripts/__input_error/__input_error.gml"), "utf8");
+        const renamedMetadata = await readFile(
+            path.join(projectRoot, "scripts/__input_error/__input_error.yy"),
+            "utf8"
+        );
+        const consumerSource = await readFile(
+            path.join(projectRoot, "scripts/consumer_script/consumer_script.gml"),
+            "utf8"
+        );
+
+        assert.match(renamedSource, /function __input_error\(\)/);
+        assert.match(renamedSource, /var _target_shader = 1;/);
+        assert.match(renamedSource, /return _target_shader;/);
+        assert.match(renamedMetadata, /"name"\s*:\s*"__input_error"/);
+        assert.match(consumerSource, /return __input_error\(\);/);
+        await assert.rejects(access(path.join(projectRoot, "scripts/input_error/input_error.gml")));
+        await assert.rejects(access(path.join(projectRoot, "scripts/__InputError/__InputError.gml")));
+        assert.match(result.stdout, /\[namingConvention\] changed/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write renames implicit instance variables across object event files", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeObjectResource(projectRoot, "oActorParent", {
+            "Create_0.gml": "charMat = matrix_build_identity();\n",
+            "Step_0.gml": "var turnSpd = move_spd * 0.4;\ncharMat[0] += turnSpd;\n"
+        });
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const createSource = await readFile(path.join(projectRoot, "objects/oActorParent/Create_0.gml"), "utf8");
+        const stepSource = await readFile(path.join(projectRoot, "objects/oActorParent/Step_0.gml"), "utf8");
+
+        assert.match(createSource, /char_mat = matrix_build_identity\(\);/);
+        assert.match(stepSource, /var turn_spd = move_spd \* 0\.4;/);
+        assert.match(stepSource, /char_mat\[0\] \+= turn_spd;/);
+        assert.doesNotMatch(stepSource, /\bcharMat\b/);
+        assert.match(result.stdout, /\[namingConvention\] changed/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write lets multi-function scripts rename the resource and same-name callable independently", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    scriptResourceName: {
+                        caseStyle: "lower_snake"
+                    },
+                    function: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "DemoLibrary",
+            [
+                "function DemoLibrary() {",
+                "    return helper_fn();",
+                "}",
+                "",
+                "function helper_fn() {",
+                "    return 1;",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "consumer_script",
+            "function consumer_script() {\n    return DemoLibrary() + helper_fn();\n}\n"
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        await access(path.join(projectRoot, "scripts/demo_library/demo_library.gml"));
+        const renamedLibrarySource = await readFile(
+            path.join(projectRoot, "scripts/demo_library/demo_library.gml"),
+            "utf8"
+        );
+        const renamedMetadata = await readFile(path.join(projectRoot, "scripts/demo_library/demo_library.yy"), "utf8");
+        const consumerSource = await readFile(
+            path.join(projectRoot, "scripts/consumer_script/consumer_script.gml"),
+            "utf8"
+        );
+
+        assert.match(renamedLibrarySource, /function demoLibrary\(\)/);
+        assert.match(renamedLibrarySource, /return helperFn\(\);/);
+        assert.match(renamedLibrarySource, /function helperFn\(\)/);
+        assert.match(renamedMetadata, /"name"\s*:\s*"demo_library"/);
+        assert.match(consumerSource, /return demoLibrary\(\) \+ helperFn\(\);/);
+        await assert.rejects(access(path.join(projectRoot, "scripts/DemoLibrary/DemoLibrary.gml")));
         assert.match(result.stdout, /\[namingConvention\] changed/);
     } finally {
         await rm(projectRoot, { recursive: true, force: true });

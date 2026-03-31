@@ -328,36 +328,53 @@ function capitalize(word: string): string {
     return word.length === 0 ? word : `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`;
 }
 
+type IdentifierUnderscoreAffixes = {
+    core: string;
+    leading: string;
+    trailing: string;
+};
+
+function splitIdentifierUnderscoreAffixes(value: string): IdentifierUnderscoreAffixes {
+    const leading = value.match(/^_+/)?.[0] ?? "";
+    const trailing = value.match(/_+$/)?.[0] ?? "";
+    const coreStart = leading.length;
+    const coreEnd = Math.max(coreStart, value.length - trailing.length);
+
+    return {
+        leading,
+        core: value.slice(coreStart, coreEnd),
+        trailing: value.slice(coreEnd)
+    };
+}
+
 /**
  * Rewrite an identifier core into the requested naming case style.
  */
 export function formatNamingCaseStyle(value: string, caseStyle: NamingCaseStyle): string {
-    const words = splitIdentifierWords(value);
+    const underscoreAffixes = splitIdentifierUnderscoreAffixes(value);
+    const words = splitIdentifierWords(underscoreAffixes.core);
+    if (underscoreAffixes.core.length === 0) {
+        return `${underscoreAffixes.leading}${underscoreAffixes.trailing}`;
+    }
+
     if (words.length === 0) {
-        return "";
+        return `${underscoreAffixes.leading}${underscoreAffixes.core}${underscoreAffixes.trailing}`;
     }
 
-    if (caseStyle === "lower") {
-        return words.join("").toLowerCase();
-    }
+    const formattedCore =
+        caseStyle === "lower"
+            ? words.join("").toLowerCase()
+            : caseStyle === "upper"
+              ? words.join("").toUpperCase()
+              : caseStyle === "camel"
+                ? words[0] + words.slice(1).map(capitalize).join("")
+                : caseStyle === "pascal"
+                  ? words.map(capitalize).join("")
+                  : caseStyle === "lower_snake"
+                    ? words.join("_")
+                    : words.join("_").toUpperCase();
 
-    if (caseStyle === "upper") {
-        return words.join("").toUpperCase();
-    }
-
-    if (caseStyle === "camel") {
-        return words[0] + words.slice(1).map(capitalize).join("");
-    }
-
-    if (caseStyle === "pascal") {
-        return words.map(capitalize).join("");
-    }
-
-    if (caseStyle === "lower_snake") {
-        return words.join("_");
-    }
-
-    return words.join("_").toUpperCase();
+    return `${underscoreAffixes.leading}${formattedCore}${underscoreAffixes.trailing}`;
 }
 
 function longestMatchingAffix(

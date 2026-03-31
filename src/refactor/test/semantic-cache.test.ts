@@ -41,6 +41,32 @@ void describe("SemanticQueryCache", () => {
             assert.equal(result2[0].path, "enemy.gml");
         });
 
+        void it("treats same-name queries with different symbol IDs as distinct cache entries", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getSymbolOccurrences: async (_name: string, symbolId?: string | null) => {
+                    callCount++;
+                    return [
+                        {
+                            path: symbolId === "gml/scripts/DemoLibrary" ? "resource.gml" : "callable.gml",
+                            start: 0,
+                            end: 10
+                        }
+                    ] as Array<SymbolOccurrence>;
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic);
+            const resourceResult = await cache.getSymbolOccurrences("DemoLibrary", "gml/scripts/DemoLibrary");
+            const callableResult = await cache.getSymbolOccurrences("DemoLibrary", "gml/script/DemoLibrary");
+            const repeatedResourceResult = await cache.getSymbolOccurrences("DemoLibrary", "gml/scripts/DemoLibrary");
+
+            assert.equal(callCount, 2, "Distinct symbol IDs should not share the same occurrence cache entry");
+            assert.equal(resourceResult[0].path, "resource.gml");
+            assert.equal(callableResult[0].path, "callable.gml");
+            assert.deepEqual(repeatedResourceResult, resourceResult);
+        });
+
         void it("bypasses cache when disabled", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {

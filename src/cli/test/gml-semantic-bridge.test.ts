@@ -691,6 +691,110 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(!targets.some((target) => target.category === "scriptResourceName" && target.name === "Vector3"));
     });
 
+    void it("listNamingConventionTargets keeps same-name callables independent for multi-function script resources", async () => {
+        const mockProjectIndex = {
+            resources: {
+                "scripts/DemoLibrary/DemoLibrary.yy": {
+                    path: "scripts/DemoLibrary/DemoLibrary.yy",
+                    name: "DemoLibrary",
+                    resourceType: "GMScript"
+                }
+            },
+            identifiers: {
+                scripts: {
+                    "scope:script:DemoLibrary": {
+                        identifierId: "script:scope:script:DemoLibrary",
+                        name: "DemoLibrary",
+                        resourcePath: "scripts/DemoLibrary/DemoLibrary.yy",
+                        declarations: [
+                            {
+                                name: "DemoLibrary",
+                                filePath: "scripts/DemoLibrary/DemoLibrary.gml",
+                                classifications: ["function"]
+                            },
+                            {
+                                name: "helper_fn",
+                                filePath: "scripts/DemoLibrary/DemoLibrary.gml",
+                                classifications: ["function"]
+                            }
+                        ]
+                    }
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const targets = await bridge.listNamingConventionTargets();
+
+        assert.ok(targets.some((target) => target.category === "scriptResourceName" && target.name === "DemoLibrary"));
+        assert.ok(targets.some((target) => target.category === "function" && target.name === "DemoLibrary"));
+        assert.ok(targets.some((target) => target.category === "function" && target.name === "helper_fn"));
+    });
+
+    void it("getSymbolOccurrences keeps multi-function script resource renames independent from same-name callables", () => {
+        const mockProjectIndex = {
+            resources: {
+                "scripts/DemoLibrary/DemoLibrary.yy": {
+                    path: "scripts/DemoLibrary/DemoLibrary.yy",
+                    name: "DemoLibrary",
+                    resourceType: "GMScript"
+                }
+            },
+            identifiers: {
+                scripts: {
+                    "scope:script:DemoLibrary": {
+                        identifierId: "script:scope:script:DemoLibrary",
+                        name: "DemoLibrary",
+                        resourcePath: "scripts/DemoLibrary/DemoLibrary.yy",
+                        declarations: [
+                            {
+                                name: "DemoLibrary",
+                                filePath: "scripts/DemoLibrary/DemoLibrary.gml",
+                                start: { index: 9 },
+                                end: { index: 20 }
+                            },
+                            {
+                                name: "helper_fn",
+                                filePath: "scripts/DemoLibrary/DemoLibrary.gml",
+                                start: { index: 45 },
+                                end: { index: 54 }
+                            }
+                        ],
+                        references: [
+                            {
+                                filePath: "scripts/consumer_script/consumer_script.gml",
+                                targetName: "DemoLibrary",
+                                start: { index: 40 },
+                                end: { index: 51 }
+                            },
+                            {
+                                filePath: "scripts/consumer_script/consumer_script.gml",
+                                targetName: "helper_fn",
+                                start: { index: 55 },
+                                end: { index: 64 }
+                            }
+                        ]
+                    }
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const resourceOccurrences = bridge.getSymbolOccurrences("DemoLibrary", "gml/scripts/DemoLibrary");
+        const callableOccurrences = bridge.getSymbolOccurrences("DemoLibrary", "gml/script/DemoLibrary");
+
+        assert.deepEqual(
+            resourceOccurrences,
+            [],
+            "Resource renames for multi-function scripts should not reuse callable text occurrences"
+        );
+        assert.equal(callableOccurrences.length, 2);
+        assert.deepEqual(
+            callableOccurrences.map((occurrence) => occurrence.path),
+            ["scripts/DemoLibrary/DemoLibrary.gml", "scripts/consumer_script/consumer_script.gml"]
+        );
+    });
+
     void it("listNamingConventionTargets refines local variables into static and loop-index categories", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-local-categories-"));
         const relativeFilePath = "scripts/demo_script/demo_script.gml";
@@ -836,5 +940,67 @@ void describe("GmlSemanticBridge tests", () => {
                     target.occurrences.length === 4
             )
         );
+    });
+
+    void it("listNamingConventionTargets synthesizes implicit instance-variable targets from object assignments", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-instance-targets-"));
+        const relativeFilePath = "objects/oActorParent/Create_0.gml";
+        const absoluteFilePath = path.join(tmpRoot, relativeFilePath);
+        const sourceText = [
+            "charMat = matrix_build_identity();",
+            "var turnSpd = move_spd * 0.4;",
+            "charMat[0] += turnSpd;",
+            ""
+        ].join("\n");
+
+        fs.mkdirSync(path.dirname(absoluteFilePath), { recursive: true });
+        fs.writeFileSync(absoluteFilePath, sourceText, "utf8");
+
+        const charMatDefinitionStart = findNthIndex(sourceText, "charMat", 1);
+        const charMatReferenceStart = findNthIndex(sourceText, "charMat", 2);
+
+        const mockProjectIndex = {
+            identifiers: {
+                instanceVariables: {}
+            },
+            files: {
+                [relativeFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "charMat",
+                            scopeId: "scope:object:oActorParent",
+                            start: { index: charMatDefinitionStart },
+                            end: { index: charMatDefinitionStart + "charMat".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "charMat",
+                            scopeId: "scope:object:oActorParent",
+                            start: { index: charMatReferenceStart },
+                            end: { index: charMatReferenceStart + "charMat".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const targets = await bridge.listNamingConventionTargets([relativeFilePath]);
+        const charMatTarget = targets.find(
+            (target) => target.category === "instanceVariable" && target.name === "charMat"
+        );
+
+        assert.ok(charMatTarget);
+        assert.equal(charMatTarget?.path, relativeFilePath);
+        assert.equal(charMatTarget?.scopeId, "objects/oActorParent");
+        assert.equal(charMatTarget?.symbolId, null);
+        assert.equal(charMatTarget?.occurrences.length, 2);
+        assert.equal(charMatTarget?.occurrences[0]?.kind, "definition");
     });
 });

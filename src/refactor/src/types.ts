@@ -451,7 +451,7 @@ export interface SymbolResolver {
  * analysis, or other semantic operations.
  */
 export interface OccurrenceTracker {
-    getSymbolOccurrences(symbolName: string): MaybePromise<Array<SymbolOccurrence>>;
+    getSymbolOccurrences(symbolName: string, symbolId?: string | null): MaybePromise<Array<SymbolOccurrence>>;
     getAdditionalSymbolEdits?(symbolId: string, newName: string): MaybePromise<WorkspaceEdit | null>;
 }
 

@@ -154,9 +154,9 @@ export class RefactorEngine {
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
-    gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
+    gatherSymbolOccurrences(symbolName: string, symbolId: string | null = null): Promise<Array<SymbolOccurrence>> {
         return this.semanticCache
-            .getSymbolOccurrences(symbolName)
+            .getSymbolOccurrences(symbolName, symbolId)
             .then((occurrences) => deduplicateSymbolOccurrences(occurrences));
     }
 
@@ -318,7 +318,7 @@ export class RefactorEngine {
         }
 
         // Gather occurrences to check for conflicts
-        const occurrences = await this.gatherSymbolOccurrences(symbolName);
+        const occurrences = await this.gatherSymbolOccurrences(symbolName, symbolId);
 
         if (occurrences.length === 0) {
             warnings.push(`No occurrences found for symbol '${symbolName}' - rename will have no effect`);
@@ -554,7 +554,7 @@ export class RefactorEngine {
         // Collect all occurrences (definitions and references) of the symbol across
         // the workspace. This includes every location where the symbol appears, so
         // the rename operation can update all references simultaneously.
-        const occurrences = await this.gatherSymbolOccurrences(symbolName);
+        const occurrences = await this.gatherSymbolOccurrences(symbolName, symbolId);
 
         // Detect potential conflicts (shadowing, reserved keywords, etc.) before
         // applying edits. If conflicts exist, we abort the rename to prevent
@@ -1838,7 +1838,7 @@ export class RefactorEngine {
             }
 
             // Gather occurrences
-            const occurrences = await this.gatherSymbolOccurrences(summary.oldName);
+            const occurrences = await this.gatherSymbolOccurrences(summary.oldName, symbolId);
             totalOccurrences = occurrences.length;
 
             // Record which files will be modified by this rename so the user can
@@ -2089,7 +2089,7 @@ export class RefactorEngine {
         if (Core.hasMethods(this.semantic, "getSymbolOccurrences")) {
             try {
                 // Query occurrences of the new name to detect any potential conflicts
-                const newOccurrences = await this.semantic.getSymbolOccurrences(newName);
+                const newOccurrences = await this.semantic.getSymbolOccurrences(newName, null);
 
                 // Look for occurrences outside our edited files - these could be conflicts
                 const unexpectedOccurrences = newOccurrences.filter((occ) => !affectedFiles.includes(occ.path));

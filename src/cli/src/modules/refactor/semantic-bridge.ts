@@ -4,6 +4,7 @@ import path from "node:path";
 import { Core } from "@gmloop/core";
 import { Semantic } from "@gmloop/semantic";
 
+import { collectImplicitInstanceVariableTargets } from "./implicit-instance-variable-targets.js";
 import { ParsedLocalNamingCategoryResolver } from "./parsed-local-naming-categories.js";
 
 type ResourceAssetReferenceRecord = {
@@ -374,7 +375,7 @@ export class GmlSemanticBridge {
     /**
      * Find all occurrences of a symbol by its base name.
      */
-    getSymbolOccurrences(symbolName: string): Array<SymbolOccurrence> {
+    getSymbolOccurrences(symbolName: string, symbolId: string | null = null): Array<SymbolOccurrence> {
         const occurrences: Array<SymbolOccurrence> = [];
         const identifiers = this.identifiers;
 
@@ -388,31 +389,42 @@ export class GmlSemanticBridge {
             if (!collection) continue;
 
             for (const key of Object.keys(collection)) {
-                this.collectOccurrencesFromEntry(collection[key], symbolName, occurrences);
+                this.collectOccurrencesFromEntry(collection[key], symbolName, symbolId, occurrences);
             }
         }
 
         // 2. Search through general relationships for any script calls that matched the name
         // but weren't resolved to a specific identifier entry (useful for modern GML functions)
-        this.collectOccurrencesFromRelationships(symbolName, occurrences);
+        if (!this.isIndependentMultiFunctionScriptResourceSymbolId(symbolId)) {
+            this.collectOccurrencesFromRelationships(symbolName, occurrences);
+        }
 
         // Fallback to file-system scanning only when indexed structures produced
         // no hits and the symbol is a known resource. This avoids repeated full
         // project scans during large rename batches while preserving support for
         // resource-name references that may not be fully indexed.
-        if (occurrences.length === 0 && this.shouldCollectDiskOccurrences(symbolName)) {
+        if (occurrences.length === 0 && this.shouldCollectDiskOccurrences(symbolName, symbolId)) {
             this.collectOccurrencesFromGmlFiles(symbolName, occurrences);
         }
 
         return this.deduplicateOccurrences(occurrences);
     }
 
-    private shouldCollectDiskOccurrences(symbolName: string): boolean {
+    private shouldCollectDiskOccurrences(symbolName: string, symbolId: string | null): boolean {
         if (!Core.isNonEmptyString(symbolName)) {
             return false;
         }
 
-        return this.findResourceByName(symbolName, true) !== null;
+        if (this.isIndependentMultiFunctionScriptResourceSymbolId(symbolId)) {
+            return false;
+        }
+
+        const resource = this.findResourceByName(symbolName, true);
+        if (resource === null) {
+            return false;
+        }
+
+        return this.shouldResourceRenameCollectDiskOccurrences(resource);
     }
 
     /**
@@ -561,20 +573,43 @@ export class GmlSemanticBridge {
     }
 
     private findResourceBySymbol(entry: any, symbolId: string): any {
-        // Direct path from entry
-        if (entry.resourcePath) {
-            const res = this.resources[entry.resourcePath];
-            if (res) return res;
-        }
-
-        // Try to infer from name and kind in symbolId
         const match = symbolId.match(/^gml\/([^/]+)\/(.+)$/);
-        if (match) {
-            const name = match[2];
-            return this.findResourceByName(name);
+        if (!match) {
+            return null;
         }
 
-        return null;
+        const kind = match[1];
+        const name = match[2];
+        if (
+            ![
+                "objects",
+                "sprites",
+                "sounds",
+                "rooms",
+                "paths",
+                "curves",
+                "sequences",
+                "scripts",
+                "shaders",
+                "fonts",
+                "timelines",
+                "tilesets",
+                "particlesystems",
+                "notes",
+                "extensions"
+            ].includes(kind)
+        ) {
+            return null;
+        }
+
+        if (entry.resourcePath) {
+            const resource = this.resources[entry.resourcePath];
+            if (resource) {
+                return resource;
+            }
+        }
+
+        return this.findResourceByName(name);
     }
 
     private collectOccurrencesFromGmlFiles(symbolName: string, occurrences: Array<SymbolOccurrence>): void {
@@ -627,18 +662,25 @@ export class GmlSemanticBridge {
     /**
      * Collect occurrences from an entry.
      */
-    private collectOccurrencesFromEntry(entry: any, symbolName: string, occurrences: Array<SymbolOccurrence>): void {
-        // Case A: The entry name itself matches (e.g. macro name, enum name, or script resource name)
-        if (entry.name === symbolName) {
-            this.collectAllFromEntry(entry, occurrences);
+    private collectOccurrencesFromEntry(
+        entry: any,
+        symbolName: string,
+        symbolId: string | null,
+        occurrences: Array<SymbolOccurrence>
+    ): void {
+        const skipEntryOccurrences = this.isIndependentMultiFunctionScriptResourceSymbol(entry, symbolId);
+        if (skipEntryOccurrences) {
             return;
         }
 
-        // Case B: The entry name differs but it contains a declaration with the target name
-        // (e.g. a script file containing multiple named functions)
+        // Case A: The entry contains declaration(s) matching the target name.
+        // This takes priority over the entry-level name so multi-function script
+        // entries can rename individual declarations independently.
+        let matchedDeclaration = false;
         if (Array.isArray(entry.declarations)) {
             for (const decl of entry.declarations) {
                 if (decl.name === symbolName) {
+                    matchedDeclaration = true;
                     const end = resolveOccurrenceEndIndex(decl.end?.index);
                     if (end === null) {
                         continue;
@@ -655,7 +697,40 @@ export class GmlSemanticBridge {
             }
         }
 
-        // Case C: The entry has references that match the target name
+        if (matchedDeclaration) {
+            if (Array.isArray(entry.references)) {
+                for (const ref of entry.references) {
+                    if (ref.targetName !== symbolName && ref.name !== symbolName) {
+                        continue;
+                    }
+
+                    const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
+                    const end = resolveOccurrenceEndIndex(ref.end?.index ?? ref.location?.end?.index);
+                    const filePath = typeof ref.filePath === "string" ? ref.filePath : "";
+
+                    if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
+                        continue;
+                    }
+
+                    occurrences.push({
+                        path: filePath,
+                        start,
+                        end,
+                        scopeId: ref.scopeId,
+                        kind: "reference"
+                    });
+                }
+            }
+
+            return;
+        }
+        // Case B: The entry name itself matches (e.g. macro name, enum name, or script resource name)
+        if (entry.name === symbolName) {
+            this.collectAllFromEntry(entry, occurrences);
+            return;
+        }
+
+        // Case C: The entry has references that match the target name.
         if (Array.isArray(entry.references)) {
             for (const ref of entry.references) {
                 if (ref.targetName === symbolName) {
@@ -858,6 +933,7 @@ export class GmlSemanticBridge {
         this.collectExactIdentifierNamingTargets(this.identifiers.enums ?? {}, "enum", shouldIncludePath, pushTarget);
         this.collectEnumMemberNamingConventionTargets(shouldIncludePath, pushTarget);
         this.collectGlobalAndInstanceNamingTargets(shouldIncludePath, pushTarget);
+        this.collectImplicitInstanceNamingTargets(shouldIncludePath, pushTarget);
         this.collectLocalNamingConventionTargets(shouldIncludePath, pushTarget);
 
         return targets;
@@ -893,34 +969,23 @@ export class GmlSemanticBridge {
         pushTarget: NamingTargetSink
     ): void {
         for (const entry of Object.values(this.identifiers.scripts ?? {})) {
-            const declarationFilePath = this.getDeclarationFilePath(entry);
-            if (!shouldIncludePath(declarationFilePath) || typeof entry?.name !== "string") {
-                continue;
+            for (const declaration of this.getScriptCallableDeclarations(entry)) {
+                if (
+                    !shouldIncludePath(declaration.filePath) ||
+                    this.isCoupledSingleFunctionScriptCallable(entry, declaration.name)
+                ) {
+                    continue;
+                }
+
+                pushTarget({
+                    category: this.getScriptCallableNamingCategory(entry, declaration),
+                    name: declaration.name,
+                    occurrences: [],
+                    path: declaration.filePath,
+                    scopeId: entry.scopeId ?? null,
+                    symbolId: this.generateScipId(entry, declaration.name)
+                });
             }
-
-            const isScriptResource =
-                typeof entry.resourcePath === "string" &&
-                entry.name === this.resources?.[entry.resourcePath]?.name &&
-                this.resources?.[entry.resourcePath]?.resourceType === "GMScript";
-            if (isScriptResource) {
-                continue;
-            }
-
-            const declarationKinds = this.extractDeclarationKinds(entry);
-            const category = declarationKinds.has("constructor")
-                ? "constructorFunction"
-                : declarationKinds.has("struct")
-                  ? "structDeclaration"
-                  : "function";
-
-            pushTarget({
-                category,
-                name: entry.name,
-                occurrences: [],
-                path: declarationFilePath,
-                scopeId: entry.scopeId ?? null,
-                symbolId: this.generateScipId(entry)
-            });
         }
     }
 
@@ -994,6 +1059,35 @@ export class GmlSemanticBridge {
                 scopeId: entry.scopeId ?? null,
                 symbolId: this.generateScipId(entry, entryName)
             });
+        }
+    }
+
+    private collectImplicitInstanceNamingTargets(
+        shouldIncludePath: NamingTargetPathPredicate,
+        pushTarget: NamingTargetSink
+    ): void {
+        const knownNamesByObjectDirectory = new Map<string, Set<string>>();
+
+        for (const entry of Object.values(this.identifiers.instanceVariables ?? {})) {
+            const declarationFilePath = this.getDeclarationFilePath(entry);
+            const entryName = typeof entry?.name === "string" ? entry.name : entry?.key;
+            if (!shouldIncludePath(declarationFilePath) || typeof entryName !== "string") {
+                continue;
+            }
+
+            const objectDirectory = path.posix.dirname(declarationFilePath.replaceAll("\\", "/"));
+            const knownNames = knownNamesByObjectDirectory.get(objectDirectory) ?? new Set<string>();
+            knownNames.add(entryName);
+            knownNamesByObjectDirectory.set(objectDirectory, knownNames);
+        }
+
+        for (const target of collectImplicitInstanceVariableTargets({
+            files: (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>,
+            knownNamesByObjectDirectory,
+            projectRoot: this.projectRoot,
+            shouldIncludePath
+        })) {
+            pushTarget(target);
         }
     }
 
@@ -1168,6 +1262,137 @@ export class GmlSemanticBridge {
         }
 
         return null;
+    }
+
+    private getScriptCallableDeclarations(entry: SemanticIdentifierEntry): Array<{ filePath: string; name: string }> {
+        const declarations: Array<{ filePath: string; name: string }> = [];
+
+        for (const declaration of entry?.declarations ?? []) {
+            if (typeof declaration?.name !== "string" || typeof declaration?.filePath !== "string") {
+                continue;
+            }
+
+            declarations.push({
+                name: declaration.name,
+                filePath: declaration.filePath
+            });
+        }
+
+        return declarations;
+    }
+
+    private getScriptCallableDeclarationsForResource(
+        resourcePath: string
+    ): Array<{ declaration: Record<string, unknown>; entry: SemanticIdentifierEntry }> {
+        const declarations: Array<{ declaration: Record<string, unknown>; entry: SemanticIdentifierEntry }> = [];
+
+        for (const entry of Object.values(this.identifiers.scripts ?? {})) {
+            if (entry?.resourcePath !== resourcePath) {
+                continue;
+            }
+
+            for (const declaration of entry?.declarations ?? []) {
+                if (typeof declaration?.name !== "string" || typeof declaration?.filePath !== "string") {
+                    continue;
+                }
+
+                declarations.push({
+                    entry,
+                    declaration
+                });
+            }
+        }
+
+        return declarations;
+    }
+
+    private isCoupledSingleFunctionScriptCallable(entry: SemanticIdentifierEntry, declarationName: string): boolean {
+        if (typeof entry?.resourcePath !== "string") {
+            return false;
+        }
+
+        const resource = this.resources?.[entry.resourcePath];
+        if (resource?.resourceType !== "GMScript" || resource?.name !== declarationName) {
+            return false;
+        }
+
+        const declarations = this.getScriptCallableDeclarationsForResource(entry.resourcePath);
+        return declarations.length === 1 && declarations[0]?.declaration?.name === declarationName;
+    }
+
+    private shouldResourceRenameCollectDiskOccurrences(resource: SemanticResourceRecord): boolean {
+        if (resource.resourceType !== "GMScript" || typeof resource.path !== "string") {
+            return true;
+        }
+
+        const declarations = this.getScriptCallableDeclarationsForResource(resource.path);
+        if (declarations.length === 0) {
+            return true;
+        }
+
+        return (
+            declarations.length === 1 &&
+            typeof resource.name === "string" &&
+            declarations[0]?.declaration?.name === resource.name
+        );
+    }
+
+    private isIndependentMultiFunctionScriptResourceSymbol(
+        entry: SemanticIdentifierEntry,
+        symbolId: string | null
+    ): boolean {
+        if (!this.isIndependentMultiFunctionScriptResourceSymbolId(symbolId)) {
+            return false;
+        }
+
+        return this.getScriptCallableDeclarations(entry).length > 1;
+    }
+
+    private isIndependentMultiFunctionScriptResourceSymbolId(symbolId: string | null): boolean {
+        if (!Core.isNonEmptyString(symbolId) || !symbolId.startsWith("gml/scripts/")) {
+            return false;
+        }
+
+        const symbolEntry = this.findSymbolInCollections(symbolId);
+        const resource = symbolEntry ? this.findResourceBySymbol(symbolEntry, symbolId) : null;
+        if (resource?.resourceType !== "GMScript" || typeof resource.path !== "string") {
+            return false;
+        }
+
+        const declarations = this.getScriptCallableDeclarationsForResource(resource.path);
+        return declarations.length > 1;
+    }
+
+    private getScriptCallableNamingCategory(
+        entry: SemanticIdentifierEntry,
+        declaration: Record<string, unknown>
+    ): Extract<BridgeNamingConventionTarget["category"], "constructorFunction" | "structDeclaration" | "function"> {
+        const declarationKinds = new Set<string>();
+
+        for (const classification of Core.asArray(declaration.classifications)) {
+            if (typeof classification === "string") {
+                declarationKinds.add(classification);
+            }
+        }
+
+        if (declarationKinds.has("constructor")) {
+            return "constructorFunction";
+        }
+
+        if (declarationKinds.has("struct")) {
+            return "structDeclaration";
+        }
+
+        const entryKinds = this.extractDeclarationKinds(entry);
+        if (entryKinds.has("constructor")) {
+            return "constructorFunction";
+        }
+
+        if (entryKinds.has("struct")) {
+            return "structDeclaration";
+        }
+
+        return "function";
     }
 
     private extractDeclarationKinds(entry: any): Set<string> {

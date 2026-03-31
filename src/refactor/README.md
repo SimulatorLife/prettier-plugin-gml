@@ -324,6 +324,19 @@ does not abort the rest of the codemod run. Batch-planned metadata rewrites are
 coalesced per metadata file so sequential resource renames compose into a
 single `.yy`/`.yyp` update instead of conflicting duplicate rewrites, and write
 mode avoids stale rename offsets by applying the merged workspace atomically.
+Case-style rewrites preserve allowed leading and trailing underscore affixes, so
+`lower_snake` policy does not silently strip names like `__input_error` unless
+the policy explicitly bans those affixes. Object-event assignment-backed fields
+that the semantic index only reports as unresolved references are still treated
+as instance-variable naming targets when they are introduced through instance
+assignments, so project-wide variable policy can rename identifiers like
+`charMat` to `char_mat`. Script resource names stay coupled to a same-name
+top-level callable only when that file defines exactly one top-level callable;
+multi-function script files expose the resource and each callable as
+independent rename targets so policies can rename `DemoLibrary` and
+`function DemoLibrary()` differently when needed, with resource renames
+limited to metadata/path edits while callable renames own the text
+occurrences inside `.gml` files.
 
 #### Contract
 

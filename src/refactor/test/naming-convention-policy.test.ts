@@ -140,6 +140,31 @@ void test("evaluateNamingConvention strips banned affixes before applying case s
     assert.match(withBannedSuffix.message ?? "", /banned suffix/);
 });
 
+void test("formatNamingCaseStyle preserves allowed underscore affixes", () => {
+    assert.equal(Refactor.formatNamingCaseStyle("__input_error", "lower_snake"), "__input_error");
+    assert.equal(Refactor.formatNamingCaseStyle("_TargetShader", "lower_snake"), "_target_shader");
+    assert.equal(Refactor.formatNamingCaseStyle("__Vector3", "pascal"), "__Vector3");
+});
+
+void test("evaluateNamingConvention preserves allowed leading underscores when enforcing case style", () => {
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            resource: {
+                caseStyle: "lower_snake"
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const compliant = Refactor.evaluateNamingConvention("__input_error", "scriptResourceName", policy, resolved);
+    assert.equal(compliant.compliant, true);
+    assert.equal(compliant.suggestedName, "__input_error");
+
+    const needsCaseFix = Refactor.evaluateNamingConvention("_TargetShader", "shaderResourceName", policy, resolved);
+    assert.equal(needsCaseFix.compliant, false);
+    assert.equal(needsCaseFix.suggestedName, "_target_shader");
+});
+
 void test("normalizeNamingConventionPolicy rejects unsupported naming categories", () => {
     assert.throws(
         () =>
