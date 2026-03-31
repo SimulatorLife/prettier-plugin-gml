@@ -316,12 +316,14 @@ Benefits:
 
 Naming policy lives under `refactor.namingConventionPolicy` inside the unified
 project-root `gmloop.json`. The `namingConvention` codemod reads that policy,
-plans top-level renames through the batch rename engine, applies local
-single-file renames directly, and runs hot-reload validation before apply.
+plans top-level renames through the batch rename engine, merges those edits with
+local single-file renames into one workspace edit, and runs hot-reload
+validation before apply.
 Unsafe top-level renames are skipped with warnings so one conflicting symbol
 does not abort the rest of the codemod run. Batch-planned metadata rewrites are
 coalesced per metadata file so sequential resource renames compose into a
-single `.yy`/`.yyp` update instead of conflicting duplicate rewrites.
+single `.yy`/`.yyp` update instead of conflicting duplicate rewrites, and write
+mode avoids stale rename offsets by applying the merged workspace atomically.
 
 #### Contract
 

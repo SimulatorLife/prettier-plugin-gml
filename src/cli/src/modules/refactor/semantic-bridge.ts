@@ -872,7 +872,7 @@ export class GmlSemanticBridge {
                 continue;
             }
 
-            const category = this.getResourceNamingCategory(resource.resourceType);
+            const category = this.getResourceNamingCategory(resource);
             if (!category) {
                 continue;
             }
@@ -1191,10 +1191,15 @@ export class GmlSemanticBridge {
     }
 
     private getResourceNamingCategory(
-        resourceType: string | null | undefined
+        resource: { path?: string | null; resourceType?: string | null } | null | undefined
     ): BridgeNamingConventionTarget["category"] | null {
+        const resourceType = resource?.resourceType;
         switch (resourceType) {
             case "GMScript": {
+                const declarationCategory = this.getScriptResourceDeclarationNamingCategory(resource?.path);
+                if (declarationCategory !== null) {
+                    return declarationCategory;
+                }
                 return "scriptResourceName";
             }
             case "GMObject": {
@@ -1248,6 +1253,31 @@ export class GmlSemanticBridge {
                 return null;
             }
         }
+    }
+
+    private getScriptResourceDeclarationNamingCategory(
+        resourcePath: string | null | undefined
+    ): Extract<BridgeNamingConventionTarget["category"], "constructorFunction" | "structDeclaration"> | null {
+        if (!Core.isNonEmptyString(resourcePath)) {
+            return null;
+        }
+
+        for (const entry of Object.values(this.identifiers.scripts ?? {})) {
+            if (entry?.resourcePath !== resourcePath) {
+                continue;
+            }
+
+            const declarationKinds = this.extractDeclarationKinds(entry);
+            if (declarationKinds.has("constructor")) {
+                return "constructorFunction";
+            }
+
+            if (declarationKinds.has("struct")) {
+                return "structDeclaration";
+            }
+        }
+
+        return null;
     }
 
     private collectLocalOccurrences(filePath: string, declaration: any): Array<SymbolOccurrence> {

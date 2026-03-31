@@ -8,9 +8,12 @@ import type { CodemodExecutionTelemetry } from "../src/types.js";
 /**
  * Create a minimal batch rename plan summary for codemod tests.
  */
-function createBatchRenamePlanSummary(errors: Array<string>): BatchRenamePlanSummary {
+function createBatchRenamePlanSummary(
+    errors: Array<string>,
+    workspace = new Refactor.WorkspaceEdit()
+): BatchRenamePlanSummary {
     return {
-        workspace: new Refactor.WorkspaceEdit(),
+        workspace,
         validation: {
             valid: errors.length === 0,
             errors: [...errors],
@@ -534,7 +537,7 @@ void test("executeConfiguredCodemods applies structDeclaration policy to constru
     );
 });
 
-void test("executeConfiguredCodemods executes namingConvention top-level renames in a single write-mode batch", async () => {
+void test("executeConfiguredCodemods applies namingConvention write-mode renames through one merged workspace", async () => {
     const namingTargets = Array.from({ length: 65 }, (_, index) => ({
         name: `bad_name_${index}`,
         category: "function" as const,
@@ -547,23 +550,27 @@ void test("executeConfiguredCodemods executes namingConvention top-level renames
         listNamingConventionTargets: async () => namingTargets
     };
     const engine = new Refactor.RefactorEngine({ semantic });
-    const executeBatchCalls: Array<number> = [];
+    const preparedRenameBatchSizes: Array<number> = [];
+    const applyWorkspaceCalls: Array<InstanceType<typeof Refactor.WorkspaceEdit>> = [];
+    const topLevelWorkspace = new Refactor.WorkspaceEdit();
+    topLevelWorkspace.addEdit("scripts/script_0.gml", 0, 8, "goodName");
 
     Object.assign(engine, {
-        async prepareBatchRenamePlan(): Promise<BatchRenamePlanSummary> {
-            throw new Error("write mode should not call prepareBatchRenamePlan for top-level naming renames");
+        async prepareBatchRenamePlan(
+            request: Array<{ symbolId: string; newName: string }>
+        ): Promise<BatchRenamePlanSummary> {
+            preparedRenameBatchSizes.push(request.length);
+            return createBatchRenamePlanSummary([], topLevelWorkspace);
         },
-        async executeBatchRename(request: { renames: Array<{ symbolId: string; newName: string }> }) {
-            executeBatchCalls.push(request.renames.length);
-            return {
-                workspace: new Refactor.WorkspaceEdit(),
-                applied: new Map<string, string>([
-                    ["scripts/script_0.gml", ""],
-                    ["scripts/script_64.gml", ""]
-                ]),
-                hotReloadUpdates: [],
-                fileRenames: []
-            };
+        async applyWorkspaceEdit(workspace: InstanceType<typeof Refactor.WorkspaceEdit>) {
+            applyWorkspaceCalls.push(workspace);
+            return new Map<string, string>([
+                ["scripts/script_0.gml", ""],
+                ["scripts/script_64.gml", ""]
+            ]);
+        },
+        async executeBatchRename(): Promise<never> {
+            throw new Error("write mode should apply the merged workspace instead of executeBatchRename");
         }
     });
 
@@ -588,8 +595,9 @@ void test("executeConfiguredCodemods executes namingConvention top-level renames
         dryRun: false
     });
 
-    assert.equal(executeBatchCalls.length, 1);
-    assert.equal(executeBatchCalls[0], 65);
+    assert.deepEqual(preparedRenameBatchSizes, [65]);
+    assert.equal(applyWorkspaceCalls.length, 1);
+    assert.equal(applyWorkspaceCalls[0]?.edits.length, 1);
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, true);
     assert.equal(result.appliedFiles.get("scripts/script_0.gml"), "");
@@ -617,7 +625,9 @@ void test("executeConfiguredCodemods skips invalid namingConvention top-level re
         ]
     };
     const engine = new Refactor.RefactorEngine({ semantic });
-    const executedRenameBatches: Array<Array<{ symbolId: string; newName: string }>> = [];
+    const preparedRenameBatches: Array<Array<{ symbolId: string; newName: string }>> = [];
+    const topLevelWorkspace = new Refactor.WorkspaceEdit();
+    topLevelWorkspace.addEdit("scripts/a.gml", 0, 8, "goodOne");
 
     Object.assign(engine, {
         async validateRenameRequest(request: { symbolId: string; newName: string }) {
@@ -635,14 +645,17 @@ void test("executeConfiguredCodemods skips invalid namingConvention top-level re
                 warnings: []
             };
         },
-        async executeBatchRename(request: { renames: Array<{ symbolId: string; newName: string }> }) {
-            executedRenameBatches.push(request.renames);
-            return {
-                workspace: new Refactor.WorkspaceEdit(),
-                applied: new Map<string, string>([["scripts/a.gml", ""]]),
-                hotReloadUpdates: [],
-                fileRenames: []
-            };
+        async prepareBatchRenamePlan(
+            request: Array<{ symbolId: string; newName: string }>
+        ): Promise<BatchRenamePlanSummary> {
+            preparedRenameBatches.push(request);
+            return createBatchRenamePlanSummary([], topLevelWorkspace);
+        },
+        async applyWorkspaceEdit() {
+            return new Map<string, string>([["scripts/a.gml", ""]]);
+        },
+        async executeBatchRename(): Promise<never> {
+            throw new Error("write mode should apply the merged workspace instead of executeBatchRename");
         }
     });
 
@@ -667,13 +680,130 @@ void test("executeConfiguredCodemods skips invalid namingConvention top-level re
         dryRun: false
     });
 
-    assert.deepEqual(executedRenameBatches, [[{ symbolId: "gml/script/good_one", newName: "goodOne" }]]);
+    assert.deepEqual(preparedRenameBatches, [[{ symbolId: "gml/script/good_one", newName: "goodOne" }]]);
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, true);
     assert.deepEqual(result.summaries[0]?.errors, []);
     assert.match(result.summaries[0]?.warnings[0] ?? "", /Skipping top-level rename 'gml\/script\/bad_one'/);
     assert.equal(result.appliedFiles.get("scripts/a.gml"), "");
     assert.equal(result.appliedFiles.has("scripts/b.gml"), false);
+});
+
+void test("executeConfiguredCodemods keeps mixed local and top-level namingConvention renames aligned in write mode", async () => {
+    const sourceText = [
+        "function setup() {",
+        "    var treeMesh = levelColmesh;",
+        "    cm_add(levelColmesh, treeMesh);",
+        "}",
+        ""
+    ].join("\n");
+    const filePath = "objects/demo/Create_0.gml";
+    const localDefinitionStart = sourceText.indexOf("treeMesh");
+    const localReferenceStart = sourceText.lastIndexOf("treeMesh");
+    const firstGlobalReferenceStart = sourceText.indexOf("levelColmesh");
+    const secondGlobalReferenceStart = sourceText.lastIndexOf("levelColmesh");
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "treeMesh",
+                category: "localVariable",
+                path: filePath,
+                scopeId: "scope:treeMesh",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: filePath,
+                        start: localDefinitionStart,
+                        end: localDefinitionStart + "treeMesh".length,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:treeMesh"
+                    },
+                    {
+                        path: filePath,
+                        start: localReferenceStart,
+                        end: localReferenceStart + "treeMesh".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:treeMesh"
+                    }
+                ]
+            },
+            {
+                name: "levelColmesh",
+                category: "globalVariable",
+                path: filePath,
+                scopeId: null,
+                symbolId: "gml/globalvar/levelColmesh",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const writes = new Map<string, string>();
+    const topLevelWorkspace = new Refactor.WorkspaceEdit();
+    topLevelWorkspace.addEdit(
+        filePath,
+        secondGlobalReferenceStart,
+        secondGlobalReferenceStart + "levelColmesh".length,
+        "level_colmesh"
+    );
+    topLevelWorkspace.addEdit(
+        filePath,
+        firstGlobalReferenceStart,
+        firstGlobalReferenceStart + "levelColmesh".length,
+        "level_colmesh"
+    );
+
+    Object.assign(engine, {
+        async prepareBatchRenamePlan(
+            request: Array<{ symbolId: string; newName: string }>
+        ): Promise<BatchRenamePlanSummary> {
+            assert.deepEqual(request, [{ symbolId: "gml/globalvar/levelColmesh", newName: "level_colmesh" }]);
+            return createBatchRenamePlanSummary([], topLevelWorkspace);
+        },
+        async executeBatchRename(): Promise<never> {
+            throw new Error("write mode should not apply stale top-level batch renames after local edits");
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: [filePath],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    localVariable: {
+                        caseStyle: "lower_snake"
+                    },
+                    globalVariable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => sourceText,
+        writeFile: async (writtenFilePath, content) => {
+            writes.set(writtenFilePath, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.equal(
+        writes.get(filePath),
+        [
+            "function setup() {",
+            "    var tree_mesh = level_colmesh;",
+            "    cm_add(level_colmesh, tree_mesh);",
+            "}",
+            ""
+        ].join("\n")
+    );
+    assert.equal(result.appliedFiles.get(filePath), "");
 });
 
 void test("executeConfiguredCodemods honors project-relative target paths for namingConvention selection", async () => {
