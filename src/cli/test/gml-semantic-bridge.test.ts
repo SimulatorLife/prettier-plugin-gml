@@ -333,12 +333,12 @@ void describe("GmlSemanticBridge tests", () => {
         const referenceEdit = edits.metadataEdits.find((entry) => entry.path === refPath);
         assert.ok(referenceEdit);
         assert.match(referenceEdit.content, /"name"\s*:\s*"oGravityWell"/);
-        assert.match(referenceEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
+        assert.match(referenceEdit.content, /"path"\s*:\s*"objects\/oGravityWell\/oGravityWell\.yy"/);
 
         const manifestEdit = edits.metadataEdits.find((entry) => entry.path === projectManifestPath);
         assert.ok(manifestEdit);
         assert.match(manifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
-        assert.match(manifestEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
+        assert.match(manifestEdit.content, /"path"\s*:\s*"objects\/oGravityWell\/oGravityWell\.yy"/);
     });
 
     void it("getAdditionalSymbolEdits composes staged project metadata edits across sequential resource renames", () => {
@@ -422,9 +422,9 @@ void describe("GmlSemanticBridge tests", () => {
 
         assert.ok(stagedManifestEdit);
         assert.match(stagedManifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
-        assert.match(stagedManifestEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
+        assert.match(stagedManifestEdit.content, /"path"\s*:\s*"objects\/oGravityWell\/oGravityWell\.yy"/);
         assert.match(stagedManifestEdit.content, /"name"\s*:\s*"sFoe"/);
-        assert.match(stagedManifestEdit.content, /"path"\s*:\s*"sprites\/sEnemy\/sFoe\.yy"/);
+        assert.match(stagedManifestEdit.content, /"path"\s*:\s*"sprites\/sFoe\/sFoe\.yy"/);
 
         bridge.clearWorkspaceOverlay();
 

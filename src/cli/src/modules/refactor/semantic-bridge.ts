@@ -480,18 +480,23 @@ export class GmlSemanticBridge {
             edit.addFileRename(resourceDir, newResourceDir);
         }
 
-        this.addResourceMetadataEdits(edit, resource, newName);
+        this.addResourceMetadataEdits(edit, resource, oldName, newName);
 
         return edit;
     }
 
-    private addResourceMetadataEdits(edit: WorkspaceEdit, resource: any, newName: string): void {
+    private addResourceMetadataEdits(edit: WorkspaceEdit, resource: any, oldName: string, newName: string): void {
         const resources = this.resources;
         if (!resources || !resource?.path) {
             return;
         }
 
-        const newResourcePath = path.posix.join(path.posix.dirname(resource.path), `${newName}.yy`);
+        const resourceDirName = path.posix.basename(path.posix.dirname(resource.path));
+        const newResourceDir =
+            resourceDirName === oldName
+                ? path.posix.join(path.posix.dirname(path.posix.dirname(resource.path)), newName)
+                : path.posix.dirname(resource.path);
+        const newResourcePath = path.posix.join(newResourceDir, `${newName}.yy`);
 
         for (const resourceEntry of Object.values(resources)) {
             if (!isResourceMetadataRecord(resourceEntry)) {
@@ -531,16 +536,9 @@ export class GmlSemanticBridge {
 
             let changed = false;
 
-            if (resourceEntry.path === resource.path) {
-                if (parsed.name !== newName) {
-                    parsed.name = newName;
-                    changed = true;
-                }
-
-                if (Core.isNonEmptyString(newResourcePath) && parsed.resourcePath !== newResourcePath) {
-                    parsed.resourcePath = newResourcePath;
-                    changed = true;
-                }
+            if (resourceEntry.path === resource.path && parsed.name !== newName) {
+                parsed.name = newName;
+                changed = true;
             }
 
             for (const reference of resourceEntry.assetReferences) {
