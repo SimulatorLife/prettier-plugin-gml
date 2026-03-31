@@ -536,9 +536,17 @@ export class GmlSemanticBridge {
 
             let changed = false;
 
-            if (resourceEntry.path === resource.path && parsed.name !== newName) {
-                parsed.name = newName;
-                changed = true;
+            if (resourceEntry.path === resource.path) {
+                if (parsed.name !== newName) {
+                    parsed.name = newName;
+                    changed = true;
+                }
+
+                const currentResourcePath = typeof parsed.resourcePath === "string" ? parsed.resourcePath : null;
+                if (currentResourcePath !== newResourcePath) {
+                    parsed.resourcePath = newResourcePath;
+                    changed = true;
+                }
             }
 
             for (const reference of resourceEntry.assetReferences) {
