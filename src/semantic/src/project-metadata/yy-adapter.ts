@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import { Yy } from "@bscotch/yy";
 import { Core } from "@gmloop/core";
@@ -257,20 +258,118 @@ export function parseProjectMetadataDocumentForMutation(rawContents: string, sou
 /**
  * Stringify a metadata payload using Stitch's yy serializer.
  */
-export function stringifyProjectMetadataDocument(document: Record<string, unknown>, sourcePath = "") {
-    const schemaName = Core.isNonEmptyString(sourcePath)
-        ? resolveProjectMetadataSchemaName(sourcePath, document.resourceType)
-        : null;
+function ensureResourceTypeBeforeResourcePath(document: Record<string, unknown>): Record<string, unknown> {
+    if (!Core.isObjectLike(document)) {
+        return document;
+    }
 
-    if (schemaName) {
-        try {
-            return Yy.stringify(document, schemaName);
-        } catch {
-            return Yy.stringify(document);
+    const hasResourceType = Object.hasOwn(document, "resourceType");
+    const hasResourcePath = Object.hasOwn(document, "resourcePath");
+
+    if (!hasResourceType || !hasResourcePath) {
+        return document;
+    }
+
+    const keys = Object.keys(document);
+    const resourceTypeIndex = keys.indexOf("resourceType");
+    const resourcePathIndex = keys.indexOf("resourcePath");
+
+    if (resourceTypeIndex === -1 || resourcePathIndex === -1 || resourceTypeIndex < resourcePathIndex) {
+        return document;
+    }
+
+    const ordered: Record<string, unknown> = {};
+    for (const key of keys) {
+        if (key === "resourcePath") {
+            continue;
+        }
+
+        ordered[key] = document[key];
+
+        if (key === "resourceType") {
+            ordered.resourcePath = document.resourcePath;
         }
     }
 
-    return Yy.stringify(document);
+    return ordered;
+}
+
+function ensureResourceTypeBeforeResourcePathInSerializedOutput(
+    output: string,
+    document: Record<string, unknown>
+): string {
+    if (!Core.isObjectLike(document) || !Core.isNonEmptyString(document.resourceType)) {
+        return output;
+    }
+
+    const hasResourcePath = Object.hasOwn(document, "resourcePath");
+    if (!hasResourcePath) {
+        return output;
+    }
+
+    const eol = output.includes("\r\n") ? "\r\n" : "\n";
+    const lines = output.split(/\r?\n/);
+
+    let resourcePathLineIndex = -1;
+    let resourceTypeLineIndex = -1;
+
+    for (const [index, line] of lines.entries()) {
+        const indent = line.search(/\S|$/);
+        const trimmed = line.trimStart();
+
+        if (indent !== 2) {
+            continue; // only consider top-level property lines in serialized output
+        }
+
+        if (trimmed.startsWith('"resourcePath"')) {
+            resourcePathLineIndex = index;
+        }
+
+        if (trimmed.startsWith('"resourceType"')) {
+            resourceTypeLineIndex = index;
+        }
+
+        if (resourcePathLineIndex !== -1 && resourceTypeLineIndex !== -1) {
+            break;
+        }
+    }
+
+    if (resourcePathLineIndex === -1 || resourceTypeLineIndex === -1) {
+        return output;
+    }
+
+    if (resourceTypeLineIndex < resourcePathLineIndex) {
+        return output;
+    }
+
+    const copy = [...lines];
+    [copy[resourcePathLineIndex], copy[resourceTypeLineIndex]] = [
+        copy[resourceTypeLineIndex],
+        copy[resourcePathLineIndex]
+    ];
+
+    return copy.join(eol);
+}
+
+export function stringifyProjectMetadataDocument(document: Record<string, unknown>, sourcePath = "") {
+    const normalizedDocument = ensureResourceTypeBeforeResourcePath(document);
+    const schemaName = Core.isNonEmptyString(sourcePath)
+        ? resolveProjectMetadataSchemaName(sourcePath, normalizedDocument.resourceType)
+        : null;
+
+    const rawOutput = ((): string => {
+        if (schemaName) {
+            try {
+                return Yy.stringify(normalizedDocument, schemaName);
+            } catch {
+                return Yy.stringify(normalizedDocument);
+            }
+        }
+
+        return Yy.stringify(normalizedDocument);
+    })();
+
+    return ensureResourceTypeBeforeResourcePathInSerializedOutput(rawOutput, normalizedDocument);
 }
 
 /**
@@ -333,14 +432,29 @@ export function readProjectMetadataDocumentForMutationFromFile(sourcePath: strin
  * short-circuits because no file content changed.
  */
 export function writeProjectMetadataDocumentToFile(sourcePath: string, document: Record<string, unknown>): boolean {
-    const schemaName = resolveProjectMetadataSchemaName(sourcePath, document.resourceType);
-    try {
-        return Yy.writeSync(sourcePath, document, schemaName ?? undefined);
-    } catch {
-        fs.writeFileSync(sourcePath, stringifyProjectMetadataDocument(document, sourcePath), "utf8");
-    }
+    const normalizedDocument = ensureResourceTypeBeforeResourcePath(document);
+    const contents = stringifyProjectMetadataDocument(normalizedDocument, sourcePath);
 
-    return true;
+    try {
+        if (fs.existsSync(sourcePath)) {
+            const existing = fs.readFileSync(sourcePath, "utf8");
+            if (existing === contents) {
+                return false;
+            }
+        }
+
+        fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+        fs.writeFileSync(sourcePath, contents, "utf8");
+        return true;
+    } catch (error) {
+        // Fallback to @bscotch/yy write path if manual file write fails
+        const schemaName = resolveProjectMetadataSchemaName(sourcePath, normalizedDocument.resourceType);
+        try {
+            return Yy.writeSync(sourcePath, normalizedDocument, schemaName ?? undefined);
+        } catch {
+            throw error;
+        }
+    }
 }
 
 function resolveProjectMetadataPathTarget(

@@ -233,3 +233,29 @@ void test("writeProjectMetadataDocumentToFile delegates writes through yy writer
     const written = fs.readFileSync(metadataPath, "utf8");
     assert.match(written, /"resourceType"\s*:\s*"GMScript"/);
 });
+
+void test("stringifyProjectMetadataDocument preserves resourceType before resourcePath", () => {
+    const document: Record<string, unknown> = {
+        $GMScript: "v1",
+        "%Name": "demo",
+        isCompatibility: false,
+        isDnD: false,
+        name: "demo",
+        parent: {
+            name: "Test",
+            path: "folders/Test/Test.yy"
+        },
+        resourcePath: "scripts/demo/demo.yy",
+        resourceType: "GMScript",
+        resourceVersion: "2.0"
+    };
+
+    const output = stringifyProjectMetadataDocument(document, "scripts/demo/demo.yy");
+
+    const firstIndex = output.indexOf('"resourceType"');
+    const secondIndex = output.indexOf('"resourcePath"');
+
+    assert.ok(firstIndex !== -1, "resourceType exists in output");
+    assert.ok(secondIndex !== -1, "resourcePath exists in output");
+    assert.ok(firstIndex < secondIndex, "resourceType should appear before resourcePath in output");
+});

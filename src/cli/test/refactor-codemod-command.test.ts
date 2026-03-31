@@ -236,6 +236,10 @@ void test("refactor codemod --write preserves allowed leading underscores while 
         assert.match(renamedSource, /return _target_shader;/);
         assert.match(renamedMetadata, /"name"\s*:\s*"__input_error"/);
         assert.match(consumerSource, /return __input_error\(\);/);
+
+        const typeIndex = renamedMetadata.indexOf('"resourceType"');
+        const pathIndex = renamedMetadata.indexOf('"resourcePath"');
+        assert.ok(typeIndex !== -1 && pathIndex !== -1 && typeIndex < pathIndex);
         await assert.rejects(access(path.join(projectRoot, "scripts/input_error/input_error.gml")));
         await assert.rejects(access(path.join(projectRoot, "scripts/__InputError/__InputError.gml")));
         assert.match(result.stdout, /\[namingConvention\] changed/);
