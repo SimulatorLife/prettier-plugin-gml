@@ -542,10 +542,44 @@ export class GmlSemanticBridge {
                     changed = true;
                 }
 
-                const currentResourcePath = typeof parsed.resourcePath === "string" ? parsed.resourcePath : null;
-                if (currentResourcePath !== newResourcePath) {
-                    parsed.resourcePath = newResourcePath;
-                    changed = true;
+                if (Object.hasOwn(parsed, "resourcePath")) {
+                    const currentResourcePath = typeof parsed.resourcePath === "string" ? parsed.resourcePath : null;
+                    if (currentResourcePath !== newResourcePath) {
+                        parsed.resourcePath = newResourcePath;
+                        changed = true;
+                    }
+                }
+            }
+
+            // Ensure project manifest entries are updated directly in addition to
+            // transform-by-asset-reference, in case the asset reference map is stale or
+            // misses this resource path. This prevents stale old entries from remaining
+            // in the resources list and causing GameMaker to crash on load.
+            if (Semantic.isProjectManifestPath(resourceEntry.path) && Array.isArray(parsed.resources)) {
+                for (const manifestEntry of parsed.resources) {
+                    if (!Core.isObjectLike(manifestEntry)) {
+                        continue;
+                    }
+
+                    const idNode = manifestEntry.id;
+                    if (!Core.isObjectLike(idNode)) {
+                        continue;
+                    }
+
+                    const entryPath = typeof idNode.path === "string" ? idNode.path : null;
+                    if (entryPath !== resource.path) {
+                        continue;
+                    }
+
+                    if (idNode.name !== newName) {
+                        idNode.name = newName;
+                        changed = true;
+                    }
+
+                    if (entryPath !== newResourcePath) {
+                        idNode.path = newResourcePath;
+                        changed = true;
+                    }
                 }
             }
 
@@ -565,16 +599,20 @@ export class GmlSemanticBridge {
                 }
             }
 
+            const canonicalContent = Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path);
+            if (!changed && canonicalContent !== rawContent) {
+                changed = true;
+            }
+
             if (!changed) {
                 continue;
             }
 
-            const updatedContent = Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path);
-            if (updatedContent === rawContent) {
+            if (canonicalContent === rawContent) {
                 continue;
             }
 
-            edit.addMetadataEdit(resourceEntry.path, updatedContent);
+            edit.addMetadataEdit(resourceEntry.path, canonicalContent);
         }
     }
 

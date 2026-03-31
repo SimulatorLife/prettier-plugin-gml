@@ -234,6 +234,34 @@ void test("writeProjectMetadataDocumentToFile delegates writes through yy writer
     assert.match(written, /"resourceType"\s*:\s*"GMScript"/);
 });
 
+void test("writeProjectMetadataDocumentToFile normalizes resourceType before resourcePath", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-yy-adapter-normalize-"));
+    const metadataPath = path.join(tempRoot, "scripts", "demo", "demo.yy");
+    fs.mkdirSync(path.dirname(metadataPath), { recursive: true });
+
+    fs.writeFileSync(
+        metadataPath,
+        `{\n  "name":"demo",\n  "resourcePath":"scripts/demo/demo.yy",\n  "resourceType":"GMScript"\n}`,
+        "utf8"
+    );
+
+    const changed = writeProjectMetadataDocumentToFile(metadataPath, {
+        name: "demo",
+        resourcePath: "scripts/demo/demo.yy",
+        resourceType: "GMScript"
+    });
+
+    assert.equal(changed, true);
+
+    const written = fs.readFileSync(metadataPath, "utf8");
+    const typeIndex = written.indexOf('"resourceType"');
+    const pathIndex = written.indexOf('"resourcePath"');
+
+    assert.ok(typeIndex !== -1);
+    assert.ok(pathIndex !== -1);
+    assert.ok(typeIndex < pathIndex, "resourceType should appear before resourcePath in normalized output");
+});
+
 void test("stringifyProjectMetadataDocument preserves resourceType before resourcePath", () => {
     const document: Record<string, unknown> = {
         $GMScript: "v1",

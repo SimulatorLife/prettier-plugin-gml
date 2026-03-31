@@ -248,6 +248,105 @@ void test("refactor codemod --write preserves allowed leading underscores while 
     }
 });
 
+void test("refactor codemod --write normalizes existing script metadata resourceType/resourcePath order", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    resource: {
+                        caseStyle: "lower_snake"
+                    },
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        const scriptDir = path.join(projectRoot, "scripts", "__InputError");
+        await mkdir(scriptDir, { recursive: true });
+
+        await writeProjectFile(
+            projectRoot,
+            "scripts/__InputError/__InputError.yy",
+            `{
+  "resourcePath":"scripts/__InputError/__InputError.yy",
+  "resourceType":"GMScript",
+  "name":"__InputError"
+}`
+        );
+        await writeProjectFile(
+            projectRoot,
+            "scripts/__InputError/__InputError.gml",
+            "function __InputError() { return 1; }\n"
+        );
+
+        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--write"], cwd: projectRoot });
+        assert.equal(result.exitCode, 0);
+
+        const metadata = await readFile(path.join(projectRoot, "scripts", "__input_error", "__input_error.yy"), "utf8");
+        const typeIndex = metadata.indexOf('"resourceType"');
+        const pathIndex = metadata.indexOf('"resourcePath"');
+
+        assert.ok(typeIndex !== -1, "resourceType should exist after rename");
+        assert.ok(pathIndex !== -1, "resourcePath should exist after rename");
+        assert.ok(typeIndex < pathIndex, "resourceType must come before resourcePath to be valid for GameMaker");
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write does not add resourcePath to scripts that did not have one", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    resource: {
+                        caseStyle: "lower_snake"
+                    },
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeProjectFile(
+            projectRoot,
+            "scripts/__InputError/__InputError.yy",
+            `{
+  "resourceType":"GMScript",
+  "name":"__InputError"
+}`
+        );
+        await writeProjectFile(
+            projectRoot,
+            "scripts/__InputError/__InputError.gml",
+            "function __InputError() { return 1; }\n"
+        );
+
+        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--write"], cwd: projectRoot });
+        assert.equal(result.exitCode, 0);
+
+        const metadata = await readFile(path.join(projectRoot, "scripts", "__input_error", "__input_error.yy"), "utf8");
+        assert.match(metadata, /"name"\s*:\s*"__input_error"/);
+        assert.match(metadata, /"resourceType"\s*:\s*"GMScript"/);
+        assert.doesNotMatch(metadata, /"resourcePath"\s*:/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write renames implicit instance variables across object event files", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {

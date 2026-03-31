@@ -179,7 +179,11 @@ export function createAssetRenameExecutor({
                 resourceChanged = true;
             }
 
-            if (Core.isNonEmptyString(rename.newResourcePath) && resourceJson.resourcePath !== rename.newResourcePath) {
+            if (
+                Core.isNonEmptyString(rename.newResourcePath) &&
+                Object.hasOwn(resourceJson, "resourcePath") &&
+                resourceJson.resourcePath !== rename.newResourcePath
+            ) {
                 resourceJson.resourcePath = rename.newResourcePath;
                 resourceChanged = true;
             }
