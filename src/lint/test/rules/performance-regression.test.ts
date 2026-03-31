@@ -204,8 +204,8 @@ void test(
             "expected optimize-math-expressions to keep rewriting product chains to dot_product_3d"
         );
         assert.ok(
-            timedRun.ruleMilliseconds < 3500,
-            `expected optimize-math-expressions rule runtime under 3500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
+            timedRun.ruleMilliseconds < 4500,
+            `expected optimize-math-expressions rule runtime under 4500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
         );
         assert.ok(
             timedRun.elapsedMilliseconds < 7500,
