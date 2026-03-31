@@ -154,7 +154,9 @@ type NamingTargetPathPredicate = (candidatePath: string | null | undefined) => b
 type NamingTargetSink = (target: BridgeNamingConventionTarget) => void;
 
 function toExclusiveEndIndex(endIndex: number): number {
-    return endIndex + 1;
+    // The semantic indexer already stores end offsets as one-past-the-end
+    // values (exclusive), so no additional adjustment is required.
+    return endIndex;
 }
 
 function resolveOccurrenceEndIndex(endIndex: unknown): number | null {

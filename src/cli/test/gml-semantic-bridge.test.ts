@@ -80,6 +80,43 @@ void describe("GmlSemanticBridge tests", () => {
         assert.strictEqual(occurrences[0].kind, Refactor.OccurrenceKind.REFERENCE);
     });
 
+    void it("preserves exclusive end indexes for naming convention occurrences", async () => {
+        const mockProjectIndex = {
+            identifiers: {
+                enumMembers: {
+                    "enum-member:ECM-X": {
+                        name: "X",
+                        declarations: [
+                            {
+                                name: "X",
+                                filePath: "scripts/ecm/ecm.gml",
+                                start: { index: 20 },
+                                end: { index: 21 }
+                            }
+                        ],
+                        references: [
+                            {
+                                filePath: "scripts/ecm/ecm.gml",
+                                start: { index: 40 },
+                                end: { index: 41 }
+                            }
+                        ]
+                    }
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const targets = await bridge.listNamingConventionTargets();
+        const xTarget = targets.find((target) => target.category === "enumMember" && target.name === "X");
+
+        assert.ok(xTarget, "Expected X enum member target");
+        assert.strictEqual(xTarget?.occurrences?.[0]?.start, 20);
+        assert.strictEqual(xTarget?.occurrences?.[0]?.end, 21);
+        assert.strictEqual(xTarget?.occurrences?.[1]?.start, 40);
+        assert.strictEqual(xTarget?.occurrences?.[1]?.end, 41);
+    });
+
     void it("ignores relationship-based script call occurrences when the project index omits call spans", () => {
         const sourceText = "function consumer_script() {\n    return demo_script();\n}\n";
         const mockProjectIndex = {

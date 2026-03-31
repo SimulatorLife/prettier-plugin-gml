@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { Parser } from "@gmloop/parser";
+
 import { type BatchRenamePlanSummary, type PartialSemanticAnalyzer, Refactor } from "../index.js";
 import type { StorageBackend, StorageBackendStats } from "../src/backends/index.js";
 import type { CodemodExecutionTelemetry } from "../src/types.js";
@@ -935,6 +937,160 @@ void test("executeConfiguredCodemods honors project-relative target paths for na
     assert.deepEqual(result.summaries[0]?.changedFiles, ["scripts/example.gml"]);
     assert.equal(result.appliedFiles.get("scripts/example.gml"), "var badName = 1;\nshow_debug_message(badName);\n");
     assert.equal(result.appliedFiles.has("other/skip.gml"), false);
+});
+
+void test("executeConfiguredCodemods applies enum + enumMember renames and preserves parse validity", async () => {
+    const sourceText = "enum ecm { x, y, z };\nvar a = ecm.x;\nvar b = ecm.y;\nvar c = ecm.z;\n";
+    const enumStart = sourceText.indexOf("ecm");
+    const xDefStart = sourceText.indexOf("x,");
+    const yDefStart = sourceText.indexOf("y,");
+    const zDefStart = sourceText.indexOf("z");
+    const xRefStart = sourceText.indexOf("ecm.x");
+    const yRefStart = sourceText.indexOf("ecm.y");
+    const zRefStart = sourceText.indexOf("ecm.z");
+
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "ecm",
+                category: "enum",
+                path: "scripts/enum_test.gml",
+                scopeId: null,
+                symbolId: "gml/enum/ecm",
+                occurrences: []
+            },
+            {
+                name: "x",
+                category: "enumMember",
+                path: "scripts/enum_test.gml",
+                scopeId: null,
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: xDefStart,
+                        end: xDefStart + 1,
+                        kind: Refactor.OccurrenceKind.DEFINITION
+                    },
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: xRefStart + 4,
+                        end: xRefStart + 5,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    }
+                ]
+            },
+            {
+                name: "y",
+                category: "enumMember",
+                path: "scripts/enum_test.gml",
+                scopeId: null,
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: yDefStart,
+                        end: yDefStart + 1,
+                        kind: Refactor.OccurrenceKind.DEFINITION
+                    },
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: yRefStart + 4,
+                        end: yRefStart + 5,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    }
+                ]
+            },
+            {
+                name: "z",
+                category: "enumMember",
+                path: "scripts/enum_test.gml",
+                scopeId: null,
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: zDefStart,
+                        end: zDefStart + 1,
+                        kind: Refactor.OccurrenceKind.DEFINITION
+                    },
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: zRefStart + 4,
+                        end: zRefStart + 5,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    }
+                ]
+            }
+        ],
+        getSymbolOccurrences: async (symbolName: string, symbolId: string | null = null) => {
+            if (symbolId === "gml/enum/ecm") {
+                return [
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: enumStart,
+                        end: enumStart + 3,
+                        kind: Refactor.OccurrenceKind.DEFINITION
+                    },
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: xRefStart,
+                        end: xRefStart + 3,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    },
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: yRefStart,
+                        end: yRefStart + 3,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    },
+                    {
+                        path: "scripts/enum_test.gml",
+                        start: zRefStart,
+                        end: zRefStart + 3,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    }
+                ];
+            }
+            return [];
+        }
+    };
+
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const fileContents = new Map<string, string>([["scripts/enum_test.gml", sourceText]]);
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/enum_test.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    enum: { caseStyle: "camel", suffix: "M" },
+                    enumMember: { caseStyle: "lower", suffix: "X" }
+                }
+            },
+            codemods: { namingConvention: {} }
+        },
+        readFile: async (path) => fileContents.get(path) ?? "",
+        writeFile: async (path, content) => {
+            fileContents.set(path, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    const finalText = fileContents.get("scripts/enum_test.gml");
+    assert.ok(finalText?.includes("enum ecmM"));
+    assert.ok(finalText?.includes("xX"));
+    assert.ok(finalText?.includes("yX"));
+    assert.ok(finalText?.includes("zX"));
+
+    assert.doesNotThrow(() => {
+        const ast = Parser.GMLParser.parse(finalText ?? "");
+        assert.ok(ast && ast.type === "Program");
+    });
 });
 
 void test("executeConfiguredCodemods requests naming targets by selected GML file paths", async () => {
