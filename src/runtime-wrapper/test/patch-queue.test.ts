@@ -303,6 +303,37 @@ void test("patch queue reorders dependency-linked patches before batch apply", a
     }
 });
 
+void test("patch queue handles duplicate dependency entries when reordering batches", async () => {
+    const { wrapper, client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 1000
+        }
+    });
+
+    try {
+        sendScriptPatchWithDependencies(
+            ws,
+            "gml/script/duplicate_dependency_consumer",
+            ["gml/script/duplicate_dependency_provider", "gml/script/duplicate_dependency_provider"],
+            "return duplicate_dependency_provider();"
+        );
+        sendScriptPatch(ws, "gml/script/duplicate_dependency_provider", "return 42;");
+
+        const flushedCount = client.flushPatchQueue();
+        assert.strictEqual(flushedCount, 2);
+
+        assert.ok(wrapper.hasScript("gml/script/duplicate_dependency_provider"));
+        assert.ok(wrapper.hasScript("gml/script/duplicate_dependency_consumer"));
+
+        const metrics = client.getConnectionMetrics();
+        assert.strictEqual(metrics.patchesApplied, 2);
+        assert.strictEqual(metrics.patchesFailed, 0);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
 void test("patch queue applies long dependency chains from reverse receive order", async () => {
     const { wrapper, client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
         patchQueue: {
