@@ -341,6 +341,100 @@ void describe("GmlSemanticBridge tests", () => {
         assert.match(manifestEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
     });
 
+    void it("getAdditionalSymbolEdits composes staged project metadata edits across sequential resource renames", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-batch-"));
+        const objectPath = "objects/oGravitySphere/oGravitySphere.yy";
+        const spritePath = "sprites/sEnemy/sEnemy.yy";
+        const projectManifestPath = "project.yyp";
+
+        const objectAbsolute = path.join(tmpRoot, objectPath);
+        const spriteAbsolute = path.join(tmpRoot, spritePath);
+        const projectManifestAbsolute = path.join(tmpRoot, projectManifestPath);
+        fs.mkdirSync(path.dirname(objectAbsolute), { recursive: true });
+        fs.mkdirSync(path.dirname(spriteAbsolute), { recursive: true });
+
+        fs.writeFileSync(
+            objectAbsolute,
+            `{"name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            spriteAbsolute,
+            `{"name":"sEnemy","resourceType":"GMSprite","resourcePath":"sprites/sEnemy/sEnemy.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            projectManifestAbsolute,
+            `{
+                "name":"MyGame",
+                "resourceType":"GMProject",
+                "resources":[
+                    {"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}},
+                    {"id":{"name":"sEnemy","path":"sprites/sEnemy/sEnemy.yy",}}
+                ],
+            }`,
+            "utf8"
+        );
+
+        const mockProjectIndex = {
+            identifiers: {},
+            resources: {
+                [objectPath]: {
+                    path: objectPath,
+                    name: "oGravitySphere",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [spritePath]: {
+                    path: spritePath,
+                    name: "sEnemy",
+                    resourceType: "GMSprite",
+                    assetReferences: []
+                },
+                [projectManifestPath]: {
+                    path: projectManifestPath,
+                    name: "MyGame",
+                    resourceType: "GMProject",
+                    assetReferences: [
+                        {
+                            propertyPath: "resources.0.id",
+                            targetPath: objectPath,
+                            targetName: "oGravitySphere"
+                        },
+                        {
+                            propertyPath: "resources.1.id",
+                            targetPath: spritePath,
+                            targetName: "sEnemy"
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const firstEdits = bridge.getAdditionalSymbolEdits("gml/objects/oGravitySphere", "oGravityWell");
+        assert.ok(firstEdits);
+
+        bridge.stageWorkspaceEdit({ metadataEdits: firstEdits.metadataEdits });
+
+        const secondEdits = bridge.getAdditionalSymbolEdits("gml/sprites/sEnemy", "sFoe");
+        const stagedManifestEdit = secondEdits?.metadataEdits.find((entry) => entry.path === projectManifestPath);
+
+        assert.ok(stagedManifestEdit);
+        assert.match(stagedManifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
+        assert.match(stagedManifestEdit.content, /"path"\s*:\s*"objects\/oGravitySphere\/oGravityWell\.yy"/);
+        assert.match(stagedManifestEdit.content, /"name"\s*:\s*"sFoe"/);
+        assert.match(stagedManifestEdit.content, /"path"\s*:\s*"sprites\/sEnemy\/sFoe\.yy"/);
+
+        bridge.clearWorkspaceOverlay();
+
+        const resetEdits = bridge.getAdditionalSymbolEdits("gml/sprites/sEnemy", "sFoe");
+        const resetManifestEdit = resetEdits?.metadataEdits.find((entry) => entry.path === projectManifestPath);
+
+        assert.ok(resetManifestEdit);
+        assert.doesNotMatch(resetManifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
+    });
+
     void it("listNamingConventionTargets classifies resource, callable, macro, global, and local targets", async () => {
         const mockProjectIndex = {
             resources: {

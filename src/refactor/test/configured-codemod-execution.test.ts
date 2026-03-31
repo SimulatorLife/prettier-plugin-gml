@@ -340,9 +340,19 @@ void test("executeConfiguredCodemods applies namingConvention local renames with
     assert.equal(result.appliedFiles.get("scripts/example.gml"), "var badName = 1;\nshow_debug_message(badName);\n");
 });
 
-void test("executeConfiguredCodemods reports namingConvention batch rename conflicts without applying edits", async () => {
+void test("executeConfiguredCodemods skips invalid namingConvention top-level renames and still applies safe dry-run edits", async () => {
+    const sourceText = "function good_name() {}\nfunction bad_name() {}\n";
+    const goodNameStart = sourceText.indexOf("good_name");
     const semantic: PartialSemanticAnalyzer = {
         listNamingConventionTargets: async () => [
+            {
+                name: "good_name",
+                category: "function",
+                path: "scripts/example.gml",
+                scopeId: null,
+                symbolId: "gml/script/good_name",
+                occurrences: []
+            },
             {
                 name: "bad_name",
                 category: "function",
@@ -355,8 +365,32 @@ void test("executeConfiguredCodemods reports namingConvention batch rename confl
     };
     const engine = new Refactor.RefactorEngine({ semantic });
     Object.assign(engine, {
-        async prepareBatchRenamePlan(): Promise<BatchRenamePlanSummary> {
-            return createBatchRenamePlanSummary(["Rename target collides with an existing symbol."]);
+        async validateRenameRequest(request: { symbolId: string; newName: string }) {
+            if (request.symbolId === "gml/script/bad_name") {
+                return {
+                    valid: false,
+                    errors: ["Rename target collides with an existing symbol."],
+                    warnings: []
+                };
+            }
+
+            return {
+                valid: true,
+                errors: [],
+                warnings: []
+            };
+        },
+        async prepareBatchRenamePlan(
+            renames: Array<{ symbolId: string; newName: string }>
+        ): Promise<BatchRenamePlanSummary> {
+            assert.deepEqual(renames, [{ symbolId: "gml/script/good_name", newName: "goodName" }]);
+            const workspace = new Refactor.WorkspaceEdit();
+            workspace.addEdit("scripts/example.gml", goodNameStart, goodNameStart + "good_name".length, "goodName");
+
+            return {
+                ...createBatchRenamePlanSummary([]),
+                workspace
+            };
         }
     });
 
@@ -376,14 +410,15 @@ void test("executeConfiguredCodemods reports namingConvention batch rename confl
                 namingConvention: {}
             }
         },
-        readFile: async () => "function bad_name() {}\n"
+        readFile: async () => sourceText
     });
 
-    assert.equal(result.appliedFiles.size, 0);
     assert.equal(result.summaries.length, 1);
     assert.equal(result.summaries[0]?.id, "namingConvention");
-    assert.equal(result.summaries[0]?.changed, false);
-    assert.match(result.summaries[0]?.errors[0] ?? "", /collides/);
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.deepEqual(result.summaries[0]?.errors, []);
+    assert.match(result.summaries[0]?.warnings[0] ?? "", /Skipping top-level rename 'gml\/script\/bad_name'/);
+    assert.equal(result.appliedFiles.get("scripts/example.gml"), "function goodName() {}\nfunction bad_name() {}\n");
 });
 
 void test("executeConfiguredCodemods uses lightweight batch planning for namingConvention top-level renames", async () => {
@@ -506,6 +541,87 @@ void test("executeConfiguredCodemods streams namingConvention top-level renames 
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, true);
     assert.equal(result.appliedFiles.get("scripts/a.gml"), "");
+});
+
+void test("executeConfiguredCodemods skips invalid namingConvention top-level renames in write mode", async () => {
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "good_one",
+                category: "function",
+                path: "scripts/a.gml",
+                scopeId: null,
+                symbolId: "gml/script/good_one",
+                occurrences: []
+            },
+            {
+                name: "bad_one",
+                category: "function",
+                path: "scripts/b.gml",
+                scopeId: null,
+                symbolId: "gml/script/bad_one",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const executedRenameBatches: Array<Array<{ symbolId: string; newName: string }>> = [];
+
+    Object.assign(engine, {
+        async validateRenameRequest(request: { symbolId: string; newName: string }) {
+            if (request.symbolId === "gml/script/bad_one") {
+                return {
+                    valid: false,
+                    errors: ["Rename target collides with an existing symbol."],
+                    warnings: []
+                };
+            }
+
+            return {
+                valid: true,
+                errors: [],
+                warnings: []
+            };
+        },
+        async executeBatchRename(request: { renames: Array<{ symbolId: string; newName: string }> }) {
+            executedRenameBatches.push(request.renames);
+            return {
+                workspace: new Refactor.WorkspaceEdit(),
+                applied: new Map<string, string>([["scripts/a.gml", ""]]),
+                hotReloadUpdates: [],
+                fileRenames: []
+            };
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/a.gml", "scripts/b.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    function: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => "",
+        writeFile: async () => {},
+        dryRun: false
+    });
+
+    assert.deepEqual(executedRenameBatches, [[{ symbolId: "gml/script/good_one", newName: "goodOne" }]]);
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.deepEqual(result.summaries[0]?.errors, []);
+    assert.match(result.summaries[0]?.warnings[0] ?? "", /Skipping top-level rename 'gml\/script\/bad_one'/);
+    assert.equal(result.appliedFiles.get("scripts/a.gml"), "");
+    assert.equal(result.appliedFiles.has("scripts/b.gml"), false);
 });
 
 void test("executeConfiguredCodemods honors project-relative target paths for namingConvention selection", async () => {
@@ -703,5 +819,7 @@ void test("executeConfiguredCodemods surfaces namingConvention hot reload warnin
     });
 
     assert.equal(result.summaries[0]?.id, "namingConvention");
-    assert.match(result.summaries[0]?.warnings[0] ?? "", /Transpiler compatibility validated/);
+    assert.ok(
+        result.summaries[0]?.warnings.some((warning) => /Transpiler compatibility validated/.test(warning)) ?? false
+    );
 });

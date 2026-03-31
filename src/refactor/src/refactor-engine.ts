@@ -93,6 +93,13 @@ function deduplicateStableValues(values: ReadonlyArray<string>): Array<string> {
     return [...new Set(values)];
 }
 
+function semanticSupportsBatchWorkspaceOverlay(
+    semantic: PartialSemanticAnalyzer | null
+): semantic is PartialSemanticAnalyzer &
+    Required<Pick<NonNullable<PartialSemanticAnalyzer>, "clearWorkspaceOverlay" | "stageWorkspaceEdit">> {
+    return Core.hasMethods(semantic, ["clearWorkspaceOverlay", "stageWorkspaceEdit"]);
+}
+
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
@@ -846,22 +853,44 @@ export class RefactorEngine {
         // Plan each rename independently and merge immediately to avoid retaining
         // every intermediate workspace in memory for large rename batches.
         const merged = new WorkspaceEdit();
-        await Core.runSequentially(renames, async (rename) => {
-            const workspace = await this.planRename(rename);
-            for (const edit of workspace.edits) {
-                merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
-            }
-            const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
-            for (const metadataEdit of metadataEdits) {
-                merged.addMetadataEdit(metadataEdit.path, metadataEdit.content);
-            }
-            for (const fileRename of fileRenames) {
-                merged.addFileRename(fileRename.oldPath, fileRename.newPath);
-            }
+        const mergedMetadataEditsByPath = new Map<string, string>();
+        const semantic = this.semantic;
+        const supportsBatchWorkspaceOverlay = semanticSupportsBatchWorkspaceOverlay(semantic);
 
-            // Keep batch processing memory bounded for large cross-project runs.
-            this.semanticCache.invalidateAll();
-        });
+        if (supportsBatchWorkspaceOverlay) {
+            await semantic.clearWorkspaceOverlay();
+        }
+
+        try {
+            await Core.runSequentially(renames, async (rename) => {
+                const workspace = await this.planRename(rename);
+                for (const edit of workspace.edits) {
+                    merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
+                }
+                const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
+                for (const metadataEdit of metadataEdits) {
+                    mergedMetadataEditsByPath.set(metadataEdit.path, metadataEdit.content);
+                }
+                for (const fileRename of fileRenames) {
+                    merged.addFileRename(fileRename.oldPath, fileRename.newPath);
+                }
+
+                if (supportsBatchWorkspaceOverlay) {
+                    await semantic.stageWorkspaceEdit(workspace);
+                }
+
+                // Keep batch processing memory bounded for large cross-project runs.
+                this.semanticCache.invalidateAll();
+            });
+        } finally {
+            if (supportsBatchWorkspaceOverlay) {
+                await semantic.clearWorkspaceOverlay();
+            }
+        }
+
+        for (const [metadataPath, metadataContent] of mergedMetadataEditsByPath.entries()) {
+            merged.addMetadataEdit(metadataPath, metadataContent);
+        }
 
         // Validate the merged result for overlapping edits
         const validation = await this.validateRename(merged);

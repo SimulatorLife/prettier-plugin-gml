@@ -253,6 +253,72 @@ void test("planBatchRename allows independent renames without cycles", async () 
     assert.equal(workspace.edits.length, 2);
 });
 
+void test("planBatchRename coalesces staged metadata rewrites for the same file", async () => {
+    let stagedProjectMetadata = "project";
+    let clearWorkspaceOverlayCallCount = 0;
+    let stageWorkspaceEditCallCount = 0;
+
+    const mockSemantic = {
+        clearWorkspaceOverlay() {
+            clearWorkspaceOverlayCallCount += 1;
+            stagedProjectMetadata = "project";
+        },
+        getAdditionalSymbolEdits(symbolId: string, newName: string) {
+            const symbolName = symbolId.split("/").at(-1) ?? symbolId;
+            return {
+                edits: [],
+                fileRenames: [],
+                metadataEdits: [
+                    {
+                        path: "game.yyp",
+                        content: `${stagedProjectMetadata}|${symbolName}:${newName}`
+                    }
+                ],
+                addEdit() {},
+                addFileRename() {},
+                addMetadataEdit() {},
+                groupByFile() {
+                    return new Map();
+                }
+            };
+        },
+        getSymbolOccurrences(name: string) {
+            if (name === "scr_a") {
+                return [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }];
+            }
+            if (name === "scr_b") {
+                return [{ path: "test.gml", start: 12, end: 17, scopeId: "scope-1" }];
+            }
+            return [];
+        },
+        hasSymbol() {
+            return true;
+        },
+        stageWorkspaceEdit(workspace: { metadataEdits?: Array<{ content: string; path: string }> }) {
+            stageWorkspaceEditCallCount += 1;
+            const latestProjectMetadata = workspace.metadataEdits?.find((edit) => edit.path === "game.yyp");
+            if (latestProjectMetadata) {
+                stagedProjectMetadata = latestProjectMetadata.content;
+            }
+        }
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const workspace = await engine.planBatchRename([
+        { symbolId: "gml/script/scr_a", newName: "scr_new_a" },
+        { symbolId: "gml/script/scr_b", newName: "scr_new_b" }
+    ]);
+
+    assert.deepEqual(workspace.metadataEdits, [
+        {
+            path: "game.yyp",
+            content: "project|scr_a:scr_new_a|scr_b:scr_new_b"
+        }
+    ]);
+    assert.equal(stageWorkspaceEditCallCount, 2);
+    assert.equal(clearWorkspaceOverlayCallCount, 2);
+});
+
 void test("executeBatchRename validates required parameters", async () => {
     const engine = new RefactorEngineClass();
     type ExecuteBatchRenameArgs = Parameters<RefactorEngine["executeBatchRename"]>[0];

@@ -5,12 +5,15 @@ import { Core } from "@gmloop/core";
 import { evaluateNamingConvention, resolveNamingConventionRules } from "../../naming-convention-policy.js";
 import type {
     ApplyWorkspaceEditOptions,
+    BatchRenamePlanSummary,
     CodemodEngine,
     NamingConventionCodemodPlan,
     NamingConventionTarget,
     NamingConventionViolation,
-    RefactorProjectConfig
+    RefactorProjectConfig,
+    RenameRequest
 } from "../../types.js";
+import { detectCircularRenames, detectDuplicateTargetNames } from "../../validation.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
 import { isPathSelectedByLists } from "./path-selection.js";
 
@@ -26,6 +29,81 @@ function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit)
     for (const fileRename of source.fileRenames) {
         destination.addFileRename(fileRename.oldPath, fileRename.newPath);
     }
+}
+
+type TopLevelRenameSelection = {
+    executableRenames: Array<RenameRequest>;
+    warnings: Array<string>;
+};
+
+function formatTopLevelRenameSkipWarning(rename: RenameRequest, reason: string): string {
+    return `Skipping top-level rename '${rename.symbolId}' -> '${rename.newName}': ${reason}`;
+}
+
+async function selectExecutableTopLevelRenames(
+    engine: CodemodEngine,
+    renames: ReadonlyArray<RenameRequest>
+): Promise<TopLevelRenameSelection> {
+    const warnings: Array<string> = [];
+    const individuallySafeRenames: Array<RenameRequest> = [];
+
+    await Core.runSequentially(renames, async (rename) => {
+        const validation = await engine.validateRenameRequest(rename);
+        warnings.push(...validation.warnings.map((warning) => `${rename.symbolId}: ${warning}`));
+
+        if (!validation.valid) {
+            warnings.push(formatTopLevelRenameSkipWarning(rename, validation.errors.join("; ")));
+            return;
+        }
+
+        individuallySafeRenames.push(rename);
+    });
+
+    const blockedSymbolIds = new Set<string>();
+    for (const duplicateTarget of detectDuplicateTargetNames(individuallySafeRenames)) {
+        for (const symbolId of duplicateTarget.symbolIds) {
+            blockedSymbolIds.add(symbolId);
+            warnings.push(
+                formatTopLevelRenameSkipWarning(
+                    individuallySafeRenames.find((rename) => rename.symbolId === symbolId) ?? {
+                        symbolId,
+                        newName: duplicateTarget.newName
+                    },
+                    `another naming-convention rename in the same run also targets '${duplicateTarget.newName}'`
+                )
+            );
+        }
+    }
+
+    const circularRenameChain = detectCircularRenames(individuallySafeRenames);
+    if (circularRenameChain.length > 0) {
+        const cycleSymbolIds = new Set(circularRenameChain);
+        const cyclePreview = circularRenameChain.join(" -> ");
+        for (const rename of individuallySafeRenames) {
+            if (cycleSymbolIds.has(rename.symbolId)) {
+                blockedSymbolIds.add(rename.symbolId);
+                warnings.push(
+                    formatTopLevelRenameSkipWarning(
+                        rename,
+                        `the rename participates in a circular naming-convention batch (${cyclePreview})`
+                    )
+                );
+            }
+        }
+    }
+
+    return {
+        executableRenames: individuallySafeRenames.filter((rename) => !blockedSymbolIds.has(rename.symbolId)),
+        warnings
+    };
+}
+
+function collectBatchPlanWarnings(plan: BatchRenamePlanSummary): Array<string> {
+    return [...plan.batchValidation.warnings, ...plan.validation.warnings, ...(plan.hotReload?.warnings ?? [])];
+}
+
+function collectBatchPlanErrors(plan: BatchRenamePlanSummary): Array<string> {
+    return [...plan.batchValidation.errors, ...plan.validation.errors, ...(plan.hotReload?.errors ?? [])];
 }
 
 /**
@@ -177,24 +255,36 @@ export async function planNamingConventionCodemod(
         localRenameCount += 1;
     });
 
+    const topLevelRenameSelection = await selectExecutableTopLevelRenames(engine, topLevelRenames);
+    warnings.push(...topLevelRenameSelection.warnings);
+
     let topLevelRenamePlan: NamingConventionCodemodPlan["topLevelRenamePlan"] = null;
-    if (includeTopLevelPlan && topLevelRenames.length > 0) {
-        topLevelRenamePlan = await engine.prepareBatchRenamePlan(topLevelRenames, {
-            includeImpactAnalyses: false
-        });
-        const mergedWorkspace = topLevelRenamePlan.workspace;
-        appendWorkspaceEdits(mergedWorkspace, workspace);
-        workspace = mergedWorkspace;
-        warnings.push(
-            ...topLevelRenamePlan.batchValidation.warnings,
-            ...topLevelRenamePlan.validation.warnings,
-            ...(topLevelRenamePlan.hotReload?.warnings ?? [])
-        );
-        errors.push(
-            ...topLevelRenamePlan.batchValidation.errors,
-            ...topLevelRenamePlan.validation.errors,
-            ...(topLevelRenamePlan.hotReload?.errors ?? [])
-        );
+    let executableTopLevelRenames = topLevelRenameSelection.executableRenames;
+    if (includeTopLevelPlan && executableTopLevelRenames.length > 0) {
+        try {
+            const preparedTopLevelRenamePlan = await engine.prepareBatchRenamePlan(executableTopLevelRenames, {
+                includeImpactAnalyses: false
+            });
+            warnings.push(...collectBatchPlanWarnings(preparedTopLevelRenamePlan));
+
+            const topLevelPlanErrors = collectBatchPlanErrors(preparedTopLevelRenamePlan);
+            if (topLevelPlanErrors.length > 0) {
+                warnings.push(
+                    `Skipping ${executableTopLevelRenames.length} top-level naming rename(s) because batch planning failed: ${topLevelPlanErrors.join("; ")}`
+                );
+                executableTopLevelRenames = [];
+            } else {
+                topLevelRenamePlan = preparedTopLevelRenamePlan;
+                const mergedWorkspace = preparedTopLevelRenamePlan.workspace;
+                appendWorkspaceEdits(mergedWorkspace, workspace);
+                workspace = mergedWorkspace;
+            }
+        } catch (error) {
+            warnings.push(
+                `Skipping ${executableTopLevelRenames.length} top-level naming rename(s) because batch planning failed: ${Core.getErrorMessage(error)}`
+            );
+            executableTopLevelRenames = [];
+        }
     }
 
     return {
@@ -203,7 +293,7 @@ export async function planNamingConventionCodemod(
         warnings,
         errors,
         topLevelRenamePlan,
-        topLevelRenameRequests: topLevelRenames,
+        topLevelRenameRequests: executableTopLevelRenames,
         localRenameCount
     };
 }

@@ -506,6 +506,19 @@ export interface EditValidator {
 }
 
 /**
+ * Allows semantic adapters to observe progressively merged workspace edits while
+ * a batch rename plan is being assembled.
+ *
+ * Implementations can use this to stage metadata rewrites or other derived state
+ * so subsequent rename plans see the already-planned batch changes rather than a
+ * stale on-disk snapshot.
+ */
+export interface BatchWorkspaceOverlay {
+    clearWorkspaceOverlay(): MaybePromise<void>;
+    stageWorkspaceEdit(workspace: WorkspaceEdit): MaybePromise<void>;
+}
+
+/**
  * Complete semantic analyzer interface.
  *
  * Combines all role-focused interfaces for consumers that need full
@@ -542,6 +555,7 @@ export type PartialSemanticAnalyzer = Partial<SymbolResolver> &
     Partial<DependencyAnalyzer> &
     Partial<KeywordProvider> &
     Partial<EditValidator> &
+    Partial<BatchWorkspaceOverlay> &
     Partial<NamingConventionTargetProvider>;
 
 export interface TranspilerBridge {
@@ -935,6 +949,16 @@ export interface CodemodEngine {
     executeLoopLengthHoistingCodemod(
         request: ExecuteLoopLengthHoistingCodemodRequest
     ): Promise<ExecuteLoopLengthHoistingCodemodResult>;
+    validateRenameRequest(
+        request: RenameRequest,
+        options?: ValidateRenameRequestOptions
+    ): Promise<
+        ValidationSummary & {
+            symbolName?: string;
+            occurrenceCount?: number;
+            hotReload?: HotReloadSafetySummary;
+        }
+    >;
     prepareBatchRenamePlan(
         request: Array<RenameRequest>,
         options?: PrepareBatchRenamePlanOptions

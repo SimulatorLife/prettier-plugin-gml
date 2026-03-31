@@ -233,11 +233,37 @@ export class GmlSemanticBridge {
     private readonly localNamingCategoryResolver: ParsedLocalNamingCategoryResolver;
     private projectIndex: Record<string, unknown>;
     private projectRoot: string;
+    private readonly stagedMetadataContents = new Map<string, string>();
 
     constructor(projectIndex: unknown, projectRoot: string = process.cwd()) {
         this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
         this.projectRoot = projectRoot;
         this.localNamingCategoryResolver = new ParsedLocalNamingCategoryResolver(projectRoot);
+    }
+
+    /**
+     * Reset the staged workspace overlay used while composing batch rename plans.
+     */
+    clearWorkspaceOverlay(): void {
+        this.stagedMetadataContents.clear();
+    }
+
+    /**
+     * Stage metadata rewrites from a planned workspace edit so subsequent rename
+     * planning can build on the already-planned metadata state.
+     */
+    stageWorkspaceEdit(workspace: { metadataEdits?: Array<{ content: string; path: string }> }): void {
+        if (!Array.isArray(workspace.metadataEdits)) {
+            return;
+        }
+
+        for (const metadataEdit of workspace.metadataEdits) {
+            if (typeof metadataEdit.path !== "string" || typeof metadataEdit.content !== "string") {
+                continue;
+            }
+
+            this.stagedMetadataContents.set(metadataEdit.path, metadataEdit.content);
+        }
     }
 
     /**
@@ -468,20 +494,25 @@ export class GmlSemanticBridge {
             }
 
             const absolutePath = path.resolve(this.projectRoot, resourceEntry.path);
-            if (!fs.existsSync(absolutePath)) {
-                continue;
-            }
-
+            const stagedRawContent = this.stagedMetadataContents.get(resourceEntry.path);
             let rawContent: string;
-            try {
-                rawContent = fs.readFileSync(absolutePath, "utf8");
-            } catch {
-                continue;
+            if (stagedRawContent === undefined) {
+                if (!fs.existsSync(absolutePath)) {
+                    continue;
+                }
+
+                try {
+                    rawContent = fs.readFileSync(absolutePath, "utf8");
+                } catch {
+                    continue;
+                }
+            } else {
+                rawContent = stagedRawContent;
             }
 
             let parsed: Record<string, unknown>;
             try {
-                parsed = Semantic.readProjectMetadataDocumentForMutationFromFile(absolutePath).document;
+                parsed = Semantic.parseProjectMetadataDocumentForMutation(rawContent, absolutePath).document;
             } catch {
                 continue;
             }
