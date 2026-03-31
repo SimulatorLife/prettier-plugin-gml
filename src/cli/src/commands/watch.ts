@@ -1274,6 +1274,12 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     runtimeContext.scanComplete = true;
                     return null;
                 })
+                .finally(() => {
+                    // The startup cache is only needed during the initial scan. Clear any
+                    // unconsumed entries (for example from transient read errors) so large
+                    // file contents and AST objects are released promptly.
+                    clearInitialFileDataCache(fileDataCache);
+                })
                 .catch(handleWatcherError);
         } catch (error) {
             handleWatcherError(error);
@@ -1849,6 +1855,23 @@ export function takeInitialFileData(
     }
 
     return cached;
+}
+
+/**
+ * Clears any remaining startup file cache entries after the initial scan finishes.
+ *
+ * During startup, cached source text and AST objects are reused to avoid duplicate
+ * reads/parses. Once the initial scan completes (or fails), retaining leftover entries
+ * only increases steady-state memory usage.
+ *
+ * @param fileDataCache - Startup cache to clear.
+ */
+export function clearInitialFileDataCache(fileDataCache: Map<string, InitialFileData> | undefined): void {
+    if (!fileDataCache) {
+        return;
+    }
+
+    fileDataCache.clear();
 }
 
 /**
