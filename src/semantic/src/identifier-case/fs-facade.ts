@@ -1,5 +1,6 @@
 import {
     accessSync as nodeAccessSync,
+    constants as fsConstants,
     existsSync as nodeExistsSync,
     mkdirSync as nodeMkdirSync,
     type PathOrFileDescriptor,
@@ -9,9 +10,8 @@ import {
 
 import { Core } from "@gmloop/core";
 
-import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
-
 const { readTextFileSync, writeTextFileSync } = Core;
+export const DEFAULT_WRITE_ACCESS_MODE = typeof fsConstants?.W_OK === "number" ? fsConstants.W_OK : undefined;
 
 const defaultIdentifierCaseFsFacade = Object.freeze({
     readFileSync(targetPath: PathOrFileDescriptor) {

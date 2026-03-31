@@ -1,5 +1,3 @@
-import { constants as fsConstants } from "node:fs";
-
 import { Core } from "@gmloop/core";
 
 export const COLLISION_CONFLICT_CODE = "collision";
@@ -161,5 +159,3 @@ export function summarizeFileOccurrences(counts) {
         occurrences
     }));
 }
-
-export const DEFAULT_WRITE_ACCESS_MODE = typeof fsConstants?.W_OK === "number" ? fsConstants.W_OK : undefined;
