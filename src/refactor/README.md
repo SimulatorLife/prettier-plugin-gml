@@ -496,10 +496,10 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
 
     callable: null,
     function: "callable",
-    constructorFunction: "callable",
 
     typeName: null,
     structDeclaration: "typeName",
+    constructorFunction: "structDeclaration",
     enum: "typeName",
 
     member: null,

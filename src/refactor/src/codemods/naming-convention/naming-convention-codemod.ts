@@ -298,19 +298,6 @@ export async function planNamingConventionCodemod(
     };
 }
 
-function splitIntoRenameChunks(
-    renames: Array<{ symbolId: string; newName: string }>,
-    chunkSize: number
-): Array<Array<{ symbolId: string; newName: string }>> {
-    const chunks: Array<Array<{ symbolId: string; newName: string }>> = [];
-
-    for (let index = 0; index < renames.length; index += chunkSize) {
-        chunks.push(renames.slice(index, index + chunkSize));
-    }
-
-    return chunks;
-}
-
 /**
  * Execute a naming-convention codemod plan when it contains no blocking errors.
  */
@@ -368,10 +355,9 @@ export async function executeNamingConventionCodemod(
             }
         }
 
-        const renameChunks = splitIntoRenameChunks(plan.topLevelRenameRequests, 64);
-        await Core.runSequentially(renameChunks, async (chunk) => {
+        if (plan.topLevelRenameRequests.length > 0) {
             const batchResult = await engine.executeBatchRename({
-                renames: chunk,
+                renames: plan.topLevelRenameRequests,
                 readFile: parameters.applyOptions.readFile,
                 writeFile,
                 includeResultContent: false,
@@ -389,7 +375,7 @@ export async function executeNamingConventionCodemod(
             }
 
             engine.clearQueryCaches();
-        });
+        }
 
         return {
             plan,

@@ -36,6 +36,7 @@ void test("resolveNamingConventionRules applies inheritance and explicit disable
     assert.deepEqual(resolved.globalVariable?.bannedPrefixes, ["_"]);
     assert.deepEqual(resolved.globalVariable?.bannedSuffixes, []);
     assert.equal(resolved.structDeclaration?.caseStyle, "pascal");
+    assert.equal(resolved.constructorFunction?.caseStyle, "pascal");
     assert.equal(resolved.enum?.caseStyle, "pascal");
     assert.equal(resolved.enumMember?.suffix, "_member");
     assert.equal(resolved.loopIndexVariable, undefined);

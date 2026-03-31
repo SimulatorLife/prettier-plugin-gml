@@ -474,26 +474,77 @@ void test("executeConfiguredCodemods uses lightweight batch planning for namingC
     assert.equal(calls[0]?.validateHotReload, undefined);
 });
 
-void test("executeConfiguredCodemods streams namingConvention top-level renames in write mode", async () => {
+void test("executeConfiguredCodemods applies structDeclaration policy to constructor targets and new-expression references", async () => {
+    const sourceText = "function vector3() constructor {}\nvar value = new vector3();\n";
+    const declarationStart = sourceText.indexOf("vector3");
+    const referenceStart = sourceText.lastIndexOf("vector3");
     const semantic: PartialSemanticAnalyzer = {
         listNamingConventionTargets: async () => [
             {
-                name: "bad_one",
-                category: "function",
-                path: "scripts/a.gml",
+                name: "vector3",
+                category: "constructorFunction",
+                path: "scripts/vector3/vector3.gml",
                 scopeId: null,
-                symbolId: "gml/script/bad_one",
-                occurrences: []
-            },
-            {
-                name: "bad_two",
-                category: "function",
-                path: "scripts/b.gml",
-                scopeId: null,
-                symbolId: "gml/script/bad_two",
-                occurrences: []
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/vector3/vector3.gml",
+                        start: declarationStart,
+                        end: declarationStart + "vector3".length,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: null
+                    },
+                    {
+                        path: "scripts/vector3/vector3.gml",
+                        start: referenceStart,
+                        end: referenceStart + "vector3".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: null
+                    }
+                ]
             }
         ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/vector3/vector3.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    structDeclaration: {
+                        caseStyle: "pascal"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async () => sourceText
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.equal(
+        result.appliedFiles.get("scripts/vector3/vector3.gml"),
+        "function Vector3() constructor {}\nvar value = new Vector3();\n"
+    );
+});
+
+void test("executeConfiguredCodemods executes namingConvention top-level renames in a single write-mode batch", async () => {
+    const namingTargets = Array.from({ length: 65 }, (_, index) => ({
+        name: `bad_name_${index}`,
+        category: "function" as const,
+        path: `scripts/script_${index}.gml`,
+        scopeId: null,
+        symbolId: `gml/script/bad_name_${index}`,
+        occurrences: []
+    }));
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => namingTargets
     };
     const engine = new Refactor.RefactorEngine({ semantic });
     const executeBatchCalls: Array<number> = [];
@@ -507,8 +558,8 @@ void test("executeConfiguredCodemods streams namingConvention top-level renames 
             return {
                 workspace: new Refactor.WorkspaceEdit(),
                 applied: new Map<string, string>([
-                    ["scripts/a.gml", ""],
-                    ["scripts/b.gml", ""]
+                    ["scripts/script_0.gml", ""],
+                    ["scripts/script_64.gml", ""]
                 ]),
                 hotReloadUpdates: [],
                 fileRenames: []
@@ -538,9 +589,10 @@ void test("executeConfiguredCodemods streams namingConvention top-level renames 
     });
 
     assert.equal(executeBatchCalls.length, 1);
+    assert.equal(executeBatchCalls[0], 65);
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, true);
-    assert.equal(result.appliedFiles.get("scripts/a.gml"), "");
+    assert.equal(result.appliedFiles.get("scripts/script_0.gml"), "");
 });
 
 void test("executeConfiguredCodemods skips invalid namingConvention top-level renames in write mode", async () => {
