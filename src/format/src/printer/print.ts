@@ -38,7 +38,7 @@ import {
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import { isLogicalComparisonClause } from "./logical-expression-predicates.js";
-import { safeGetParentNode } from "./path-utils.js";
+import { safeGetParentNode, safeGetPathName, safeGetPathValue } from "./path-utils.js";
 import {
     breakParent,
     concat,
@@ -116,21 +116,6 @@ const {
 
 const forcedStructArgumentBreaks = new WeakMap();
 const MIN_VARIABLE_DECLARATIONS_BEFORE_LOOP_PADDING = 4;
-
-function callPathMethod(path: any, methodName: any, { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}) {
-    if (!path) {
-        return defaultValue;
-    }
-
-    const method = path[methodName];
-    if (typeof method !== "function") {
-        return defaultValue;
-    }
-
-    const normalizedArgs = Core.toArray(args);
-
-    return method.apply(path, normalizedArgs);
-}
 
 const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
@@ -2770,7 +2755,7 @@ function getBinaryOperatorInfo(operator) {
 
 function shouldOmitSyntheticParens(path, _options) {
     void _options;
-    const node = callPathMethod(path, "getValue", { defaultValue: null });
+    const node = safeGetPathValue(path);
     if (!node || node.type !== "ParenthesizedExpression") {
         return false;
     }
@@ -2782,14 +2767,12 @@ function shouldOmitSyntheticParens(path, _options) {
     // and can be safely omitted when the context makes precedence unambiguous.
     const isSynthetic = node.synthetic === true;
 
-    const parent = callPathMethod(path, "getParentNode", {
-        defaultValue: null
-    });
+    const parent = safeGetParentNode(path);
     if (!parent) {
         return false;
     }
 
-    const parentKey = callPathMethod(path, "getName");
+    const parentKey = safeGetPathName(path);
     const expression = node.expression;
 
     if (shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression)) {
@@ -2974,7 +2957,7 @@ function shouldFlattenTernaryTest(parentKey, expression) {
 }
 
 function shouldWrapTernaryExpression(path) {
-    const node = callPathMethod(path, "getValue", { defaultValue: null });
+    const node = safeGetPathValue(path);
     if (node && node.__skipTernaryParens) {
         return false;
     }
@@ -3445,7 +3428,7 @@ function shouldFlattenSyntheticBinary(parent, expression, _path) {
         return true;
     }
 
-    const parentKey = callPathMethod(_path, "getName");
+    const parentKey = safeGetPathName(_path);
     const parentIsAdditive = parent.operator === "+" || parent.operator === "-";
     const expressionIsAdditive = expression.operator === "+" || expression.operator === "-";
     if (!parentIsAdditive || !expressionIsAdditive) {
