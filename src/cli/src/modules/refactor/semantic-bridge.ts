@@ -155,9 +155,9 @@ type NamingTargetPathPredicate = (candidatePath: string | null | undefined) => b
 type NamingTargetSink = (target: BridgeNamingConventionTarget) => void;
 
 function toExclusiveEndIndex(endIndex: number): number {
-    // The semantic indexer already stores end offsets as one-past-the-end
-    // values (exclusive), so no additional adjustment is required.
-    return endIndex;
+    // The semantic index stores end offsets as the final character position.
+    // Refactor text edits use one-past-the-end (exclusive) indexes.
+    return endIndex + 1;
 }
 
 function resolveOccurrenceEndIndex(endIndex: unknown): number | null {
@@ -1713,6 +1713,21 @@ export class GmlSemanticBridge {
 
         for (const reference of fileRecord.references ?? []) {
             if (!matchesDeclaration(reference)) {
+                continue;
+            }
+
+            const referenceClassifications = Core.asArray(reference.classifications).filter(
+                (classification): classification is string => typeof classification === "string"
+            );
+            if (
+                referenceClassifications.length > 0 &&
+                (!referenceClassifications.some(
+                    (classification) => classification === "variable" || classification === "parameter"
+                ) ||
+                    referenceClassifications.some(
+                        (classification) => classification === "enum-member" || classification === "member"
+                    ))
+            ) {
                 continue;
             }
 

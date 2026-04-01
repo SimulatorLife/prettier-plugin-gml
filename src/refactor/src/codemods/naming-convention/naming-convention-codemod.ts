@@ -8,7 +8,6 @@ import type {
     BatchRenamePlanSummary,
     CodemodEngine,
     NamingConventionCodemodPlan,
-    NamingConventionTarget,
     NamingConventionViolation,
     RefactorProjectConfig,
     RenameRequest
@@ -161,53 +160,42 @@ export async function planNamingConventionCodemod(
     const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) =>
         isPathSelectedByLists(parameters.projectRoot, filePath, parameters.targetPaths, [])
     );
+    const queriedTargets = await semantic.listNamingConventionTargets(
+        selectedFilePaths.length === 0
+            ? undefined
+            : [
+                  ...new Set(
+                      selectedFilePaths.flatMap((filePath) => {
+                          const resourcePath = filePath.replace(/\.gml$/i, ".yy");
+                          return [
+                              filePath,
+                              path.resolve(parameters.projectRoot, filePath),
+                              resourcePath,
+                              path.resolve(parameters.projectRoot, resourcePath)
+                          ];
+                      })
+                  )
+              ]
+    );
+    const selectedTargets = queriedTargets.filter((target) =>
+        isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])
+    );
 
-    const forEachSelectedTarget = async (
-        visitor: (target: NamingConventionTarget) => void | Promise<void>
-    ): Promise<void> => {
-        if (selectedFilePaths.length > 0) {
-            await Core.runSequentially(selectedFilePaths, async (filePath) => {
-                const relativeResourcePath = filePath.replace(/\.gml$/i, ".yy");
-                const absoluteFilePath = path.resolve(parameters.projectRoot, filePath);
-                const absoluteResourcePath = path.resolve(parameters.projectRoot, relativeResourcePath);
-                const targetsForFile = await semantic.listNamingConventionTargets([
-                    filePath,
-                    absoluteFilePath,
-                    relativeResourcePath,
-                    absoluteResourcePath
-                ]);
-                await Core.runSequentially(targetsForFile, async (target) => {
-                    if (isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])) {
-                        await visitor(target);
-                    }
-                });
-            });
-            return;
-        }
-
-        const targets = await semantic.listNamingConventionTargets();
-        await Core.runSequentially(targets, async (target) => {
-            if (isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])) {
-                await visitor(target);
-            }
-        });
-    };
-
-    await forEachSelectedTarget((target) => {
+    for (const target of selectedTargets) {
         if (target.symbolId !== null) {
-            return;
+            continue;
         }
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const names = localScopeNames.get(scopeKey) ?? new Set<string>();
         names.add(target.name);
         localScopeNames.set(scopeKey, names);
-    });
+    }
 
-    await forEachSelectedTarget((target) => {
+    for (const target of selectedTargets) {
         const evaluation = evaluateNamingConvention(target.name, target.category, policy, resolvedRules);
         if (evaluation.compliant || evaluation.message === null) {
-            return;
+            continue;
         }
 
         violations.push({
@@ -221,7 +209,7 @@ export async function planNamingConventionCodemod(
 
         if (evaluation.suggestedName === null || evaluation.suggestedName === target.name) {
             warnings.push(`No automatic rename generated for ${target.category} '${target.name}' in ${target.path}.`);
-            return;
+            continue;
         }
 
         if (target.symbolId !== null) {
@@ -233,7 +221,7 @@ export async function planNamingConventionCodemod(
                     newName: evaluation.suggestedName
                 });
             }
-            return;
+            continue;
         }
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
@@ -243,7 +231,7 @@ export async function planNamingConventionCodemod(
             warnings.push(
                 `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because the target name already exists in the same scope.`
             );
-            return;
+            continue;
         }
 
         for (const occurrence of target.occurrences) {
@@ -253,7 +241,7 @@ export async function planNamingConventionCodemod(
         existingNames.add(evaluation.suggestedName);
         localScopeNames.set(scopeKey, existingNames);
         localRenameCount += 1;
-    });
+    }
 
     const topLevelRenameSelection = await selectExecutableTopLevelRenames(engine, topLevelRenames);
     warnings.push(...topLevelRenameSelection.warnings);

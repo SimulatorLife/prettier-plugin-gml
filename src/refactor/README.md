@@ -407,6 +407,12 @@ pnpm run cli -- refactor codemod
 pnpm run cli -- refactor codemod scripts/player --only namingConvention --write
 ```
 
+Selected-path namingConvention runs now resolve naming targets with one
+filtered semantic query for the whole file set instead of rescanning the full
+project index once per file. The refactor test suite includes a tracked
+stress test for this path, so the existing `pnpm run test:refactor` and
+`pnpm run test:ci` jobs catch regressions in both behavior and runtime.
+
 #### Policy Shape
 
 ```ts

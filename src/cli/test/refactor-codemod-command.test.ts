@@ -4,6 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { Parser } from "@gmloop/parser";
+
 import { runCliTestCommand } from "../src/cli.js";
 
 /**
@@ -388,6 +390,80 @@ void test("refactor codemod --write renames implicit instance variables across o
     }
 });
 
+void test("refactor codemod --write preserves valid enum member accesses when locals share the same name", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    enum: {
+                        prefix: "e",
+                        caseStyle: "camel"
+                    },
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "cm_misc",
+            [
+                "enum CM {",
+                "    TYPE,",
+                "    X,",
+                "    Y,",
+                "    Z,",
+                "    SLOPEANGLE,",
+                "    NUM",
+                "}",
+                "",
+                "function cm_collider(X, Y, Z, slopeAngle = 40) {",
+                "    var collider = array_create(CM.NUM);",
+                "    collider[@ CM.X] = X;",
+                "    collider[@ CM.Y] = Y;",
+                "    collider[@ CM.Z] = Z;",
+                "    collider[@ CM.SLOPEANGLE] = slopeAngle;",
+                "    return collider;",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const updatedSource = await readFile(path.join(projectRoot, "scripts/cm_misc/cm_misc.gml"), "utf8");
+
+        assert.match(updatedSource, /enum ecm \{/);
+        assert.match(updatedSource, /function cm_collider\(x, y, z, slope_angle = 40\)/);
+        assert.match(updatedSource, /collider\[@ ecm\.X\] = x;/);
+        assert.match(updatedSource, /collider\[@ ecm\.Y\] = y;/);
+        assert.match(updatedSource, /collider\[@ ecm\.Z\] = z;/);
+        assert.match(updatedSource, /collider\[@ ecm\.SLOPEANGLE\] = slope_angle;/);
+        assert.doesNotMatch(updatedSource, /\becmM\b/);
+        assert.doesNotMatch(updatedSource, /\.xX\b/);
+        assert.doesNotMatch(updatedSource, /\.yY\b/);
+        assert.doesNotMatch(updatedSource, /\.zZ\b/);
+        assert.doesNotMatch(updatedSource, /\bslope_anglee\b/);
+        assert.doesNotThrow(() => {
+            const ast = Parser.GMLParser.parse(updatedSource);
+            assert.equal(ast.type, "Program");
+        });
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write lets multi-function scripts rename the resource and same-name callable independently", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
@@ -482,6 +558,52 @@ void test("refactor codemod --write applies configured loop-length hoisting chan
         const updatedSource = await readFile(path.join(projectRoot, "scripts/demo_script/demo_script.gml"), "utf8");
         assert.match(updatedSource, /var len = array_length\(items\);/);
         assert.match(result.stdout, /\[loopLengthHoisting\] changed/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write only rebuilds the project index between changed codemods", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    localVariable: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                loopLengthHoisting: {},
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "demo_script",
+            [
+                "function demo_script(items) {",
+                "    var bad_name = 0;",
+                "    for (var i = 0; i < array_length(items); i++) {",
+                "        bad_name += items[i];",
+                "    }",
+                "    return bad_name;",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write", "--verbose"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.match(result.stdout, /Rebuilding project index after codemod loopLengthHoisting/);
+        assert.doesNotMatch(result.stdout, /Rebuilding project index after codemod namingConvention/);
     } finally {
         await rm(projectRoot, { recursive: true, force: true });
     }

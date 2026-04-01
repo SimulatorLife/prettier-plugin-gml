@@ -1156,9 +1156,13 @@ void test("executeConfiguredCodemods requests naming targets by selected GML fil
 
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.appliedFiles.get("scripts/example.gml"), "var badName = 1;\nshow_debug_message(badName);\n");
-    assert.ok(listCalls.every((paths) => Array.isArray(paths) && paths.length === 4));
-    assert.ok(listCalls.every((paths) => paths?.includes("scripts/example.gml")));
-    assert.ok(listCalls.every((paths) => paths?.includes("scripts/example.yy")));
+    assert.equal(listCalls.length, 1);
+    assert.ok(Array.isArray(listCalls[0]));
+    assert.equal(listCalls[0]?.length, 4);
+    assert.ok(listCalls[0]?.includes("scripts/example.gml"));
+    assert.ok(listCalls[0]?.includes("/project/scripts/example.gml"));
+    assert.ok(listCalls[0]?.includes("scripts/example.yy"));
+    assert.ok(listCalls[0]?.includes("/project/scripts/example.yy"));
 });
 
 void test("executeConfiguredCodemods surfaces namingConvention hot reload warnings from top-level plans", async () => {

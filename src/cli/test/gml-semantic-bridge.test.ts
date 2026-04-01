@@ -80,7 +80,7 @@ void describe("GmlSemanticBridge tests", () => {
         assert.strictEqual(occurrences[0].kind, Refactor.OccurrenceKind.REFERENCE);
     });
 
-    void it("preserves exclusive end indexes for naming convention occurrences", async () => {
+    void it("normalizes semantic end indexes to exclusive naming convention occurrences", async () => {
         const mockProjectIndex = {
             identifiers: {
                 enumMembers: {
@@ -112,9 +112,73 @@ void describe("GmlSemanticBridge tests", () => {
 
         assert.ok(xTarget, "Expected X enum member target");
         assert.strictEqual(xTarget?.occurrences?.[0]?.start, 20);
-        assert.strictEqual(xTarget?.occurrences?.[0]?.end, 21);
+        assert.strictEqual(xTarget?.occurrences?.[0]?.end, 22);
         assert.strictEqual(xTarget?.occurrences?.[1]?.start, 40);
-        assert.strictEqual(xTarget?.occurrences?.[1]?.end, 41);
+        assert.strictEqual(xTarget?.occurrences?.[1]?.end, 42);
+    });
+
+    void it("listNamingConventionTargets does not treat enum-member references as local variable occurrences", async () => {
+        const sourceText = "function demo(X) {\n    var collider = array_create(CM.X);\n    return X;\n}\n";
+        const parameterStart = sourceText.indexOf("X)");
+        const enumMemberReferenceStart = sourceText.indexOf("CM.X") + "CM.".length;
+        const localReferenceStart = sourceText.lastIndexOf("X;");
+        const mockProjectIndex = {
+            files: {
+                "scripts/demo/demo.gml": {
+                    declarations: [
+                        {
+                            name: "X",
+                            scopeId: "scope:function",
+                            classifications: ["parameter"],
+                            start: { index: parameterStart },
+                            end: { index: parameterStart }
+                        }
+                    ],
+                    references: [
+                        {
+                            name: "X",
+                            scopeId: "scope:function",
+                            classifications: ["enum-member"],
+                            start: { index: enumMemberReferenceStart },
+                            end: { index: enumMemberReferenceStart },
+                            declaration: {
+                                name: "X",
+                                scopeId: "scope:function",
+                                start: { index: parameterStart }
+                            }
+                        },
+                        {
+                            name: "X",
+                            scopeId: "scope:function",
+                            classifications: ["parameter"],
+                            start: { index: localReferenceStart },
+                            end: { index: localReferenceStart },
+                            declaration: {
+                                name: "X",
+                                scopeId: "scope:function",
+                                start: { index: parameterStart }
+                            }
+                        }
+                    ]
+                }
+            },
+            scopes: {
+                "scope:function": {
+                    kind: "function"
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const targets = await bridge.listNamingConventionTargets();
+        const argumentTarget = targets.find((target) => target.category === "argument" && target.name === "X");
+
+        assert.ok(argumentTarget, "Expected X argument target");
+        assert.equal(argumentTarget?.occurrences.length, 2);
+        assert.deepEqual(
+            argumentTarget?.occurrences.map((occurrence) => occurrence.start),
+            [parameterStart, localReferenceStart]
+        );
     });
 
     void it("findSymbolOccurrences fallback on disk should skip string literals and partial identifiers", () => {

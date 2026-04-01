@@ -417,6 +417,7 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
         console.log(`Selected GML files: ${gmlFilePaths.length}`);
     }
 
+    const finalSelectedCodemodId = selectedCodemodIds.at(-1) ?? null;
     const resolvePath = (filePath: string) => path.resolve(projectRoot, filePath);
     const result = await engine.executeConfiguredCodemods({
         projectRoot,
@@ -429,7 +430,7 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
         dryRun,
         onlyCodemods: selectedCodemodIds,
         onAfterCodemod: async (summary, context) => {
-            if (!summary.changed) {
+            if (!summary.changed || summary.id === finalSelectedCodemodId) {
                 return;
             }
             if (verbose) {

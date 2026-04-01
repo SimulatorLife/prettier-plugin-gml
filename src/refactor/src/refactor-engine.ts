@@ -125,8 +125,8 @@ export class RefactorEngine {
         this.projectAnalysisProvider = projectAnalysisProvider ?? DEFAULT_PROJECT_ANALYSIS_PROVIDER;
         this.renameValidationCache = new RenameValidationCache();
         this.semanticCache = new SemanticQueryCache(semantic, {
-            maxSize: 24,
-            ttlMs: 20_000,
+            maxSize: 1000,
+            ttlMs: 300_000,
             maxOccurrenceCacheEntries: 4000
         });
     }
@@ -876,11 +876,9 @@ export class RefactorEngine {
                 }
 
                 if (supportsBatchWorkspaceOverlay) {
-                    await semantic.stageWorkspaceEdit(workspace);
+                    await (semantic as any).stageWorkspaceEdit(workspace);
+                    this.semanticCache.invalidateAll();
                 }
-
-                // Keep batch processing memory bounded for large cross-project runs.
-                this.semanticCache.invalidateAll();
             });
         } finally {
             if (supportsBatchWorkspaceOverlay) {
