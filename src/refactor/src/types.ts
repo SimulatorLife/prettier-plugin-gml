@@ -495,6 +495,30 @@ export interface NamingConventionTargetProvider {
 }
 
 /**
+ * Describes caller-scoped identifiers that a referenced macro expansion reads
+ * from a specific consumer file.
+ *
+ * Naming-convention codemods use this to avoid renaming locals or parameters
+ * that a bare macro invocation expects to find unchanged at expansion time.
+ */
+export interface MacroExpansionDependency {
+    path: string;
+    macroName: string;
+    referencedNames: Array<string>;
+}
+
+/**
+ * Semantic adapter surface for macro-expansion-aware rename planning.
+ *
+ * Provides macro-to-consumer dependency data so local renames can skip
+ * identifiers that would break preprocessor-expanded code even when the raw
+ * source still parses successfully.
+ */
+export interface MacroExpansionDependencyProvider {
+    listMacroExpansionDependencies(filePaths?: Array<string>): MaybePromise<Array<MacroExpansionDependency>>;
+}
+
+/**
  * Workspace edit validation.
  *
  * Provides semantic validation of workspace edits to detect conflicts
@@ -556,7 +580,8 @@ export type PartialSemanticAnalyzer = Partial<SymbolResolver> &
     Partial<KeywordProvider> &
     Partial<EditValidator> &
     Partial<BatchWorkspaceOverlay> &
-    Partial<NamingConventionTargetProvider>;
+    Partial<NamingConventionTargetProvider> &
+    Partial<MacroExpansionDependencyProvider>;
 
 export interface TranspilerBridge {
     transpileScript(request: { sourceText: string; symbolId: string }): MaybePromise<Record<string, unknown>>;

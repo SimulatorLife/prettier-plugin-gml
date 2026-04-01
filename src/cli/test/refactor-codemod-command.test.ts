@@ -576,6 +576,63 @@ void test("refactor codemod --write keeps reserved built-in local names intact a
     }
 });
 
+void test("refactor codemod --write skips local renames required by referenced macro expansions and reparses the rewritten project", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "cm_triangle_get_capsule_ref",
+            ["#macro CM_TRIANGLE_GET_CAPSULE_REF var refZ = Z + zup;\\", "var refX = X + xup;", ""].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "cm_triangle",
+            [
+                "function cm_triangle(collider) {",
+                "    var X = collider[0];",
+                "    var Z = collider[1];",
+                "    var zup = collider[2];",
+                "    var xup = collider[3];",
+                "    CM_TRIANGLE_GET_CAPSULE_REF;",
+                "    return refX + refZ;",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const triangleSource = await readFile(path.join(projectRoot, "scripts/cm_triangle/cm_triangle.gml"), "utf8");
+
+        assert.match(triangleSource, /var X = collider\[0\];/);
+        assert.match(triangleSource, /var Z = collider\[1\];/);
+        assert.match(triangleSource, /CM_TRIANGLE_GET_CAPSULE_REF;/);
+        assert.match(result.stdout, /macro expansion 'CM_TRIANGLE_GET_CAPSULE_REF' depends on 'Z'/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write skips argument renames that would collide with reachable locals and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
@@ -638,6 +695,50 @@ void test("refactor codemod --write skips argument renames that would collide wi
         assert.match(updatedSource, /function stile_bake_center\(vbuff, polygon, N\)/);
         assert.match(updatedSource, /show_debug_message\(N\.x \+ n\);/);
         assert.match(result.stdout, /already exists in the same scope/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write updates constructor inheritance references when renaming struct declarations", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    structDeclaration: {
+                        caseStyle: "pascal"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "buttons",
+            [
+                "function GUIElement() constructor {}",
+                "function Checkbox(_name, _x, _y, _checked) : GUIElement() constructor {}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const buttonsSource = await readFile(path.join(projectRoot, "scripts/buttons/buttons.gml"), "utf8");
+
+        assert.match(buttonsSource, /function GuiElement\(\) constructor \{\}/);
+        assert.match(buttonsSource, /function Checkbox\(_name, _x, _y, _checked\) : GuiElement\(\) constructor \{\}/);
 
         await assertProjectGmlFilesParse(projectRoot);
     } finally {

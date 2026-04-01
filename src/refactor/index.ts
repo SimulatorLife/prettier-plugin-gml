@@ -26,6 +26,8 @@ export type {
     HotReloadUpdate,
     HotReloadValidationOptions,
     KeywordProvider,
+    MacroExpansionDependency,
+    MacroExpansionDependencyProvider,
     MaybePromise,
     NamingCaseStyle,
     NamingCategory,

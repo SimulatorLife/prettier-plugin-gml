@@ -1307,6 +1307,88 @@ void test("executeConfiguredCodemods skips exclusive-prefix variable renames whe
     });
 });
 
+void test("executeConfiguredCodemods skips local renames that referenced macro expansions depend on", async () => {
+    const sourceText = [
+        "function cm_triangle(collider) {",
+        "    var Z = collider[1];",
+        "    CM_TRIANGLE_GET_CAPSULE_REF;",
+        "    return Z;",
+        "}",
+        ""
+    ].join("\n");
+    const zDefinitionStart = sourceText.indexOf("Z =");
+    const zReferenceStart = sourceText.lastIndexOf("Z;");
+
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "Z",
+                category: "localVariable",
+                path: "scripts/cm_triangle.gml",
+                scopeId: "scope:cm_triangle",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/cm_triangle.gml",
+                        start: zDefinitionStart,
+                        end: zDefinitionStart + 1,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:cm_triangle"
+                    },
+                    {
+                        path: "scripts/cm_triangle.gml",
+                        start: zReferenceStart,
+                        end: zReferenceStart + 1,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:cm_triangle"
+                    }
+                ]
+            }
+        ],
+        listMacroExpansionDependencies: async () => [
+            {
+                path: "scripts/cm_triangle.gml",
+                macroName: "CM_TRIANGLE_GET_CAPSULE_REF",
+                referencedNames: ["Z"]
+            }
+        ]
+    };
+
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const fileContents = new Map<string, string>([["scripts/cm_triangle.gml", sourceText]]);
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/cm_triangle.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    variable: { caseStyle: "lower_snake" }
+                }
+            },
+            codemods: { namingConvention: {} }
+        },
+        readFile: async (filePath) => fileContents.get(filePath) ?? "",
+        writeFile: async (filePath, content) => {
+            fileContents.set(filePath, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, false);
+    assert.ok(
+        result.summaries[0]?.warnings.some((warning) =>
+            warning.includes("macro expansion 'CM_TRIANGLE_GET_CAPSULE_REF' depends on 'Z'")
+        ),
+        "expected a warning when a macro expansion depends on the current local name"
+    );
+
+    const finalText = fileContents.get("scripts/cm_triangle.gml");
+    assert.equal(finalText, sourceText);
+});
+
 void test("executeConfiguredCodemods skips argument renames that would collide with locals in reachable scopes", async () => {
     const sourceText = [
         "function sample_builder(M, AABB, N) {",

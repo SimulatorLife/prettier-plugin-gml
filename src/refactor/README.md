@@ -337,6 +337,10 @@ independent rename targets so policies can rename `DemoLibrary` and
 `function DemoLibrary()` differently when needed, with resource renames
 limited to metadata/path edits while callable renames own the text
 occurrences inside `.gml` files.
+Constructor renames also update parent-constructor clauses such as
+`function Child() : BaseType() constructor {}`, and local naming rewrites skip
+identifiers that referenced `#macro` expansions read from the caller scope so
+the refactor output remains valid after GameMaker preprocesses macro bodies.
 
 #### Contract
 

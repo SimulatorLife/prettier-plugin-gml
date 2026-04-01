@@ -6,6 +6,7 @@ import { Parser } from "@gmloop/parser";
 import { Semantic } from "@gmloop/semantic";
 
 import { collectImplicitInstanceVariableTargets } from "./implicit-instance-variable-targets.js";
+import { listMacroExpansionDependencies } from "./macro-expansion-dependencies.js";
 import { ParsedLocalNamingCategoryResolver } from "./parsed-local-naming-categories.js";
 
 type ResourceAssetReferenceRecord = {
@@ -1207,6 +1208,15 @@ export class GmlSemanticBridge {
         this.collectLocalNamingConventionTargets(shouldIncludePath, pushTarget);
 
         return targets;
+    }
+
+    listMacroExpansionDependencies(filePaths?: Array<string>) {
+        return listMacroExpansionDependencies({
+            files: (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>,
+            macros: this.identifiers.macros ?? {},
+            projectRoot: this.projectRoot,
+            selectedFilePaths: filePaths
+        });
     }
 
     private collectResourceNamingConventionTargets(

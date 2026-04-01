@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { Refactor } from "@gmloop/refactor";
+import { Semantic } from "@gmloop/semantic";
 
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
@@ -1053,6 +1054,111 @@ void describe("GmlSemanticBridge tests", () => {
 
         assert.ok(targets.some((target) => target.category === "constructorFunction" && target.name === "Vector3"));
         assert.ok(!targets.some((target) => target.category === "scriptResourceName" && target.name === "Vector3"));
+    });
+
+    void it("getSymbolOccurrences includes constructor parent clause references from the semantic project index", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-constructor-parent-"));
+
+        try {
+            const sourceText = [
+                "function GUIElement() constructor {}",
+                "function Checkbox(_name) : GUIElement() constructor {}",
+                ""
+            ].join("\n");
+
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "buttons"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "buttons", "buttons.yy"),
+                `${JSON.stringify({ name: "buttons", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "buttons", "buttons.gml"), sourceText);
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const occurrences = bridge.getSymbolOccurrences("GUIElement");
+            const declarationStart = sourceText.indexOf("GUIElement");
+            const parentReferenceStart = sourceText.lastIndexOf("GUIElement");
+
+            assert.equal(occurrences.length, 2);
+            assert.deepEqual(
+                occurrences.map((occurrence) => ({
+                    kind: occurrence.kind,
+                    start: occurrence.start,
+                    end: occurrence.end
+                })),
+                [
+                    {
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        start: declarationStart,
+                        end: declarationStart + "GUIElement".length
+                    },
+                    {
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        start: parentReferenceStart,
+                        end: parentReferenceStart + "GUIElement".length
+                    }
+                ]
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
+    void it("listMacroExpansionDependencies reports caller-scoped identifiers consumed by referenced macros", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-macro-deps-"));
+
+        try {
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "cm_triangle_get_capsule_ref"), { recursive: true });
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "cm_triangle"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "cm_triangle_get_capsule_ref", "cm_triangle_get_capsule_ref.yy"),
+                `${JSON.stringify({ name: "cm_triangle_get_capsule_ref", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "cm_triangle_get_capsule_ref", "cm_triangle_get_capsule_ref.gml"),
+                ["#macro CM_TRIANGLE_GET_CAPSULE_REF var refZ = Z + zup;\\", "var refX = X + xup;", ""].join("\n")
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "cm_triangle", "cm_triangle.yy"),
+                `${JSON.stringify({ name: "cm_triangle", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "cm_triangle", "cm_triangle.gml"),
+                [
+                    "function cm_triangle(collider) {",
+                    "    var X = collider[0];",
+                    "    var Z = collider[1];",
+                    "    var zup = collider[2];",
+                    "    var xup = collider[3];",
+                    "    CM_TRIANGLE_GET_CAPSULE_REF;",
+                    "    return refX + refZ;",
+                    "}",
+                    ""
+                ].join("\n")
+            );
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const dependencies = bridge.listMacroExpansionDependencies(["scripts/cm_triangle/cm_triangle.gml"]);
+
+            assert.deepEqual(dependencies, [
+                {
+                    path: "scripts/cm_triangle/cm_triangle.gml",
+                    macroName: "CM_TRIANGLE_GET_CAPSULE_REF",
+                    referencedNames: ["Z", "xup", "zup"]
+                }
+            ]);
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
     });
 
     void it("listNamingConventionTargets keeps same-name callables independent for multi-function script resources", async () => {

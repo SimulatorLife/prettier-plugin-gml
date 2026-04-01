@@ -1227,6 +1227,59 @@ function handleNewExpressionScriptCall({
     relationships.scriptCalls.push(callRecord);
     metrics?.counters?.increment("scriptCalls.discovered");
 }
+function handleConstructorParentScriptCall({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    relationships,
+    scriptNameToScopeId,
+    scriptNameToResourcePath,
+    metrics
+}) {
+    if (node?.type !== "ConstructorParentClause" || typeof node.id !== "string") {
+        return;
+    }
+
+    const calleeName = node.id;
+    if (!calleeName || builtInNames.has(calleeName)) {
+        return;
+    }
+
+    const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
+    const targetResourcePath = targetScopeId ? (scriptNameToResourcePath.get(calleeName) ?? null) : null;
+    const parentStart = Core.cloneLocation(node.idLocation?.start ?? null);
+    const parentEnd = Core.cloneLocation(node.idLocation?.end ?? null);
+    if (parentStart === null || parentEnd === null) {
+        return;
+    }
+    parentEnd.index -= 1;
+    if (typeof parentEnd.column === "number") {
+        parentEnd.column -= 1;
+    }
+
+    const callRecord = {
+        kind: "script",
+        from: {
+            filePath: fileRecord.filePath,
+            scopeId: scopeRecord.id
+        },
+        target: {
+            name: calleeName,
+            scopeId: targetScopeId,
+            resourcePath: targetResourcePath
+        },
+        isResolved: Boolean(targetScopeId),
+        location: {
+            start: parentStart,
+            end: parentEnd
+        }
+    };
+    fileRecord.scriptCalls.push(callRecord);
+    scopeRecord.scriptCalls.push(callRecord);
+    relationships.scriptCalls.push(callRecord);
+    metrics?.counters?.increment("scriptCalls.discovered");
+}
 function handleObjectEventAssignmentNode({
     node,
     scopeDescriptor,
@@ -1317,6 +1370,16 @@ function analyseGmlAst({
             metrics
         });
         handleNewExpressionScriptCall({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            relationships,
+            scriptNameToScopeId,
+            scriptNameToResourcePath,
+            metrics
+        });
+        handleConstructorParentScriptCall({
             node,
             builtInNames,
             fileRecord,

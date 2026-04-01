@@ -8,6 +8,7 @@ import type {
     ApplyWorkspaceEditOptions,
     BatchRenamePlanSummary,
     CodemodEngine,
+    MacroExpansionDependency,
     NamingConventionCodemodPlan,
     NamingConventionViolation,
     RefactorProjectConfig,
@@ -82,6 +83,8 @@ type TopLevelRenameSelection = {
     warnings: Array<string>;
 };
 
+type MacroDependencyNamesByFile = Map<string, Map<string, Set<string>>>;
+
 function formatTopLevelRenameSkipWarning(rename: RenameRequest, reason: string): string {
     return `Skipping top-level rename '${rename.symbolId}' -> '${rename.newName}': ${reason}`;
 }
@@ -150,6 +153,48 @@ function collectBatchPlanWarnings(plan: BatchRenamePlanSummary): Array<string> {
 
 function collectBatchPlanErrors(plan: BatchRenamePlanSummary): Array<string> {
     return [...plan.batchValidation.errors, ...plan.validation.errors, ...(plan.hotReload?.errors ?? [])];
+}
+
+function collectMacroDependencyNamesByFile(
+    dependencies: ReadonlyArray<MacroExpansionDependency> | undefined
+): MacroDependencyNamesByFile {
+    const dependencyNamesByFile: MacroDependencyNamesByFile = new Map();
+
+    for (const dependency of dependencies ?? []) {
+        const dependencyNames = dependencyNamesByFile.get(dependency.path) ?? new Map<string, Set<string>>();
+        const normalizedReferencedNames = dependencyNames.get(dependency.macroName) ?? new Set<string>();
+
+        for (const referencedName of dependency.referencedNames) {
+            normalizedReferencedNames.add(referencedName.toLowerCase());
+        }
+
+        dependencyNames.set(dependency.macroName, normalizedReferencedNames);
+        dependencyNamesByFile.set(dependency.path, dependencyNames);
+    }
+
+    return dependencyNamesByFile;
+}
+
+function findDependentMacroNames(
+    dependenciesByFile: MacroDependencyNamesByFile,
+    filePath: string,
+    identifierName: string
+): Array<string> {
+    const dependenciesForFile = dependenciesByFile.get(filePath);
+    if (!dependenciesForFile) {
+        return [];
+    }
+
+    const normalizedIdentifierName = identifierName.toLowerCase();
+    const dependentMacroNames: Array<string> = [];
+
+    for (const [macroName, referencedNames] of dependenciesForFile) {
+        if (referencedNames.has(normalizedIdentifierName)) {
+            dependentMacroNames.push(macroName);
+        }
+    }
+
+    return dependentMacroNames.toSorted();
 }
 
 /**
@@ -227,6 +272,11 @@ export async function planNamingConventionCodemod(
     const selectedTargets = queriedTargets.filter((target) =>
         isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])
     );
+    const macroDependencyNamesByFile = collectMacroDependencyNamesByFile(
+        typeof semantic.listMacroExpansionDependencies === "function"
+            ? await semantic.listMacroExpansionDependencies(selectedFilePaths)
+            : []
+    );
 
     for (const target of selectedTargets) {
         if (target.symbolId !== null) {
@@ -294,6 +344,14 @@ export async function planNamingConventionCodemod(
         ) {
             warnings.push(
                 `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because '${evaluation.suggestedName}' is a reserved GameMaker identifier.`
+            );
+            continue;
+        }
+
+        const dependentMacroNames = findDependentMacroNames(macroDependencyNamesByFile, target.path, target.name);
+        if (dependentMacroNames.length > 0) {
+            warnings.push(
+                `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because macro expansion${dependentMacroNames.length === 1 ? "" : "s"} ${dependentMacroNames.map((macroName) => `'${macroName}'`).join(", ")} ${dependentMacroNames.length === 1 ? "depends" : "depend"} on '${target.name}'.`
             );
             continue;
         }

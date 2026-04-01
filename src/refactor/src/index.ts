@@ -137,6 +137,8 @@ export type {
     HotReloadValidationOptions,
     KeywordProvider,
     LoopLengthHoistingFileSummary,
+    MacroExpansionDependency,
+    MacroExpansionDependencyProvider,
     MaybePromise,
     NamingCaseStyle,
     NamingCategory,
