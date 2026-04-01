@@ -118,7 +118,7 @@ void test("parseProjectMetadataDocumentForMutation enforces inferred schema vali
     assert.ok(isProjectMetadataSchemaValidationError(caught));
 });
 
-void test("parseProjectMetadataDocumentForMutation allows loose project manifest parsing", () => {
+void test("parseProjectMetadataDocumentForMutation allows loose project manifest parsing without schema filtering", () => {
     const parsed = parseProjectMetadataDocumentForMutation(
         `{
             "name":"MyProject",
@@ -128,7 +128,7 @@ void test("parseProjectMetadataDocumentForMutation allows loose project manifest
         "/tmp/project.yyp"
     );
 
-    assert.equal(parsed.schemaName, "project");
+    assert.equal(parsed.schemaName, null);
     assert.equal(parsed.schemaValidated, false);
     assert.equal(parsed.document.resourceType, "GMProject");
 });

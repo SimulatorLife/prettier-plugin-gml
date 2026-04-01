@@ -140,9 +140,11 @@ type WorkspaceEdit = {
     addEdit: (path: string, start: number, end: number, newText: string) => void;
     addFileRename: (oldPath: string, newPath: string) => void;
     addMetadataEdit: (path: string, content: string) => void;
+    addMetadataObjectEdit?: (path: string, document: Record<string, unknown>) => void;
     edits: Array<{ end: number; newText: string; path: string; start: number }>;
     fileRenames: Array<{ newPath: string; oldPath: string }>;
     metadataEdits: Array<{ content: string; path: string }>;
+    metadataObjects?: Array<{ document: Record<string, unknown>; path: string }>;
     groupByFile: () => BridgeGroupedTextEdits;
 };
 
@@ -191,6 +193,7 @@ function createWorkspaceEdit(): WorkspaceEdit {
         edits: [] as Array<{ end: number; newText: string; path: string; start: number }>,
         fileRenames: [] as Array<{ newPath: string; oldPath: string }>,
         metadataEdits: [] as Array<{ content: string; path: string }>,
+        metadataObjects: [] as Array<{ document: Record<string, unknown>; path: string }>,
         addEdit(filePath: string, start: number, end: number, newText: string) {
             workspace.edits.push({ path: filePath, start, end, newText });
         },
@@ -199,6 +202,9 @@ function createWorkspaceEdit(): WorkspaceEdit {
         },
         addMetadataEdit(filePath: string, content: string) {
             workspace.metadataEdits.push({ path: filePath, content });
+        },
+        addMetadataObjectEdit(filePath: string, document: Record<string, unknown>) {
+            workspace.metadataObjects.push({ path: filePath, document });
         },
         groupByFile() {
             const grouped: BridgeGroupedTextEdits = new Map();
@@ -260,6 +266,7 @@ export class GmlSemanticBridge {
     private projectIndex: Record<string, unknown>;
     private projectRoot: string;
     private readonly stagedMetadataContents = new Map<string, string>();
+    private readonly stagedParsedMetadata = new Map<string, Record<string, unknown>>();
     private readonly sourceTextByPath = new Map<string, string | null>();
     private constructorStaticMemberNameCounts: Map<string, number> | null = null;
     private indexes: SemanticBridgeIndexes | null = null;
@@ -304,6 +311,17 @@ export class GmlSemanticBridge {
             }
 
             this.stagedMetadataContents.set(metadataEdit.path, metadataEdit.content);
+
+            try {
+                const absolutePath = path.resolve(this.projectRoot, metadataEdit.path);
+                const parsed = Semantic.parseProjectMetadataDocumentForMutation(
+                    metadataEdit.content,
+                    absolutePath
+                ).document;
+                this.stagedParsedMetadata.set(metadataEdit.path, parsed);
+            } catch {
+                // Ignore parse errors here, it will just re-read or fail later
+            }
         }
     }
 
@@ -735,27 +753,47 @@ export class GmlSemanticBridge {
             }
 
             const absolutePath = path.resolve(this.projectRoot, resourceEntry.path);
-            const stagedRawContent = this.stagedMetadataContents.get(resourceEntry.path);
-            let rawContent: string;
-            if (stagedRawContent === undefined) {
-                if (!fs.existsSync(absolutePath)) {
-                    continue;
-                }
 
-                try {
-                    rawContent = fs.readFileSync(absolutePath, "utf8");
-                } catch {
-                    continue;
+            let parsed: Record<string, unknown> | undefined;
+            let rawContent: string | undefined;
+
+            // Check if there's already a pending edit in the current WorkspaceEdit batch!
+            if (edit.metadataObjects && edit.metadataObjects.length > 0) {
+                const latestBatchEdit = edit.metadataObjects.findLast((obj) => obj.path === resourceEntry.path);
+                if (latestBatchEdit) {
+                    parsed = structuredClone(latestBatchEdit.document);
+                    rawContent = Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path);
                 }
-            } else {
-                rawContent = stagedRawContent;
             }
 
-            let parsed: Record<string, unknown>;
-            try {
-                parsed = Semantic.parseProjectMetadataDocumentForMutation(rawContent, absolutePath).document;
-            } catch {
-                continue;
+            if (parsed === undefined || rawContent === undefined) {
+                const stagedParsed = this.stagedParsedMetadata.get(resourceEntry.path);
+
+                if (stagedParsed === undefined) {
+                    const stagedRawContent = this.stagedMetadataContents.get(resourceEntry.path);
+                    if (stagedRawContent === undefined) {
+                        if (!fs.existsSync(absolutePath)) {
+                            continue;
+                        }
+
+                        try {
+                            rawContent = fs.readFileSync(absolutePath, "utf8");
+                        } catch {
+                            continue;
+                        }
+                    } else {
+                        rawContent = stagedRawContent;
+                    }
+
+                    try {
+                        parsed = Semantic.parseProjectMetadataDocumentForMutation(rawContent, absolutePath).document;
+                    } catch {
+                        continue;
+                    }
+                } else {
+                    parsed = structuredClone(stagedParsed);
+                    rawContent = this.stagedMetadataContents.get(resourceEntry.path) ?? "";
+                }
             }
 
             let changed = false;
@@ -812,6 +850,16 @@ export class GmlSemanticBridge {
                     continue;
                 }
 
+                // Skip unsafe index-based updates to the .yyp 'resources' array.
+                // We've already safely updated it above using direct path matching,
+                // and array indexes may have shifted due to schema parsing differences.
+                if (
+                    Semantic.isProjectManifestPath(resourceEntry.path) &&
+                    reference.propertyPath.startsWith("resources.")
+                ) {
+                    continue;
+                }
+
                 const updated = Semantic.updateProjectMetadataReferenceByPath({
                     document: parsed,
                     propertyPath: reference.propertyPath,
@@ -837,6 +885,9 @@ export class GmlSemanticBridge {
             }
 
             edit.addMetadataEdit(resourceEntry.path, canonicalContent);
+            if (edit.addMetadataObjectEdit) {
+                edit.addMetadataObjectEdit(resourceEntry.path, parsed);
+            }
         }
     }
 
