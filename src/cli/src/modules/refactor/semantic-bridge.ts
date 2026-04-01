@@ -445,7 +445,7 @@ export class GmlSemanticBridge {
             const resourceScipId = this.generateResourceScipId(resource);
             resourcesByExactName.set(resource.name, resource);
             resourcesByLowerName.set(resource.name.toLowerCase(), resource);
-            appendLookupEntry(resource.name, undefined);
+            appendLookupEntry(resource.name);
             registerResolveSymbolId(resource.name, resourceScipId);
 
             if (!Core.isNonEmptyString(resource.path)) {
@@ -914,9 +914,21 @@ export class GmlSemanticBridge {
 
             traverse(program);
         } catch {
-            // Silently ignore parse failures; fallback regex should still run.
+            // Fallback: regex-based string literal detection when GML parse fails.
+            return this.findStringLiteralRangesWithRegex(content);
         }
 
+        return ranges;
+    }
+
+    /** Regex-based string literal range finder for use when AST parsing fails. */
+    private findStringLiteralRangesWithRegex(content: string): Array<{ start: number; end: number }> {
+        const ranges: Array<{ start: number; end: number }> = [];
+        const regex = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
+        let match;
+        while ((match = regex.exec(content)) !== null) {
+            ranges.push({ start: match.index, end: match.index + match[0].length - 1 });
+        }
         return ranges;
     }
 
@@ -1187,7 +1199,7 @@ export class GmlSemanticBridge {
     private deduplicateOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
         const seen = new Set<string>();
         return occurrences.filter((occ) => {
-            if (!Core.isNonEmptyString(occ.path) || occ.end <= occ.start) {
+            if (!Core.isNonEmptyString(occ.path) || occ.end < occ.start) {
                 return false;
             }
 
