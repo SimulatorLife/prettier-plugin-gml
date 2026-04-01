@@ -6,8 +6,15 @@ import { Refactor } from "@gmloop/refactor";
 
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
-const FUNCTION_COUNT = 600;
-const PERFORMANCE_THRESHOLD_MS = 150;
+const FUNCTION_COUNT = 2400;
+const PERFORMANCE_THRESHOLD_MS = 420;
+
+type RenameValidationCacheStats = {
+    evictions: number;
+    hits: number;
+    misses: number;
+    size: number;
+};
 
 function createTopLevelNamingConventionFixture(): {
     files: Record<string, { declarations: Array<{ filePath: string; identifierId: string; name: string }> }>;
@@ -89,13 +96,41 @@ function createTopLevelNamingConventionFixture(): {
     };
 }
 
+async function measureMedianDurationMs<T>(
+    sampleCount: number,
+    execute: () => Promise<T>
+): Promise<{
+    durationMs: number;
+    result: T;
+}> {
+    const durations: Array<number> = [];
+    let latestResult: T | undefined;
+
+    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+        const startTime = performance.now();
+        latestResult = await execute();
+        durations.push(performance.now() - startTime);
+    }
+
+    durations.sort((left, right) => left - right);
+    const medianIndex = Math.floor(durations.length / 2);
+
+    if (latestResult === undefined) {
+        throw new Error("measureMedianDurationMs requires at least one sample");
+    }
+
+    return {
+        durationMs: durations[medianIndex] ?? 0,
+        result: latestResult
+    };
+}
+
 void test("refactor codemod runtime stays within the indexed semantic bridge threshold", async () => {
     const fixture = createTopLevelNamingConventionFixture();
     const executeStressRun = async () => {
         const semantic = new GmlSemanticBridge(fixture.projectIndex, fixture.projectRoot);
         const engine = new Refactor.RefactorEngine({ semantic });
-
-        return await engine.executeConfiguredCodemods({
+        const result = await engine.executeConfiguredCodemods({
             projectRoot: fixture.projectRoot,
             targetPaths: [fixture.projectRoot],
             gmlFilePaths: [...fixture.sourceTexts.keys()],
@@ -115,19 +150,26 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
             dryRun: true,
             onlyCodemods: ["namingConvention"]
         });
+
+        return {
+            cacheStats: (
+                engine as unknown as {
+                    renameValidationCache: { getStats(): RenameValidationCacheStats };
+                }
+            ).renameValidationCache.getStats(),
+            result
+        };
     };
 
     await executeStressRun();
+    const { durationMs, result } = await measureMedianDurationMs(3, executeStressRun);
 
-    const startTime = performance.now();
-    const result = await executeStressRun();
-
-    const durationMs = performance.now() - startTime;
-
-    assert.equal(result.summaries.length, 1);
-    assert.equal(result.summaries[0]?.id, "namingConvention");
-    assert.equal(result.summaries[0]?.changed, true);
-    assert.equal(result.appliedFiles.size, FUNCTION_COUNT + 1);
+    assert.equal(result.result.summaries.length, 1);
+    assert.equal(result.result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.result.summaries[0]?.changed, true);
+    assert.equal(result.result.appliedFiles.size, FUNCTION_COUNT + 1);
+    assert.ok(result.cacheStats.hits > 0, "Expected warmed top-level rename validation cache hits during planning");
+    assert.equal(result.cacheStats.evictions, 0);
     assert.ok(
         durationMs <= PERFORMANCE_THRESHOLD_MS,
         `Expected namingConvention codemod runtime to finish within ${PERFORMANCE_THRESHOLD_MS}ms, received ${durationMs.toFixed(2)}ms`

@@ -74,6 +74,8 @@ import {
     WorkspaceEdit
 } from "./workspace-edit.js";
 
+const RENAME_VALIDATION_CACHE_MAX_SIZE = 4096;
+
 function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
     const deduplicatedByStart = new Map<string, SymbolOccurrence>();
 
@@ -123,7 +125,9 @@ export class RefactorEngine {
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
         this.projectAnalysisProvider = projectAnalysisProvider ?? DEFAULT_PROJECT_ANALYSIS_PROVIDER;
-        this.renameValidationCache = new RenameValidationCache();
+        this.renameValidationCache = new RenameValidationCache({
+            maxSize: RENAME_VALIDATION_CACHE_MAX_SIZE
+        });
         this.semanticCache = new SemanticQueryCache(semantic, {
             maxSize: 1000,
             ttlMs: 300_000,

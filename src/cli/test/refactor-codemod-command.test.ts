@@ -642,6 +642,91 @@ void test("refactor codemod --write renames cross-file enum member references wi
     }
 });
 
+void test("refactor codemod --write renames enum references embedded in macro declaration bodies", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    enum: {
+                        prefix: "e",
+                        caseStyle: "camel"
+                    },
+                    enumMember: {
+                        caseStyle: "upper_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "input_defs",
+            [
+                "enum INPUT_SOURCE_MODE {",
+                "    HOTSWAP,",
+                "    MULTIDEVICE",
+                "}",
+                "",
+                "enum INPUT_GYRO {",
+                "    AXIS_PITCH,",
+                "    AXIS_YAW",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_config",
+            [
+                "#macro INPUT_STARTING_SOURCE_MODE  INPUT_SOURCE_MODE.HOTSWAP",
+                "#macro INPUT_GYRO_DEFAULT_AXIS_X  INPUT_GYRO.AXIS_YAW",
+                "",
+                "function input_config() {",
+                "    return [INPUT_STARTING_SOURCE_MODE, INPUT_GYRO_DEFAULT_AXIS_X];",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_player",
+            [
+                "function input_player() {",
+                "    var source_mode = INPUT_STARTING_SOURCE_MODE;",
+                "    var gyro_axis = INPUT_GYRO_DEFAULT_AXIS_X;",
+                "    return [source_mode, gyro_axis];",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const enumSource = await readFile(path.join(projectRoot, "scripts/input_defs/input_defs.gml"), "utf8");
+        const configSource = await readFile(path.join(projectRoot, "scripts/input_config/input_config.gml"), "utf8");
+
+        assert.match(enumSource, /enum eInputSourceMode \{/);
+        assert.match(enumSource, /enum eInputGyro \{/);
+        assert.match(configSource, /#macro INPUT_STARTING_SOURCE_MODE {2}eInputSourceMode\.HOTSWAP/);
+        assert.match(configSource, /#macro INPUT_GYRO_DEFAULT_AXIS_X {2}eInputGyro\.AXIS_YAW/);
+        assert.doesNotMatch(configSource, /\bINPUT_SOURCE_MODE\.HOTSWAP\b/);
+        assert.doesNotMatch(configSource, /\bINPUT_GYRO\.AXIS_YAW\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write keeps same-name macros intact when renaming the owning script resource", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
@@ -935,6 +1020,80 @@ void test("refactor codemod --write updates constructor inheritance references w
 
         assert.match(buttonsSource, /function GuiElement\(\) constructor \{\}/);
         assert.match(buttonsSource, /function Checkbox\(_name, _x, _y, _checked\) : GuiElement\(\) constructor \{\}/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write updates constructor runtime type checks for coupled single-callable scripts", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    constructorFunction: {
+                        caseStyle: "pascal"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "__input_class_binding",
+            "function __input_class_binding() constructor {}\n"
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_binding_empty",
+            ["function input_binding_empty() {", "    return new __input_class_binding();", "}", ""].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_value_is_binding",
+            [
+                "function input_value_is_binding(_value) {",
+                "    return is_instanceof(_value, __input_class_binding);",
+                "}",
+                "",
+                "function input_value_is_binding_legacy(_value) {",
+                '    return instanceof(_value) == "__input_class_binding";',
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        await access(path.join(projectRoot, "scripts", "__InputClassBinding", "__InputClassBinding.gml"));
+        const constructorSource = await readFile(
+            path.join(projectRoot, "scripts", "__InputClassBinding", "__InputClassBinding.gml"),
+            "utf8"
+        );
+        const emptyBindingSource = await readFile(
+            path.join(projectRoot, "scripts", "input_binding_empty", "input_binding_empty.gml"),
+            "utf8"
+        );
+        const bindingChecksSource = await readFile(
+            path.join(projectRoot, "scripts", "input_value_is_binding", "input_value_is_binding.gml"),
+            "utf8"
+        );
+
+        assert.match(constructorSource, /function __InputClassBinding\(\) constructor \{\}/);
+        assert.match(emptyBindingSource, /return new __InputClassBinding\(\);/);
+        assert.match(bindingChecksSource, /is_instanceof\(_value, __InputClassBinding\);/);
+        assert.match(bindingChecksSource, /instanceof\(_value\) == "__InputClassBinding";/);
+        assert.doesNotMatch(bindingChecksSource, /\b__input_class_binding\b/);
 
         await assertProjectGmlFilesParse(projectRoot);
     } finally {

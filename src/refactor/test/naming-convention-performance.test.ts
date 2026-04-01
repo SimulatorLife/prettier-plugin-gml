@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
+import { performance } from "node:perf_hooks";
 import test from "node:test";
 
 import { Refactor } from "../index.js";
 import type { NamingConventionTarget, PartialSemanticAnalyzer } from "../src/types.js";
 
-const FILE_COUNT = 120;
-const TARGETS_PER_FILE = 24;
-const PERFORMANCE_THRESHOLD_MS = 750;
+const FILE_COUNT = 180;
+const TARGETS_PER_FILE = 32;
+const PERFORMANCE_THRESHOLD_MS = 120;
 
 type SyntheticFileFixture = {
     sourceText: string;
@@ -59,6 +60,35 @@ function createSyntheticLocalNamingFixture(filePath: string, fileIndex: number):
     };
 }
 
+async function measureMedianDurationMs<T>(
+    sampleCount: number,
+    execute: () => Promise<T>
+): Promise<{
+    durationMs: number;
+    result: T;
+}> {
+    const durations: Array<number> = [];
+    let latestResult: T | undefined;
+
+    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+        const startTime = performance.now();
+        latestResult = await execute();
+        durations.push(performance.now() - startTime);
+    }
+
+    durations.sort((left, right) => left - right);
+    const medianIndex = Math.floor(durations.length / 2);
+
+    if (latestResult === undefined) {
+        throw new Error("measureMedianDurationMs requires at least one sample");
+    }
+
+    return {
+        durationMs: durations[medianIndex] ?? 0,
+        result: latestResult
+    };
+}
+
 void test("namingConvention stress test stays within the selected-file planning threshold", async () => {
     const projectRoot = "/project";
     const sourceTexts = new Map<string, string>();
@@ -96,29 +126,33 @@ void test("namingConvention stress test stays within the selected-file planning 
     };
 
     const engine = new Refactor.RefactorEngine({ semantic });
-    const startTime = process.hrtime.bigint();
-    const result = await engine.executeConfiguredCodemods({
-        projectRoot,
-        targetPaths: [projectRoot],
-        gmlFilePaths,
-        config: {
-            namingConventionPolicy: {
-                rules: {
-                    localVariable: {
-                        caseStyle: "camel"
+    const executeStressRun = async () =>
+        await engine.executeConfiguredCodemods({
+            projectRoot,
+            targetPaths: [projectRoot],
+            gmlFilePaths,
+            config: {
+                namingConventionPolicy: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "camel"
+                        }
                     }
+                },
+                codemods: {
+                    namingConvention: {}
                 }
             },
-            codemods: {
-                namingConvention: {}
-            }
-        },
-        readFile: async (filePath) => sourceTexts.get(filePath) ?? "",
-        dryRun: true
-    });
-    const durationMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+            readFile: async (filePath) => sourceTexts.get(filePath) ?? "",
+            dryRun: true
+        });
 
-    assert.equal(listNamingTargetsCallCount, 1);
+    await executeStressRun();
+
+    const listNamingTargetsCallCountAfterWarmup = listNamingTargetsCallCount;
+    const { durationMs, result } = await measureMedianDurationMs(3, executeStressRun);
+
+    assert.equal(listNamingTargetsCallCount - listNamingTargetsCallCountAfterWarmup, 3);
     assert.equal(result.summaries.length, 1);
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, true);

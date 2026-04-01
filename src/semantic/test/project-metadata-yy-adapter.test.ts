@@ -287,3 +287,103 @@ void test("stringifyProjectMetadataDocument preserves resourceType before resour
     assert.ok(secondIndex !== -1, "resourcePath exists in output");
     assert.ok(firstIndex < secondIndex, "resourceType should appear before resourcePath in output");
 });
+
+void test("stringifyProjectMetadataDocument preserves fixed-point metadata after structuredClone", () => {
+    const parsed = parseProjectMetadataDocumentForMutation(
+        `{
+          "$GMSprite":"v2",
+          "%Name":"sprPlayer",
+          "bboxMode":0,
+          "bbox_bottom":31,
+          "bbox_left":0,
+          "bbox_right":31,
+          "bbox_top":0,
+          "collisionKind":1,
+          "collisionTolerance":0,
+          "DynamicTexturePage":false,
+          "edgeFiltering":false,
+          "For3D":false,
+          "frames":[
+            {"$GMSpriteFrame":"v1","%Name":"a777fc4d-ac59-4464-b4bd-e93704762166","name":"a777fc4d-ac59-4464-b4bd-e93704762166","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
+          ],
+          "gridX":0,
+          "gridY":0,
+          "height":32,
+          "HTile":false,
+          "layers":[
+            {"$GMImageLayer":"","%Name":"c7545ec4-2c29-4b5e-9814-c7ec66e59442","blendMode":0,"displayName":"default","isLocked":false,"name":"c7545ec4-2c29-4b5e-9814-c7ec66e59442","opacity":100.0,"resourceType":"GMImageLayer","resourceVersion":"2.0","visible":true,},
+          ],
+          "name":"sprPlayer",
+          "nineSlice":null,
+          "origin":4,
+          "parent":{"name":"Sprites","path":"folders/02 Textures/Sprites.yy",},
+          "preMultiplyAlpha":false,
+          "resourceType":"GMSprite",
+          "resourceVersion":"2.0",
+          "sequence":{
+            "$GMSequence":"v1",
+            "%Name":"sprPlayer",
+            "autoRecord":true,
+            "backdropHeight":768,
+            "backdropImageOpacity":0.5,
+            "backdropImagePath":"",
+            "backdropWidth":1366,
+            "backdropXOffset":0.0,
+            "backdropYOffset":0.0,
+            "events":{"$KeyframeStore<MessageEventKeyframe>":"","Keyframes":[],"resourceType":"KeyframeStore<MessageEventKeyframe>","resourceVersion":"2.0",},
+            "eventStubScript":null,
+            "eventToFunction":{},
+            "length":1.0,
+            "lockOrigin":false,
+            "moments":{"$KeyframeStore<MomentsEventKeyframe>":"","Keyframes":[],"resourceType":"KeyframeStore<MomentsEventKeyframe>","resourceVersion":"2.0",},
+            "name":"sprPlayer",
+            "playback":1,
+            "playbackSpeed":30.0,
+            "playbackSpeedType":0,
+            "resourceType":"GMSequence",
+            "resourceVersion":"2.0",
+            "seqHeight":32.0,
+            "seqWidth":32.0,
+            "showBackdrop":true,
+            "showBackdropImage":false,
+            "timeUnits":1,
+            "tracks":[
+              {"$GMSpriteFramesTrack":"","builtinName":0,"events":[],"inheritsTrackColour":true,"interpolation":1,"isCreationTrack":false,"keyframes":{"$KeyframeStore<SpriteFrameKeyframe>":"","Keyframes":[
+                    {"$Keyframe<SpriteFrameKeyframe>":"","Channels":{"0":{"$SpriteFrameKeyframe":"","Id":{"name":"a777fc4d-ac59-4464-b4bd-e93704762166","path":"sprites/sprPlayer/sprPlayer.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},},"Disabled":false,"id":"213eb663-edd6-48de-82c6-c2a8d2c0ebb7","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
+                  ],"resourceType":"KeyframeStore<SpriteFrameKeyframe>","resourceVersion":"2.0",},"modifiers":[],"name":"frames","resourceType":"GMSpriteFramesTrack","resourceVersion":"2.0","spriteId":null,"trackColour":0,"tracks":[],"traits":0,},
+            ],
+            "visibleRange":null,
+            "volume":1.0,
+            "xorigin":16,
+            "yorigin":16,
+          },
+          "swatchColours":null,
+          "swfPrecision":2.525,
+          "textureGroupId":{"name":"Default","path":"texturegroups/Default",},
+          "type":0,
+          "VTile":false,
+          "width":32,
+        }`,
+        "/tmp/sprites/sprPlayer/sprPlayer.yy"
+    );
+
+    const clonedDocument = structuredClone(parsed.document);
+    const output = stringifyProjectMetadataDocument(clonedDocument, "sprites/sprPlayer/sprPlayer.yy");
+
+    assert.match(output, /"opacity":100\.0/u);
+    assert.match(output, /"backdropImageOpacity":0\.5/u);
+    assert.match(output, /"backdropXOffset":0\.0/u);
+    assert.match(output, /"length":1\.0/u);
+    assert.match(output, /"playbackSpeed":30\.0/u);
+    assert.match(output, /"Key":0\.0/u);
+    assert.match(output, /"Length":1\.0/u);
+    assert.match(output, /"volume":1\.0/u);
+    assert.doesNotMatch(output, /"opacity":\{\}/u);
+    assert.doesNotMatch(output, /"backdropImageOpacity":\{\}/u);
+    assert.doesNotMatch(output, /"backdropXOffset":\{\}/u);
+    assert.doesNotMatch(output, /"length":\{\}/u);
+    assert.doesNotMatch(output, /"playbackSpeed":\{\}/u);
+    assert.doesNotMatch(output, /"Key":\{\}/u);
+    assert.doesNotMatch(output, /"Length":\{\}/u);
+    assert.doesNotMatch(output, /"volume":\{\}/u);
+});
