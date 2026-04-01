@@ -15,6 +15,28 @@ import { setTimeout as setTimeoutPromise } from "node:timers/promises";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 
+const AUTO_INJECT_WAIT_TIMEOUT_MS = 5000;
+const AUTO_INJECT_POLL_INTERVAL_MS = 25;
+
+async function waitForIndexContentMatch(
+    indexHtmlPath: string,
+    matcher: (indexContent: string) => boolean,
+    timeoutMs = AUTO_INJECT_WAIT_TIMEOUT_MS
+): Promise<string> {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+        const indexContent = await readFile(indexHtmlPath, "utf8");
+        if (matcher(indexContent)) {
+            return indexContent;
+        }
+
+        await setTimeoutPromise(AUTO_INJECT_POLL_INTERVAL_MS);
+    }
+
+    throw new Error(`Timed out waiting for index.html content update after ${timeoutMs} ms`);
+}
+
 void describe("Watch command auto-inject flag", () => {
     void it("should inject hot-reload runtime when --auto-inject is enabled", async () => {
         const testDir = path.join("/tmp", `watch-auto-inject-${Date.now()}-${randomUUID()}`);
@@ -48,17 +70,19 @@ void describe("Watch command auto-inject flag", () => {
             }
         });
 
-        await setTimeoutPromise(200);
-        abortController.abort();
-        await watchPromise;
-
-        const indexContent = await readFile(indexHtmlPath, "utf8");
-        assert.ok(indexContent.includes("gml-hot-reload:start"), "Should contain hot-reload marker start");
-        assert.ok(indexContent.includes("gml-hot-reload:end"), "Should contain hot-reload marker end");
-        assert.ok(indexContent.includes("createRuntimeWrapper"), "Should contain runtime wrapper initialization");
-        assert.ok(indexContent.includes("ws://127.0.0.1:17890"), "Should contain default WebSocket URL");
-
-        await rm(testDir, { recursive: true, force: true });
+        try {
+            const indexContent = await waitForIndexContentMatch(indexHtmlPath, (content) =>
+                content.includes("gml-hot-reload:start")
+            );
+            assert.ok(indexContent.includes("gml-hot-reload:start"), "Should contain hot-reload marker start");
+            assert.ok(indexContent.includes("gml-hot-reload:end"), "Should contain hot-reload marker end");
+            assert.ok(indexContent.includes("createRuntimeWrapper"), "Should contain runtime wrapper initialization");
+            assert.ok(indexContent.includes("ws://127.0.0.1:17890"), "Should contain default WebSocket URL");
+        } finally {
+            abortController.abort();
+            await watchPromise;
+            await rm(testDir, { recursive: true, force: true });
+        }
     });
 
     void it("should use custom WebSocket URL when both --auto-inject and custom port are provided", async () => {
@@ -97,17 +121,19 @@ void describe("Watch command auto-inject flag", () => {
             }
         });
 
-        await setTimeoutPromise(200);
-        abortController.abort();
-        await watchPromise;
-
-        const indexContent = await readFile(indexHtmlPath, "utf8");
-        assert.ok(
-            indexContent.includes(`ws://${customHost}:${customPort}`),
-            `Should contain custom WebSocket URL ws://${customHost}:${customPort}`
-        );
-
-        await rm(testDir, { recursive: true, force: true });
+        try {
+            const indexContent = await waitForIndexContentMatch(indexHtmlPath, (content) =>
+                content.includes(`ws://${customHost}:${customPort}`)
+            );
+            assert.ok(
+                indexContent.includes(`ws://${customHost}:${customPort}`),
+                `Should contain custom WebSocket URL ws://${customHost}:${customPort}`
+            );
+        } finally {
+            abortController.abort();
+            await watchPromise;
+            await rm(testDir, { recursive: true, force: true });
+        }
     });
 
     void it("should not inject when --auto-inject is not provided", async () => {
