@@ -18,15 +18,36 @@ async function writeProjectFile(projectRoot: string, relativePath: string, conte
 }
 
 /**
+ * Register a resource entry in the synthetic project's GameMaker manifest.
+ */
+async function registerProjectResource(projectRoot: string, resourceName: string, resourcePath: string): Promise<void> {
+    const projectFilePath = path.join(projectRoot, "MyGame.yyp");
+    const projectDocument = JSON.parse(await readFile(projectFilePath, "utf8")) as Record<string, unknown>;
+    const resourceEntries = Array.isArray(projectDocument.resources) ? [...projectDocument.resources] : [];
+
+    resourceEntries.push({
+        id: {
+            name: resourceName,
+            path: resourcePath
+        }
+    });
+
+    projectDocument.resources = resourceEntries;
+    await writeProjectFile(projectRoot, "MyGame.yyp", `${JSON.stringify(projectDocument, null, 4)}\n`);
+}
+
+/**
  * Create a script resource with its metadata and source file.
  */
 async function writeScriptResource(projectRoot: string, scriptName: string, sourceText: string): Promise<void> {
+    const resourcePath = `scripts/${scriptName}/${scriptName}.yy`;
     await writeProjectFile(
         projectRoot,
-        `scripts/${scriptName}/${scriptName}.yy`,
+        resourcePath,
         `${JSON.stringify(
             {
                 resourceType: "GMScript",
+                resourcePath,
                 name: scriptName
             },
             null,
@@ -34,6 +55,7 @@ async function writeScriptResource(projectRoot: string, scriptName: string, sour
         )}\n`
     );
     await writeProjectFile(projectRoot, `scripts/${scriptName}/${scriptName}.gml`, sourceText);
+    await registerProjectResource(projectRoot, scriptName, resourcePath);
 }
 
 /**
@@ -44,12 +66,14 @@ async function writeObjectResource(
     objectName: string,
     eventFiles: Record<string, string>
 ): Promise<void> {
+    const resourcePath = `objects/${objectName}/${objectName}.yy`;
     await writeProjectFile(
         projectRoot,
-        `objects/${objectName}/${objectName}.yy`,
+        resourcePath,
         `${JSON.stringify(
             {
                 resourceType: "GMObject",
+                resourcePath,
                 name: objectName
             },
             null,
@@ -60,6 +84,8 @@ async function writeObjectResource(
     for (const [relativeEventFilePath, sourceText] of Object.entries(eventFiles)) {
         await writeProjectFile(projectRoot, `objects/${objectName}/${relativeEventFilePath}`, sourceText);
     }
+
+    await registerProjectResource(projectRoot, objectName, resourcePath);
 }
 
 /**
@@ -70,7 +96,7 @@ async function createSyntheticProject(config: Record<string, unknown>): Promise<
     await writeProjectFile(
         projectRoot,
         "MyGame.yyp",
-        `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 4)}\n`
+        `${JSON.stringify({ name: "MyGame", resourceType: "GMProject", resources: [] }, null, 4)}\n`
     );
     await writeProjectFile(projectRoot, "gmloop.json", `${JSON.stringify(config, null, 4)}\n`);
     return projectRoot;
@@ -483,12 +509,12 @@ void test("refactor codemod --write preserves valid enum member accesses when lo
         assert.equal(result.exitCode, 0);
         const updatedSource = await readFile(path.join(projectRoot, "scripts/cm_misc/cm_misc.gml"), "utf8");
 
-        assert.match(updatedSource, /enum ecm \{/);
+        assert.match(updatedSource, /enum eCm \{/);
         assert.match(updatedSource, /function cm_collider\(x, y, z, slope_angle = 40\)/);
-        assert.match(updatedSource, /collider\[@ ecm\.X\] = x;/);
-        assert.match(updatedSource, /collider\[@ ecm\.Y\] = y;/);
-        assert.match(updatedSource, /collider\[@ ecm\.Z\] = z;/);
-        assert.match(updatedSource, /collider\[@ ecm\.SLOPEANGLE\] = slope_angle;/);
+        assert.match(updatedSource, /collider\[@ eCm\.X\] = x;/);
+        assert.match(updatedSource, /collider\[@ eCm\.Y\] = y;/);
+        assert.match(updatedSource, /collider\[@ eCm\.Z\] = z;/);
+        assert.match(updatedSource, /collider\[@ eCm\.SLOPEANGLE\] = slope_angle;/);
         assert.doesNotMatch(updatedSource, /\becmM\b/);
         assert.doesNotMatch(updatedSource, /\.xX\b/);
         assert.doesNotMatch(updatedSource, /\.yY\b/);
@@ -543,10 +569,129 @@ void test("refactor codemod --write renames cross-file enum references and repar
         const enumSource = await readFile(path.join(projectRoot, "scripts/cm_misc/cm_misc.gml"), "utf8");
         const consumerSource = await readFile(path.join(projectRoot, "scripts/cm_aab/cm_aab.gml"), "utf8");
 
-        assert.match(enumSource, /enum ecmRay \{/);
-        assert.match(consumerSource, /mask = ray\[ecmRay\.MASK\]/);
-        assert.match(consumerSource, /return ray\[ecmRay\.NUM\];/);
+        assert.match(enumSource, /enum eCmRay \{/);
+        assert.match(consumerSource, /mask = ray\[eCmRay\.MASK\]/);
+        assert.match(consumerSource, /return ray\[eCmRay\.NUM\];/);
         assert.doesNotMatch(consumerSource, /\bCM_RAY\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write renames cross-file enum member references without splitting digit tokens", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    enum: {
+                        prefix: "e",
+                        caseStyle: "camel"
+                    },
+                    enumMember: {
+                        caseStyle: "upper_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "input_defs",
+            ["enum INPUT_VIRTUAL_TYPE {", "    DPAD_4DIR,", "    DPAD_8DIR", "}", ""].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_use",
+            [
+                "function input_use(_four_dir) {",
+                "    return _four_dir ? INPUT_VIRTUAL_TYPE.DPAD_4DIR : INPUT_VIRTUAL_TYPE.DPAD_8DIR;",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const enumSource = await readFile(path.join(projectRoot, "scripts/input_defs/input_defs.gml"), "utf8");
+        const consumerSource = await readFile(path.join(projectRoot, "scripts/input_use/input_use.gml"), "utf8");
+
+        assert.match(enumSource, /enum eInputVirtualType \{/);
+        assert.match(enumSource, /\bDPAD_4DIR\b/);
+        assert.match(enumSource, /\bDPAD_8DIR\b/);
+        assert.match(consumerSource, /eInputVirtualType\.DPAD_4DIR/);
+        assert.match(consumerSource, /eInputVirtualType\.DPAD_8DIR/);
+        assert.doesNotMatch(enumSource, /\bDPAD_4_DIR\b/);
+        assert.doesNotMatch(enumSource, /\bDPAD_8_DIR\b/);
+        assert.doesNotMatch(consumerSource, /\bDPAD_4_DIR\b/);
+        assert.doesNotMatch(consumerSource, /\bDPAD_8_DIR\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write keeps same-name macros intact when renaming the owning script resource", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    resource: {
+                        caseStyle: "lower_snake"
+                    },
+                    macro: {
+                        caseStyle: "upper_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "CM_TRIANGLE_GET_CAPSULE_REF",
+            ["#macro CM_TRIANGLE_GET_CAPSULE_REF var refX = X;\\", "var refY = Y;", ""].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "cm_triangle",
+            ["function cm_triangle() {", "    CM_TRIANGLE_GET_CAPSULE_REF;", "    return refX + refY;", "}", ""].join(
+                "\n"
+            )
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        await access(path.join(projectRoot, "scripts/cm_triangle_get_capsule_ref/cm_triangle_get_capsule_ref.gml"));
+        const macroSource = await readFile(
+            path.join(projectRoot, "scripts/cm_triangle_get_capsule_ref/cm_triangle_get_capsule_ref.gml"),
+            "utf8"
+        );
+        const consumerSource = await readFile(path.join(projectRoot, "scripts/cm_triangle/cm_triangle.gml"), "utf8");
+
+        assert.match(macroSource, /^#macro CM_TRIANGLE_GET_CAPSULE_REF/m);
+        assert.match(consumerSource, /\bCM_TRIANGLE_GET_CAPSULE_REF;/);
+        assert.doesNotMatch(macroSource, /^#macro cm_triangle_get_capsule_ref/m);
+        assert.doesNotMatch(consumerSource, /\bcm_triangle_get_capsule_ref\b/);
 
         await assertProjectGmlFilesParse(projectRoot);
     } finally {

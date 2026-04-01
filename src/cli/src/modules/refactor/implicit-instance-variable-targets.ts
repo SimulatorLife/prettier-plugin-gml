@@ -100,10 +100,9 @@ function buildCandidateOccurrence(
     const endRecord = Core.isObjectLike(reference.end) ? (reference.end as Record<string, unknown>) : null;
     const start = typeof startRecord?.index === "number" ? startRecord.index : -1;
     const endInclusive = typeof endRecord?.index === "number" ? endRecord.index : -1;
-    // The incoming index values are already one-past-the-end (exclusive), so
-    // do not re-apply another +1 offset. This keeps the span aligned with
-    // GML parser/semantic conventions and avoids accidental token range overrun.
-    const end = endInclusive >= start ? endInclusive : -1;
+    // Project-index identifier spans use inclusive end positions. Convert them
+    // to the exclusive form expected by refactor text ranges and string slicing.
+    const end = endInclusive >= start ? endInclusive + 1 : -1;
 
     if (start < 0 || end <= start || source.slice(start, end) !== referenceName) {
         return null;

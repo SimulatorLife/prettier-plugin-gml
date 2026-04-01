@@ -1220,6 +1220,130 @@ void describe("GmlSemanticBridge tests", () => {
         }
     });
 
+    void it("getSymbolOccurrences for script resources ignores same-name macro occurrences", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-script-macro-"));
+
+        try {
+            const macroSource = ["#macro CM_TRIANGLE_GET_CAPSULE_REF var refX = X;\\", "var refY = Y;", ""].join("\n");
+            const consumerSource = [
+                "function consumer() {",
+                "    CM_TRIANGLE_GET_CAPSULE_REF;",
+                "    return refX + refY;",
+                "}",
+                ""
+            ].join("\n");
+
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "CM_TRIANGLE_GET_CAPSULE_REF"), { recursive: true });
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "consumer"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "CM_TRIANGLE_GET_CAPSULE_REF", "CM_TRIANGLE_GET_CAPSULE_REF.yy"),
+                `${JSON.stringify({ name: "CM_TRIANGLE_GET_CAPSULE_REF", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "CM_TRIANGLE_GET_CAPSULE_REF", "CM_TRIANGLE_GET_CAPSULE_REF.gml"),
+                macroSource
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "consumer", "consumer.yy"),
+                `${JSON.stringify({ name: "consumer", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "consumer", "consumer.gml"), consumerSource);
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const scriptOccurrences = bridge.getSymbolOccurrences(
+                "CM_TRIANGLE_GET_CAPSULE_REF",
+                "gml/scripts/CM_TRIANGLE_GET_CAPSULE_REF"
+            );
+            const macroOccurrences = bridge.getSymbolOccurrences(
+                "CM_TRIANGLE_GET_CAPSULE_REF",
+                "gml/macro/CM_TRIANGLE_GET_CAPSULE_REF"
+            );
+
+            assert.deepEqual(scriptOccurrences, []);
+            assert.deepEqual(
+                macroOccurrences.map((occurrence) => ({
+                    kind: occurrence.kind,
+                    path: occurrence.path
+                })),
+                [
+                    {
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        path: "scripts/CM_TRIANGLE_GET_CAPSULE_REF/CM_TRIANGLE_GET_CAPSULE_REF.gml"
+                    },
+                    {
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        path: "scripts/consumer/consumer.gml"
+                    }
+                ]
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
+    void it("listNamingConventionTargets includes unresolved cross-file enum member references", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-enum-member-cross-file-"));
+
+        try {
+            const enumSource = ["enum INPUT_VIRTUAL_TYPE {", "    DPAD_4DIR,", "    DPAD_8DIR", "}", ""].join("\n");
+            const consumerSource = [
+                "function demo() {",
+                "    return [INPUT_VIRTUAL_TYPE.DPAD_4DIR, INPUT_VIRTUAL_TYPE.DPAD_8DIR];",
+                "}",
+                ""
+            ].join("\n");
+
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "defs"), { recursive: true });
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "use"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "defs", "defs.yy"),
+                `${JSON.stringify({ name: "defs", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "defs", "defs.gml"), enumSource);
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "use", "use.yy"),
+                `${JSON.stringify({ name: "use", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "use", "use.gml"), consumerSource);
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const targets = await bridge.listNamingConventionTargets();
+            const dpadTarget = targets.find(
+                (target) => target.category === "enumMember" && target.name === "DPAD_4DIR"
+            );
+
+            assert.ok(dpadTarget);
+            assert.deepEqual(
+                dpadTarget?.occurrences.map((occurrence) => ({
+                    kind: occurrence.kind,
+                    path: occurrence.path
+                })),
+                [
+                    {
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        path: "scripts/defs/defs.gml"
+                    },
+                    {
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        path: "scripts/use/use.gml"
+                    }
+                ]
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
     void it("listMacroExpansionDependencies reports caller-scoped identifiers consumed by referenced macros", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-macro-deps-"));
 
@@ -1553,7 +1677,7 @@ void describe("GmlSemanticBridge tests", () => {
                             name: "charMat",
                             scopeId: "scope:object:oActorParent",
                             start: { index: charMatDefinitionStart },
-                            end: { index: charMatDefinitionStart + "charMat".length },
+                            end: { index: charMatDefinitionStart + "charMat".length - 1 },
                             declaration: null,
                             isBuiltIn: false,
                             isGlobalIdentifier: false
@@ -1562,7 +1686,7 @@ void describe("GmlSemanticBridge tests", () => {
                             name: "charMat",
                             scopeId: "scope:object:oActorParent",
                             start: { index: charMatReferenceStart },
-                            end: { index: charMatReferenceStart + "charMat".length },
+                            end: { index: charMatReferenceStart + "charMat".length - 1 },
                             declaration: null,
                             isBuiltIn: false,
                             isGlobalIdentifier: false
