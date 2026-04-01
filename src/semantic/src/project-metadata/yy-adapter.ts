@@ -355,8 +355,32 @@ function ensureResourceTypeBeforeResourcePathInSerializedOutput(
     return copy.join(eol);
 }
 
+function normalizeMetadataValueForSerialization(value: unknown): unknown {
+    const objectTag = Object.prototype.toString.call(value);
+    if (objectTag === "[object Number]" || objectTag === "[object String]" || objectTag === "[object Boolean]") {
+        return value.valueOf();
+    }
+
+    if (Array.isArray(value)) {
+        return value.map((entry) => normalizeMetadataValueForSerialization(entry));
+    }
+
+    if (!Core.isObjectLike(value)) {
+        return value;
+    }
+
+    const normalizedObject: Record<string, unknown> = {};
+    for (const [key, childValue] of Object.entries(value)) {
+        normalizedObject[key] = normalizeMetadataValueForSerialization(childValue);
+    }
+
+    return normalizedObject;
+}
+
 export function stringifyProjectMetadataDocument(document: Record<string, unknown>, sourcePath = "") {
-    const normalizedDocument = ensureResourceTypeBeforeResourcePath(document);
+    const normalizedDocument = ensureResourceTypeBeforeResourcePath(
+        normalizeMetadataValueForSerialization(document) as Record<string, unknown>
+    );
     let schemaName = Core.isNonEmptyString(sourcePath)
         ? resolveProjectMetadataSchemaName(sourcePath, normalizedDocument.resourceType)
         : null;
@@ -371,8 +395,8 @@ export function stringifyProjectMetadataDocument(document: Record<string, unknow
         if (schemaName) {
             try {
                 return Yy.stringify(normalizedDocument, schemaName);
-            } catch {
-                return Yy.stringify(normalizedDocument);
+            } catch (error) {
+                throw new ProjectMetadataSchemaValidationError(sourcePath, schemaName, error);
             }
         }
 

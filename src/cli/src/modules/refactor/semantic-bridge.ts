@@ -5,8 +5,12 @@ import { Core } from "@gmloop/core";
 import { Parser } from "@gmloop/parser";
 import { Semantic } from "@gmloop/semantic";
 
+import { listConstructorRuntimeTypeReferenceRecords } from "./constructor-runtime-type-references.js";
 import { collectImplicitInstanceVariableTargets } from "./implicit-instance-variable-targets.js";
-import { listMacroExpansionDependencies } from "./macro-expansion-dependencies.js";
+import {
+    listMacroDeclarationReferenceRecords,
+    listMacroExpansionDependencies
+} from "./macro-expansion-dependencies.js";
 import { ParsedLocalNamingCategoryResolver } from "./parsed-local-naming-categories.js";
 
 type ResourceAssetReferenceRecord = {
@@ -269,7 +273,15 @@ export class GmlSemanticBridge {
     private readonly stagedParsedMetadata = new Map<string, Record<string, unknown>>();
     private readonly sourceTextByPath = new Map<string, string | null>();
     private constructorStaticMemberNameCounts: Map<string, number> | null = null;
+    private constructorRuntimeTypeReferencesByExactName: Map<
+        string,
+        Array<Pick<SymbolOccurrence, "end" | "path" | "start">>
+    > | null = null;
     private indexes: SemanticBridgeIndexes | null = null;
+    private macroBodyReferencesByExactName: Map<
+        string,
+        Array<Pick<SymbolOccurrence, "end" | "path" | "start">>
+    > | null = null;
 
     constructor(projectIndex: unknown, projectRoot: string = process.cwd()) {
         this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
@@ -286,6 +298,8 @@ export class GmlSemanticBridge {
         this.indexes = null;
         this.sourceTextByPath.clear();
         this.constructorStaticMemberNameCounts = null;
+        this.constructorRuntimeTypeReferencesByExactName = null;
+        this.macroBodyReferencesByExactName = null;
         this.clearWorkspaceOverlay();
     }
 
@@ -294,6 +308,7 @@ export class GmlSemanticBridge {
      */
     clearWorkspaceOverlay(): void {
         this.stagedMetadataContents.clear();
+        this.stagedParsedMetadata.clear();
     }
 
     /**
@@ -583,6 +598,12 @@ export class GmlSemanticBridge {
         }
 
         this.collectUnresolvedProjectFileReferenceOccurrences(symbolName, symbolId, occurrences);
+        if (this.shouldCollectUnresolvedProjectFileReferences(symbolEntry, symbolId)) {
+            this.collectMacroBodyReferenceOccurrences(symbolName, occurrences);
+        }
+        if (this.shouldCollectConstructorRuntimeTypeReferences(symbolEntry, symbolId)) {
+            this.collectConstructorRuntimeTypeReferenceOccurrences(symbolName, occurrences);
+        }
 
         // Fallback to file-system scanning only when indexed structures produced
         // no hits and the symbol is a known resource. This avoids repeated full
@@ -593,6 +614,86 @@ export class GmlSemanticBridge {
         }
 
         return this.deduplicateOccurrences(occurrences);
+    }
+
+    private collectMacroBodyReferenceOccurrences(symbolName: string, occurrences: Array<SymbolOccurrence>): void {
+        for (const reference of this.getMacroBodyReferencesByExactName().get(symbolName) ?? []) {
+            occurrences.push({
+                path: reference.path,
+                start: reference.start,
+                end: reference.end,
+                kind: "reference"
+            });
+        }
+    }
+
+    private getMacroBodyReferencesByExactName(): Map<string, Array<Pick<SymbolOccurrence, "end" | "path" | "start">>> {
+        if (this.macroBodyReferencesByExactName !== null) {
+            return this.macroBodyReferencesByExactName;
+        }
+
+        const referencesByExactName = new Map<string, Array<Pick<SymbolOccurrence, "end" | "path" | "start">>>();
+
+        for (const record of listMacroDeclarationReferenceRecords({
+            macros: this.identifiers.macros ?? {},
+            projectRoot: this.projectRoot
+        })) {
+            for (const reference of record.references) {
+                const existingReferences = referencesByExactName.get(reference.name) ?? [];
+                existingReferences.push({
+                    path: record.path,
+                    start: reference.start,
+                    end: reference.end
+                });
+                referencesByExactName.set(reference.name, existingReferences);
+            }
+        }
+
+        this.macroBodyReferencesByExactName = referencesByExactName;
+        return referencesByExactName;
+    }
+
+    private collectConstructorRuntimeTypeReferenceOccurrences(
+        symbolName: string,
+        occurrences: Array<SymbolOccurrence>
+    ): void {
+        for (const reference of this.getConstructorRuntimeTypeReferencesByExactName().get(symbolName) ?? []) {
+            occurrences.push({
+                path: reference.path,
+                start: reference.start,
+                end: reference.end,
+                kind: "reference"
+            });
+        }
+    }
+
+    private getConstructorRuntimeTypeReferencesByExactName(): Map<
+        string,
+        Array<Pick<SymbolOccurrence, "end" | "path" | "start">>
+    > {
+        if (this.constructorRuntimeTypeReferencesByExactName !== null) {
+            return this.constructorRuntimeTypeReferencesByExactName;
+        }
+
+        const referencesByExactName = new Map<string, Array<Pick<SymbolOccurrence, "end" | "path" | "start">>>();
+
+        for (const record of listConstructorRuntimeTypeReferenceRecords({
+            files: (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>,
+            projectRoot: this.projectRoot
+        })) {
+            for (const reference of record.references) {
+                const existingReferences = referencesByExactName.get(reference.name) ?? [];
+                existingReferences.push({
+                    path: record.path,
+                    start: reference.start,
+                    end: reference.end
+                });
+                referencesByExactName.set(reference.name, existingReferences);
+            }
+        }
+
+        this.constructorRuntimeTypeReferencesByExactName = referencesByExactName;
+        return referencesByExactName;
     }
 
     private collectOccurrencesFromExactSymbolEntry(
@@ -634,6 +735,24 @@ export class GmlSemanticBridge {
         }
 
         return this.shouldResourceRenameCollectDiskOccurrences(resource);
+    }
+
+    private shouldCollectConstructorRuntimeTypeReferences(entry: unknown, symbolId: string | null): boolean {
+        if (Core.isNonEmptyString(symbolId) && symbolId.startsWith("gml/scripts/")) {
+            const typedEntry = Core.isObjectLike(entry) ? (entry as SemanticIdentifierEntry) : null;
+            const resource = typedEntry
+                ? this.findResourceBySymbol(typedEntry, symbolId)
+                : this.findResourceByName(symbolId.slice(12), true);
+            const category = this.getScriptResourceDeclarationNamingCategory(resource?.path);
+            return category === "constructorFunction" || category === "structDeclaration";
+        }
+
+        if (!Core.isObjectLike(entry)) {
+            return false;
+        }
+
+        const declarationKinds = this.extractDeclarationKinds(entry);
+        return declarationKinds.has("constructor") || declarationKinds.has("struct");
     }
 
     private shouldCollectUnresolvedProjectFileReferences(
@@ -872,10 +991,6 @@ export class GmlSemanticBridge {
             }
 
             const canonicalContent = Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path);
-            if (!changed && canonicalContent !== rawContent) {
-                changed = true;
-            }
-
             if (!changed) {
                 continue;
             }
@@ -978,8 +1093,9 @@ export class GmlSemanticBridge {
                             return;
                         }
 
-                        // Parser end positions are exclusive.
-                        results.push({ start, end });
+                        // Parser identifier end positions are inclusive; convert to
+                        // the exclusive end offsets expected by refactor edits.
+                        results.push({ start, end: end + 1 });
                     }
                 }
 
@@ -999,11 +1115,29 @@ export class GmlSemanticBridge {
             };
 
             traverse(program);
-        } catch (error) {
-            console.error(`Failed to parse content for identifier '${name}':`, error);
+        } catch {
+            // Ignore parse failures and let the regex fallback handle the file.
         }
 
         return results;
+    }
+
+    private findStringLiteralRangesFromText(content: string): Array<{ start: number; end: number }> {
+        const ranges: Array<{ start: number; end: number }> = [];
+        const stringLiteralPattern = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g;
+
+        for (const match of content.matchAll(stringLiteralPattern)) {
+            if (typeof match.index !== "number") {
+                continue;
+            }
+
+            ranges.push({
+                start: match.index,
+                end: match.index + match[0].length
+            });
+        }
+
+        return ranges;
     }
 
     private findStringLiteralRangesInAst(content: string): Array<{ start: number; end: number }> {
@@ -1050,7 +1184,7 @@ export class GmlSemanticBridge {
 
             traverse(program);
         } catch {
-            // Silently ignore parse failures; fallback regex should still run.
+            return this.findStringLiteralRangesFromText(content);
         }
 
         return ranges;
@@ -1068,8 +1202,6 @@ export class GmlSemanticBridge {
 
             const content = fs.readFileSync(absolutePath, "utf8");
             const astResults = this.findIdentifierOccurrencesInAst(content, name);
-            console.log("AST_AST_AST", astResults);
-            console.log("ASTRESULTS", astResults);
             if (astResults.length > 0) {
                 return astResults;
             }

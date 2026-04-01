@@ -42,6 +42,25 @@ type WorkspaceEditTelemetryState = {
 };
 
 const workspaceEditTelemetryState = new WeakMap<WorkspaceEdit, WorkspaceEditTelemetryState>();
+const workspaceEditExactKeyState = new WeakMap<WorkspaceEdit, Set<string>>();
+const TEXT_EDIT_IDENTITY_DELIMITER = "\u0000";
+
+function createTextEditIdentityKey(path: string, start: number, end: number, newText: string): string {
+    return [path, String(start), String(end), newText].join(TEXT_EDIT_IDENTITY_DELIMITER);
+}
+
+function getExactEditKeys(workspace: WorkspaceEdit): Set<string> {
+    const existing = workspaceEditExactKeyState.get(workspace);
+    if (existing) {
+        return existing;
+    }
+
+    const created = new Set(
+        workspace.edits.map((edit) => createTextEditIdentityKey(edit.path, edit.start, edit.end, edit.newText))
+    );
+    workspaceEditExactKeyState.set(workspace, created);
+    return created;
+}
 
 function getTelemetryState(workspace: WorkspaceEdit): WorkspaceEditTelemetryState {
     const existing = workspaceEditTelemetryState.get(workspace);
@@ -73,18 +92,15 @@ export class WorkspaceEdit {
     }
 
     addEdit(path: string, start: number, end: number, newText: string): void {
-        for (const existing of this.edits) {
-            if (
-                existing.path === path &&
-                existing.start === start &&
-                existing.end === end &&
-                existing.newText === newText
-            ) {
-                return; // Exact duplicate
-            }
+        const editKey = createTextEditIdentityKey(path, start, end, newText);
+        const exactEditKeys = getExactEditKeys(this);
+        if (exactEditKeys.has(editKey)) {
+            return;
         }
+
         const telemetryState = getTelemetryState(this);
         this.edits.push({ path, start, end, newText });
+        exactEditKeys.add(editKey);
         telemetryState.touchedFiles.add(path);
         telemetryState.totalTextBytes += Buffer.byteLength(newText, "utf8");
         telemetryState.highWaterTextBytes = Math.max(telemetryState.highWaterTextBytes, telemetryState.totalTextBytes);

@@ -148,6 +148,22 @@ void test("WorkspaceEdit telemetry tracks edit counts and byte high-water marks"
     assert.ok(telemetry.highWaterTextBytes >= telemetry.totalTextBytes);
 });
 
+void test("WorkspaceEdit ignores exact duplicate text edits", () => {
+    const workspace = new WorkspaceEdit();
+
+    workspace.addEdit("scripts/example.gml", 4, 12, "goodName");
+    workspace.addEdit("scripts/example.gml", 4, 12, "goodName");
+    workspace.addEdit("scripts/example.gml", 4, 12, "goodName");
+
+    assert.equal(workspace.edits.length, 1);
+    assert.deepEqual(workspace.edits[0], {
+        path: "scripts/example.gml",
+        start: 4,
+        end: 12,
+        newText: "goodName"
+    });
+});
+
 void test("validateFileRenameOperations rejects duplicate sources, duplicate destinations, and rename chains", () => {
     const errors = validateFileRenameOperations([
         { oldPath: "scripts/a.gml", newPath: "scripts/b.gml" },

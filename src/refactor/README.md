@@ -29,6 +29,15 @@ It does not replace lint or formatter domains:
 
 ## Features
 
+## Performance Regression Coverage
+
+The refactor workspace keeps naming-convention codemod stress tests in the regular TypeScript test suite:
+
+- [`src/refactor/test/naming-convention-performance.test.ts`](./test/naming-convention-performance.test.ts) exercises high-volume local rename planning and edit application.
+- [`src/cli/test/refactor-codemod-performance.test.ts`](../cli/test/refactor-codemod-performance.test.ts) exercises the indexed CLI bridge path for large top-level rename batches.
+
+These tests run through the normal `pnpm run test:ci` workflow, so CI enforces both correctness and the current performance thresholds.
+
 ### Project-wide Codemod Execution
 
 Run loop-length hoisting as a single transaction across multiple files through the refactor engine:
