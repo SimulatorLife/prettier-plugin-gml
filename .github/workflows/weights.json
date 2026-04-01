@@ -1,6 +1,6 @@
 {
   "agents": [
-  {"weight":0.0,"name":"copilot"},
+  {"weight":1.0,"name":"copilot"},
   {"weight":1.0,"name":"codex"},
   {"weight":0.0,"name":"gemini"}
   ],
