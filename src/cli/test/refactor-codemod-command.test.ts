@@ -797,6 +797,67 @@ void test("refactor codemod --write updates constructor inheritance references w
     }
 });
 
+void test("refactor codemod --write does not rename plain functions in mixed multi-callable scripts when only struct declarations are configured", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    structDeclaration: {
+                        caseStyle: "pascal"
+                    },
+                    resource: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "GroupSmf",
+            [
+                "function smf_model() constructor {}",
+                "",
+                "function smf_model_load(path) {",
+                "    return new smf_model();",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "use_it",
+            ["function use_it() {", '    global.model_player = smf_model_load("Mushroom.smf");', "}", ""].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        await access(path.join(projectRoot, "scripts/group_smf/group_smf.gml"));
+        const groupSmfSource = await readFile(path.join(projectRoot, "scripts/group_smf/group_smf.gml"), "utf8");
+        const consumerSource = await readFile(path.join(projectRoot, "scripts/use_it/use_it.gml"), "utf8");
+
+        assert.match(groupSmfSource, /function SmfModel\(\) constructor \{\}/);
+        assert.match(groupSmfSource, /return new SmfModel\(\);/);
+        assert.match(groupSmfSource, /function smf_model_load\(path\)/);
+        assert.doesNotMatch(groupSmfSource, /function SmfModelLoad\(path\)/);
+        assert.match(consumerSource, /global\.model_player = smf_model_load\("Mushroom\.smf"\);/);
+        assert.doesNotMatch(consumerSource, /\bSmfModelLoad\(/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write lets multi-function scripts rename the resource and same-name callable independently", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {

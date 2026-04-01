@@ -1056,6 +1056,50 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(!targets.some((target) => target.category === "scriptResourceName" && target.name === "Vector3"));
     });
 
+    void it("listNamingConventionTargets keeps plain functions in mixed multi-callable scripts out of structDeclaration fallback", async () => {
+        const mockProjectIndex = {
+            resources: {
+                "scripts/GroupSmf/GroupSmf.yy": {
+                    path: "scripts/GroupSmf/GroupSmf.yy",
+                    name: "GroupSmf",
+                    resourceType: "GMScript"
+                }
+            },
+            identifiers: {
+                scripts: {
+                    "scope:script:group-smf": {
+                        identifierId: "script:scope:script:group-smf",
+                        name: "GroupSmf",
+                        resourcePath: "scripts/GroupSmf/GroupSmf.yy",
+                        declarationKinds: ["constructor", "struct"],
+                        declarations: [
+                            {
+                                name: "smf_model",
+                                filePath: "scripts/GroupSmf/GroupSmf.gml",
+                                classifications: ["function", "constructor", "struct"]
+                            },
+                            {
+                                name: "smf_model_load",
+                                filePath: "scripts/GroupSmf/GroupSmf.gml",
+                                classifications: ["function"]
+                            }
+                        ]
+                    }
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const targets = await bridge.listNamingConventionTargets();
+        const constructorTarget = targets.find((target) => target.name === "smf_model");
+        const functionTarget = targets.find((target) => target.name === "smf_model_load");
+        const resourceTarget = targets.find((target) => target.name === "GroupSmf");
+
+        assert.equal(constructorTarget?.category, "constructorFunction");
+        assert.equal(functionTarget?.category, "function");
+        assert.equal(resourceTarget?.category, "scriptResourceName");
+    });
+
     void it("getSymbolOccurrences includes constructor parent clause references from the semantic project index", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-constructor-parent-"));
 

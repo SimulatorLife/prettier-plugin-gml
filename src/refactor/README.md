@@ -344,6 +344,10 @@ the refactor output remains valid after GameMaker preprocesses macro bodies.
 Cross-file enum and macro renames also collect unresolved top-level consumer
 references from project file records so naming-convention runs keep
 `CM_RAY.MASK`-style uses aligned with renamed declarations.
+Within multi-callable script resources, each callable now keeps its own
+declaration category: constructor or struct policies only affect the matching
+declarations, and plain functions stay untouched unless the policy explicitly
+configures the `function` category.
 
 #### Contract
 

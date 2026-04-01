@@ -1591,18 +1591,17 @@ export class GmlSemanticBridge {
         return null;
     }
 
-    private getScriptCallableDeclarations(entry: SemanticIdentifierEntry): Array<{ filePath: string; name: string }> {
-        const declarations: Array<{ filePath: string; name: string }> = [];
+    private getScriptCallableDeclarations(
+        entry: SemanticIdentifierEntry
+    ): Array<Record<string, unknown> & { filePath: string; name: string }> {
+        const declarations: Array<Record<string, unknown> & { filePath: string; name: string }> = [];
 
         for (const declaration of entry?.declarations ?? []) {
             if (typeof declaration?.name !== "string" || typeof declaration?.filePath !== "string") {
                 continue;
             }
 
-            declarations.push({
-                name: declaration.name,
-                filePath: declaration.filePath
-            });
+            declarations.push(declaration as Record<string, unknown> & { filePath: string; name: string });
         }
 
         return declarations;
@@ -1645,6 +1644,10 @@ export class GmlSemanticBridge {
 
         const declarations = this.getScriptCallableDeclarationsForResource(entry.resourcePath);
         return declarations.length === 1 && declarations[0]?.declaration?.name === declarationName;
+    }
+
+    private hasSingleCallableDeclaration(entry: SemanticIdentifierEntry): boolean {
+        return this.getScriptCallableDeclarations(entry).length === 1;
     }
 
     private shouldResourceRenameCollectDiskOccurrences(resource: SemanticResourceRecord): boolean {
@@ -1708,6 +1711,10 @@ export class GmlSemanticBridge {
 
         if (declarationKinds.has("struct")) {
             return "structDeclaration";
+        }
+
+        if (!this.hasSingleCallableDeclaration(entry)) {
+            return "function";
         }
 
         const entryKinds = this.extractDeclarationKinds(entry);
@@ -1811,6 +1818,11 @@ export class GmlSemanticBridge {
         resourcePath: string | null | undefined
     ): Extract<BridgeNamingConventionTarget["category"], "constructorFunction" | "structDeclaration"> | null {
         if (!Core.isNonEmptyString(resourcePath)) {
+            return null;
+        }
+
+        const declarations = this.getScriptCallableDeclarationsForResource(resourcePath);
+        if (declarations.length !== 1) {
             return null;
         }
 
