@@ -733,6 +733,60 @@ export class GmlSemanticBridge {
         return results;
     }
 
+    private findStringLiteralRangesInAst(content: string): Array<{ start: number; end: number }> {
+        const ranges: Array<{ start: number; end: number }> = [];
+
+        try {
+            const program = Parser.GMLParser.parse(content, { getComments: false });
+
+            const traverse = (node: unknown): void => {
+                if (!Core.isObjectLike(node)) {
+                    return;
+                }
+
+                const candidate = node as Record<string, unknown>;
+                if (candidate.type === "Literal" && typeof candidate.value === "string") {
+                    const literalValue = candidate.value;
+                    const isQuotedLiteral =
+                        (literalValue.startsWith('"') && literalValue.endsWith('"')) ||
+                        (literalValue.startsWith("'") && literalValue.endsWith("'"));
+
+                    if (isQuotedLiteral) {
+                        const start = candidate.start as number | undefined;
+                        const end = candidate.end as number | undefined;
+                        if (typeof start === "number" && typeof end === "number" && end >= start) {
+                            ranges.push({ start, end });
+                        }
+                    }
+                }
+
+                for (const [key, value] of Object.entries(candidate)) {
+                    if (key === "start" || key === "end" || key === "type" || key === "name" || key === "value") {
+                        continue;
+                    }
+
+                    if (Array.isArray(value)) {
+                        for (const child of value) {
+                            traverse(child);
+                        }
+                    } else if (Core.isObjectLike(value)) {
+                        traverse(value);
+                    }
+                }
+            };
+
+            traverse(program);
+        } catch {
+            // Silently ignore parse failures; fallback regex should still run.
+        }
+
+        return ranges;
+    }
+
+    private isWithinRanges(start: number, end: number, ranges: Array<{ start: number; end: number }>): boolean {
+        return ranges.some((range) => start >= range.start && end <= range.end);
+    }
+
     private findIdentifierOccurrences(relativePath: string, name: string): Array<{ start: number; end: number }> {
         const results: Array<{ start: number; end: number }> = [];
         try {
@@ -745,6 +799,7 @@ export class GmlSemanticBridge {
                 return astResults;
             }
 
+            const stringLiteralRanges = this.findStringLiteralRangesInAst(content);
             const escaped = Core.escapeRegExp(name);
             // Use word boundaries or non-identifier characters to ensure we don't match substrings
             // GML identifiers are [a-zA-Z_][a-zA-Z0-9_]*
@@ -752,9 +807,16 @@ export class GmlSemanticBridge {
 
             let match;
             while ((match = regex.exec(content)) !== null) {
+                const start = match.index;
+                const end = match.index + name.length;
+
+                if (this.isWithinRanges(start, end, stringLiteralRanges)) {
+                    continue;
+                }
+
                 results.push({
-                    start: match.index,
-                    end: match.index + name.length
+                    start,
+                    end
                 });
             }
         } catch {

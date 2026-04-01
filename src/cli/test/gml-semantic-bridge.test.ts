@@ -159,6 +159,46 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(!occurrences.some((hit) => hit.start === sourceText.indexOf('"x"')));
     });
 
+    void it("findSymbolOccurrences fallback should not match a quoted string-only symbol", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-fallback2-"));
+        const gmlPath = "scripts/switch_literal.gml";
+        fs.mkdirSync(path.join(tmpRoot, "scripts"), { recursive: true });
+
+        const sourceText = [
+            "switch (token)",
+            '    case "v":',
+            '    case "vn":',
+            '    case "vt":',
+            "    default:",
+            "        break;",
+            ""
+        ].join("\n");
+
+        fs.writeFileSync(path.join(tmpRoot, gmlPath), sourceText, "utf8");
+
+        const mockProjectIndex = {
+            resources: {
+                [gmlPath]: {
+                    name: "v",
+                    path: gmlPath,
+                    resourceType: "GMScript"
+                }
+            },
+            files: {
+                [gmlPath]: {}
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const occurrences = bridge.getSymbolOccurrences("v", "gml/scripts/v");
+
+        assert.strictEqual(
+            occurrences.length,
+            0,
+            "Should not rename case string literals when there are no identifiers"
+        );
+    });
+
     void it("ignores relationship-based script call occurrences when the project index omits call spans", () => {
         const sourceText = "function consumer_script() {\n    return demo_script();\n}\n";
         const mockProjectIndex = {
