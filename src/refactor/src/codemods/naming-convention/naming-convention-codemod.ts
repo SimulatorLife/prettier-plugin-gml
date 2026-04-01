@@ -3,6 +3,7 @@ import path from "node:path";
 import { Core } from "@gmloop/core";
 
 import { evaluateNamingConvention, resolveNamingConventionRules } from "../../naming-convention-policy.js";
+import { DEFAULT_RESERVED_KEYWORDS } from "../../rename/index.js";
 import type {
     ApplyWorkspaceEditOptions,
     BatchRenamePlanSummary,
@@ -15,6 +16,38 @@ import type {
 import { detectCircularRenames, detectDuplicateTargetNames } from "../../validation.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
 import { isPathSelectedByLists } from "./path-selection.js";
+
+const RESERVED_LOCAL_RENAME_CATEGORIES = new Set([
+    "globalVariable",
+    "instanceVariable",
+    "localVariable",
+    "loopIndexVariable",
+    "staticVariable"
+]);
+
+const RESERVED_LOCAL_IDENTIFIER_TYPES = new Set(["property", "symbol", "variable"]);
+
+let cachedReservedLocalIdentifierNames: ReadonlySet<string> | null = null;
+
+function getReservedLocalIdentifierNames(): ReadonlySet<string> {
+    if (cachedReservedLocalIdentifierNames !== null) {
+        return cachedReservedLocalIdentifierNames;
+    }
+
+    const reservedNames = new Set(Array.from(DEFAULT_RESERVED_KEYWORDS, (keyword) => keyword.toLowerCase()));
+    const identifierEntries = Core.normalizeIdentifierMetadataEntries(Core.getIdentifierMetadata());
+
+    for (const { name, type } of identifierEntries) {
+        if (!RESERVED_LOCAL_IDENTIFIER_TYPES.has(type.toLowerCase())) {
+            continue;
+        }
+
+        reservedNames.add(name.toLowerCase());
+    }
+
+    cachedReservedLocalIdentifierNames = reservedNames;
+    return cachedReservedLocalIdentifierNames;
+}
 
 function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit): void {
     for (const edit of source.edits) {
@@ -188,7 +221,7 @@ export async function planNamingConventionCodemod(
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const names = localScopeNames.get(scopeKey) ?? new Set<string>();
-        names.add(target.name);
+        names.add(target.name.toLowerCase());
         localScopeNames.set(scopeKey, names);
     }
 
@@ -226,10 +259,22 @@ export async function planNamingConventionCodemod(
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const existingNames = localScopeNames.get(scopeKey) ?? new Set<string>();
+        const normalizedSuggestedName = evaluation.suggestedName.toLowerCase();
+        const normalizedCurrentName = target.name.toLowerCase();
 
-        if (existingNames.has(evaluation.suggestedName) && evaluation.suggestedName !== target.name) {
+        if (existingNames.has(normalizedSuggestedName) && normalizedSuggestedName !== normalizedCurrentName) {
             warnings.push(
                 `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because the target name already exists in the same scope.`
+            );
+            continue;
+        }
+
+        if (
+            RESERVED_LOCAL_RENAME_CATEGORIES.has(target.category) &&
+            getReservedLocalIdentifierNames().has(normalizedSuggestedName)
+        ) {
+            warnings.push(
+                `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because '${evaluation.suggestedName}' is a reserved GameMaker identifier.`
             );
             continue;
         }
@@ -238,7 +283,7 @@ export async function planNamingConventionCodemod(
             workspace.addEdit(occurrence.path, occurrence.start, occurrence.end, evaluation.suggestedName);
         }
 
-        existingNames.add(evaluation.suggestedName);
+        existingNames.add(normalizedSuggestedName);
         localScopeNames.set(scopeKey, existingNames);
         localRenameCount += 1;
     }

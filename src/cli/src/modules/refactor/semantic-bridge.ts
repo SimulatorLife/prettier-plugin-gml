@@ -153,6 +153,21 @@ type BridgeTextEdit = {
 type BridgeGroupedTextEdits = Map<string, Array<BridgeTextEdit>>;
 type NamingTargetPathPredicate = (candidatePath: string | null | undefined) => boolean;
 type NamingTargetSink = (target: BridgeNamingConventionTarget) => void;
+type IndexedSymbolLookupEntry = {
+    name: string;
+    scopeId?: string;
+};
+type SemanticBridgeIndexes = {
+    entriesByIdentifierId: Map<string, SemanticIdentifierEntry>;
+    entriesByRelatedName: Map<string, Set<SemanticIdentifierEntry>>;
+    entriesByScipId: Map<string, SemanticIdentifierEntry>;
+    exactResolveSymbolIds: Map<string, string>;
+    lowerResolveSymbolIds: Map<string, string>;
+    resourcesByExactName: Map<string, SemanticResourceRecord>;
+    resourcesByLowerName: Map<string, SemanticResourceRecord>;
+    scriptCallsByTargetName: Map<string, Array<SemanticScriptCallRecord>>;
+    symbolLookupsByExactName: Map<string, Array<IndexedSymbolLookupEntry>>;
+};
 
 function toExclusiveEndIndex(endIndex: number): number {
     // The semantic index stores end offsets as the final character position.
@@ -238,6 +253,7 @@ export class GmlSemanticBridge {
     private projectIndex: Record<string, unknown>;
     private projectRoot: string;
     private readonly stagedMetadataContents = new Map<string, string>();
+    private indexes: SemanticBridgeIndexes | null = null;
 
     constructor(projectIndex: unknown, projectRoot: string = process.cwd()) {
         this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
@@ -251,6 +267,7 @@ export class GmlSemanticBridge {
      */
     updateProjectIndex(projectIndex: unknown): void {
         this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
+        this.indexes = null;
         this.clearWorkspaceOverlay();
     }
 
@@ -295,6 +312,176 @@ export class GmlSemanticBridge {
             {}) as SemanticIdentifierCollections;
     }
 
+    private getIndexes(): SemanticBridgeIndexes {
+        const existingIndexes = this.indexes;
+        if (existingIndexes) {
+            return existingIndexes;
+        }
+
+        const createdIndexes = this.buildIndexes();
+        this.indexes = createdIndexes;
+        return createdIndexes;
+    }
+
+    private buildIndexes(): SemanticBridgeIndexes {
+        const entriesByIdentifierId = new Map<string, SemanticIdentifierEntry>();
+        const entriesByRelatedName = new Map<string, Set<SemanticIdentifierEntry>>();
+        const entriesByScipId = new Map<string, SemanticIdentifierEntry>();
+        const exactResolveSymbolIds = new Map<string, string>();
+        const lowerResolveSymbolIds = new Map<string, string>();
+        const resourcesByExactName = new Map<string, SemanticResourceRecord>();
+        const resourcesByLowerName = new Map<string, SemanticResourceRecord>();
+        const scriptCallsByTargetName = new Map<string, Array<SemanticScriptCallRecord>>();
+        const symbolLookupsByExactName = new Map<string, Array<IndexedSymbolLookupEntry>>();
+        const priorityCollections: Array<keyof SemanticIdentifierCollections> = [
+            "scripts",
+            "macros",
+            "globalVariables",
+            "enums",
+            "enumMembers",
+            "instanceVariables"
+        ];
+
+        const appendRelatedEntry = (name: string, entry: SemanticIdentifierEntry): void => {
+            if (!Core.isNonEmptyString(name)) {
+                return;
+            }
+
+            const existingEntries = entriesByRelatedName.get(name);
+            if (existingEntries) {
+                existingEntries.add(entry);
+                return;
+            }
+
+            entriesByRelatedName.set(name, new Set([entry]));
+        };
+
+        const appendLookupEntry = (name: string, scopeId: string | undefined): void => {
+            if (!Core.isNonEmptyString(name)) {
+                return;
+            }
+
+            const existingEntries = symbolLookupsByExactName.get(name);
+            if (!existingEntries) {
+                symbolLookupsByExactName.set(name, [{ name, scopeId }]);
+                return;
+            }
+
+            if (!existingEntries.some((entry) => entry.scopeId === scopeId)) {
+                existingEntries.push({ name, scopeId });
+            }
+        };
+
+        const registerResolveSymbolId = (name: string, symbolId: string): void => {
+            if (!Core.isNonEmptyString(name) || !Core.isNonEmptyString(symbolId)) {
+                return;
+            }
+
+            if (!exactResolveSymbolIds.has(name)) {
+                exactResolveSymbolIds.set(name, symbolId);
+            }
+
+            const lowerName = name.toLowerCase();
+            if (!lowerResolveSymbolIds.has(lowerName)) {
+                lowerResolveSymbolIds.set(lowerName, symbolId);
+            }
+        };
+
+        const indexEntry = (entry: SemanticIdentifierEntry): void => {
+            if (Core.isNonEmptyString(entry.identifierId)) {
+                entriesByIdentifierId.set(entry.identifierId, entry);
+            }
+
+            if (Core.isNonEmptyString(entry.name)) {
+                const entryScipId = this.generateScipId(entry);
+                appendRelatedEntry(entry.name, entry);
+                appendLookupEntry(entry.name, entry.scopeId);
+                registerResolveSymbolId(entry.name, entryScipId);
+                entriesByScipId.set(entryScipId, entry);
+            }
+
+            for (const declaration of entry.declarations ?? []) {
+                if (typeof declaration.name !== "string") {
+                    continue;
+                }
+
+                const declarationScopeId =
+                    typeof declaration.scopeId === "string" ? declaration.scopeId : entry.scopeId;
+                const declarationScipId = this.generateScipId(entry, declaration.name);
+                appendRelatedEntry(declaration.name, entry);
+                appendLookupEntry(declaration.name, declarationScopeId);
+                registerResolveSymbolId(declaration.name, declarationScipId);
+                entriesByScipId.set(declarationScipId, entry);
+            }
+
+            for (const reference of entry.references ?? []) {
+                if (typeof reference.targetName === "string") {
+                    appendRelatedEntry(reference.targetName, entry);
+                }
+
+                if (typeof reference.name === "string") {
+                    appendRelatedEntry(reference.name, entry);
+                }
+            }
+        };
+
+        for (const collectionName of priorityCollections) {
+            const collection = this.identifiers[collectionName];
+            if (!collection) {
+                continue;
+            }
+
+            for (const entry of Object.values(collection)) {
+                indexEntry(entry);
+            }
+        }
+
+        for (const [resourcePath, resource] of Object.entries(this.resources)) {
+            if (!Core.isNonEmptyString(resource?.name)) {
+                continue;
+            }
+
+            const resourceScipId = this.generateResourceScipId(resource);
+            resourcesByExactName.set(resource.name, resource);
+            resourcesByLowerName.set(resource.name.toLowerCase(), resource);
+            appendLookupEntry(resource.name, undefined);
+            registerResolveSymbolId(resource.name, resourceScipId);
+
+            if (!Core.isNonEmptyString(resource.path)) {
+                resource.path = resourcePath;
+            }
+        }
+
+        const relationships = this.projectIndex.relationships as
+            | { scriptCalls?: Array<SemanticScriptCallRecord> }
+            | undefined;
+        for (const call of relationships?.scriptCalls ?? []) {
+            const targetName = call.target?.name;
+            if (!Core.isNonEmptyString(targetName)) {
+                continue;
+            }
+
+            const existingCalls = scriptCallsByTargetName.get(targetName);
+            if (existingCalls) {
+                existingCalls.push(call);
+            } else {
+                scriptCallsByTargetName.set(targetName, [call]);
+            }
+        }
+
+        return {
+            entriesByIdentifierId,
+            entriesByRelatedName,
+            entriesByScipId,
+            exactResolveSymbolIds,
+            lowerResolveSymbolIds,
+            resourcesByExactName,
+            resourcesByLowerName,
+            scriptCallsByTargetName,
+            symbolLookupsByExactName
+        };
+    }
+
     /**
      * Check if a symbol exists in the project index.
      */
@@ -307,81 +494,8 @@ export class GmlSemanticBridge {
      * Searches all collections and returns a SCIP-style symbol ID.
      */
     resolveSymbolId(name: string): string | null {
-        const identifiers = this.identifiers;
-        if (!identifiers) return null;
-
-        // Search collections in priority order
-        const priorityCollections = [
-            "scripts",
-            "macros",
-            "globalVariables",
-            "enums",
-            "enumMembers",
-            "instanceVariables"
-        ];
-
-        // 1. Try exact match first in identifiers
-        for (const collectionName of priorityCollections) {
-            const collection = identifiers[collectionName];
-            if (!collection) continue;
-
-            for (const key of Object.keys(collection)) {
-                const entry = collection[key];
-
-                // Check if entry itself matches
-                if (entry.name === name) {
-                    return this.generateScipId(entry);
-                }
-
-                // Check for nested declarations
-                if (Array.isArray(entry.declarations)) {
-                    for (const decl of entry.declarations) {
-                        if (decl.name === name) {
-                            return this.generateScipId(entry, name);
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. Try exact match in resources
-        const resource = this.findResourceByName(name);
-        if (resource) {
-            return this.generateResourceScipId(resource);
-        }
-
-        // 3. Try case-insensitive match as valid fallback
-        const lowerName = name.toLowerCase();
-
-        // 3a. Check identifiers case-insensitive
-        for (const collectionName of priorityCollections) {
-            const collection = identifiers[collectionName];
-            if (!collection) continue;
-
-            for (const key of Object.keys(collection)) {
-                const entry = collection[key];
-
-                if (entry.name && entry.name.toLowerCase() === lowerName) {
-                    return this.generateScipId(entry);
-                }
-
-                if (Array.isArray(entry.declarations)) {
-                    for (const decl of entry.declarations) {
-                        if (decl.name && decl.name.toLowerCase() === lowerName) {
-                            return this.generateScipId(entry, decl.name);
-                        }
-                    }
-                }
-            }
-        }
-
-        // 3b. Check resources case-insensitive
-        const resourceCaseInsensitive = this.findResourceByName(name, true);
-        if (resourceCaseInsensitive) {
-            return this.generateResourceScipId(resourceCaseInsensitive);
-        }
-
-        return null;
+        const indexes = this.getIndexes();
+        return indexes.exactResolveSymbolIds.get(name) ?? indexes.lowerResolveSymbolIds.get(name.toLowerCase()) ?? null;
     }
 
     /**
@@ -389,19 +503,10 @@ export class GmlSemanticBridge {
      */
     getSymbolOccurrences(symbolName: string, symbolId: string | null = null): Array<SymbolOccurrence> {
         const occurrences: Array<SymbolOccurrence> = [];
-        const identifiers = this.identifiers;
-
-        if (!identifiers) {
-            return occurrences;
-        }
-
-        // 1. Search through all identifier collections in the index
-        for (const collectionName of Object.keys(identifiers)) {
-            const collection = identifiers[collectionName];
-            if (!collection) continue;
-
-            for (const key of Object.keys(collection)) {
-                this.collectOccurrencesFromEntry(collection[key], symbolName, symbolId, occurrences);
+        const candidateEntries = this.getIndexes().entriesByRelatedName.get(symbolName);
+        if (candidateEntries) {
+            for (const entry of candidateEntries) {
+                this.collectOccurrencesFromEntry(entry, symbolName, symbolId, occurrences);
             }
         }
 
@@ -933,32 +1038,22 @@ export class GmlSemanticBridge {
      * Collect occurrences from project relationships (script calls).
      */
     private collectOccurrencesFromRelationships(symbolName: string, occurrences: Array<SymbolOccurrence>): void {
-        const relationships = this.projectIndex.relationships as
-            | { scriptCalls?: Array<SemanticScriptCallRecord> }
-            | undefined;
-        const scriptCalls = relationships?.scriptCalls;
-        if (!Array.isArray(scriptCalls)) {
-            return;
-        }
+        for (const call of this.getIndexes().scriptCallsByTargetName.get(symbolName) ?? []) {
+            const start = call.location?.start?.index ?? 0;
+            const end = resolveOccurrenceEndIndex(call.location?.end?.index);
+            const filePath = call.from?.filePath ?? "";
 
-        for (const call of scriptCalls) {
-            if (call.target?.name === symbolName) {
-                const start = call.location?.start?.index ?? 0;
-                const end = resolveOccurrenceEndIndex(call.location?.end?.index);
-                const filePath = call.from?.filePath ?? "";
-
-                if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
-                    continue;
-                }
-
-                occurrences.push({
-                    path: filePath,
-                    start,
-                    end,
-                    scopeId: call.from?.scopeId,
-                    kind: "reference"
-                });
+            if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
+                continue;
             }
+
+            occurrences.push({
+                path: filePath,
+                start,
+                end,
+                scopeId: call.from?.scopeId,
+                kind: "reference"
+            });
         }
     }
 
@@ -1320,21 +1415,9 @@ export class GmlSemanticBridge {
      * Perform a scope-aware lookup for a name.
      */
     lookup(name: string, scopeId?: string): MaybePromise<SymbolLookupResult | null> {
-        // Basic implementation: find if name exists in the requested scope or globally
-        const identifiers = this.identifiers;
-        if (!identifiers) return null;
-
-        // Check if it exists in any collection
-        for (const collectionName of Object.keys(identifiers)) {
-            const collection = identifiers[collectionName];
-            for (const key of Object.keys(collection)) {
-                const entry = collection[key];
-                if (
-                    entry.name === name && // If scopeId matches or is global
-                    (!scopeId || entry.scopeId === scopeId)
-                ) {
-                    return { name: entry.name };
-                }
+        for (const entry of this.getIndexes().symbolLookupsByExactName.get(name) ?? []) {
+            if (!scopeId || entry.scopeId === scopeId) {
+                return { name: entry.name };
             }
         }
 
@@ -1348,19 +1431,10 @@ export class GmlSemanticBridge {
     }
 
     private findSymbolInCollections(symbolId: string): any {
-        const identifiers = this.identifiers;
-        if (!identifiers) return null;
-
-        // 1. Direct match by key or identifierId (fast path)
-        for (const collectionName of Object.keys(identifiers)) {
-            const collection = identifiers[collectionName];
-            if (collection[symbolId]) return collection[symbolId];
-
-            // Also try searching by identifierId property
-            for (const key of Object.keys(collection)) {
-                const entry = collection[key];
-                if (entry.identifierId === symbolId) return entry;
-            }
+        const indexes = this.getIndexes();
+        const directEntry = indexes.entriesByIdentifierId.get(symbolId) ?? indexes.entriesByScipId.get(symbolId);
+        if (directEntry) {
+            return directEntry;
         }
 
         // 2. Map SCIP-style ID to internal indexer ID and try again
@@ -1396,23 +1470,12 @@ export class GmlSemanticBridge {
                 }
             }
 
-            const indexerKind = this.mapToIndexerKind(kind);
-            const indexerId = `${indexerKind}:${name}`;
-
-            for (const collectionName of Object.keys(identifiers)) {
-                const collection = identifiers[collectionName];
-                for (const key of Object.keys(collection)) {
-                    const entry = collection[key];
-                    if (entry.identifierId === indexerId) return entry;
+            const resolvedScipId = indexes.exactResolveSymbolIds.get(name);
+            if (resolvedScipId) {
+                const resolvedEntry = indexes.entriesByScipId.get(resolvedScipId);
+                if (resolvedEntry) {
+                    return resolvedEntry;
                 }
-            }
-
-            // 3. Search deeper for nested symbols using the name from SCIP ID
-            // We search in ALL collections that might contain these declarations
-            for (const collectionName of Object.keys(identifiers)) {
-                const collection = identifiers[collectionName];
-                const entry = this.findMatchingEntryInCollection(collection, name);
-                if (entry) return entry;
             }
 
             // 4. Case-insensitive resource fallback for manual ID inputs
@@ -1848,25 +1911,12 @@ export class GmlSemanticBridge {
     }
 
     private findResourceByName(name: string, caseInsensitive = false): any {
-        const resources = this.resources;
-        if (!resources) {
-            return null;
+        const indexes = this.getIndexes();
+        if (caseInsensitive) {
+            return indexes.resourcesByLowerName.get(name.toLowerCase()) ?? null;
         }
 
-        const keys = Object.keys(resources);
-        if (caseInsensitive) {
-            const lowerName = name.toLowerCase();
-            for (const key of keys) {
-                const res = resources[key];
-                if (res.name?.toLowerCase() === lowerName) return res;
-            }
-        } else {
-            for (const key of keys) {
-                const res = resources[key];
-                if (res.name === name) return res;
-            }
-        }
-        return null;
+        return indexes.resourcesByExactName.get(name) ?? null;
     }
 
     private generateResourceScipId(resource: any): string {
@@ -1966,26 +2016,6 @@ export class GmlSemanticBridge {
         };
     }
 
-    private mapToIndexerKind(scipKind: string): string {
-        switch (scipKind) {
-            case "script": {
-                return "script";
-            }
-            case "macro": {
-                return "macro";
-            }
-            case "enum": {
-                return "enum";
-            }
-            case "var": {
-                return "global"; // Default for generic var in SCIP scale
-            }
-            default: {
-                return scipKind;
-            }
-        }
-    }
-
     private generateScipId(entry: any, nestedName?: string): string {
         const name = nestedName ?? entry.name;
         let scipKind = "var";
@@ -2003,21 +2033,6 @@ export class GmlSemanticBridge {
         }
 
         return `gml/${scipKind}/${name}`;
-    }
-
-    /**
-     * Search for an entry in a collection that contains a declaration with the given name.
-     */
-    private findMatchingEntryInCollection(collection: any, name: string): any {
-        for (const key of Object.keys(collection)) {
-            const entry = collection[key];
-            if (Array.isArray(entry.declarations)) {
-                for (const decl of entry.declarations) {
-                    if (decl.name === name) return entry;
-                }
-            }
-        }
-        return null;
     }
 
     private testNameMatch(symbolIds: Set<string>, name: string): boolean {

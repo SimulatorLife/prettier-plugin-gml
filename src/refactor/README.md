@@ -412,6 +412,10 @@ filtered semantic query for the whole file set instead of rescanning the full
 project index once per file. The refactor test suite includes a tracked
 stress test for this path, so the existing `pnpm run test:refactor` and
 `pnpm run test:ci` jobs catch regressions in both behavior and runtime.
+The CLI semantic bridge also keeps indexed name and symbol-id lookup tables for
+rename validation, occurrence gathering, and scope checks, preventing large
+codemod runs from repeatedly scanning every identifier collection for every
+top-level rename candidate.
 
 Naming-convention edits also normalize semantic occurrence spans to exclusive
 end indexes before generating workspace edits, and local-variable rename

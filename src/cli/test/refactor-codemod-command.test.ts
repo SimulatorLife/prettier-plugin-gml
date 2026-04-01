@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -74,6 +74,45 @@ async function createSyntheticProject(config: Record<string, unknown>): Promise<
     );
     await writeProjectFile(projectRoot, "gmloop.json", `${JSON.stringify(config, null, 4)}\n`);
     return projectRoot;
+}
+
+/**
+ * Recursively collect all `.gml` files in a synthetic project.
+ */
+async function listProjectGmlFiles(projectRoot: string, directory = projectRoot): Promise<Array<string>> {
+    const entries = await readdir(directory, { withFileTypes: true });
+    const gmlFiles: Array<string> = [];
+
+    for (const entry of entries) {
+        const absolutePath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            gmlFiles.push(...(await listProjectGmlFiles(projectRoot, absolutePath)));
+            continue;
+        }
+
+        if (entry.isFile() && absolutePath.endsWith(".gml")) {
+            gmlFiles.push(path.relative(projectRoot, absolutePath));
+        }
+    }
+
+    return gmlFiles.toSorted();
+}
+
+/**
+ * Parse every `.gml` file in the synthetic project to verify the refactor output
+ * remains valid GameMaker code.
+ */
+async function assertProjectGmlFilesParse(projectRoot: string): Promise<void> {
+    const gmlFiles = await listProjectGmlFiles(projectRoot);
+    assert.ok(gmlFiles.length > 0, "expected the synthetic project to contain GML files");
+
+    for (const relativePath of gmlFiles) {
+        const sourceText = await readFile(path.join(projectRoot, relativePath), "utf8");
+        assert.doesNotThrow(() => {
+            const ast = Parser.GMLParser.parse(sourceText);
+            assert.equal(ast.type, "Program");
+        }, `expected ${relativePath} to remain parseable after refactor codemods`);
+    }
 }
 
 void test("refactor codemod --list discovers gmloop.json and tolerates unrelated top-level config", async () => {
@@ -459,6 +498,79 @@ void test("refactor codemod --write preserves valid enum member accesses when lo
             const ast = Parser.GMLParser.parse(updatedSource);
             assert.equal(ast.type, "Program");
         });
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write keeps reserved built-in local names intact and reparses the rewritten project", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    variable: {
+                        caseStyle: "lower_snake"
+                    },
+                    spriteResourceName: {
+                        prefix: "spr_",
+                        caseStyle: "lower_snake"
+                    }
+                },
+                exclusivePrefixes: {
+                    spr_: "spriteResourceName"
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "cm_collider",
+            [
+                "function cm_collider_check(collider) {",
+                "    var X = collider[CM.X];",
+                "    var Y = collider[CM.Y];",
+                "    var halfX = 1;",
+                "    return X + Y + halfX;",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "group_smf",
+            [
+                "function group_smf(path, texName) {",
+                '    var spr_id = asset_get_index(filename_change_ext(filename_name(path), "_" + string(texName)));',
+                "    return spr_id;",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const colliderSource = await readFile(path.join(projectRoot, "scripts/cm_collider/cm_collider.gml"), "utf8");
+        const groupSmfSource = await readFile(path.join(projectRoot, "scripts/group_smf/group_smf.gml"), "utf8");
+
+        assert.match(colliderSource, /var X = collider\[CM\.X\];/);
+        assert.match(colliderSource, /var Y = collider\[CM\.Y\];/);
+        assert.match(colliderSource, /var half_x = 1;/);
+        assert.match(colliderSource, /return X \+ Y \+ half_x;/);
+        assert.match(groupSmfSource, /var spr_id = asset_get_index/);
+        assert.match(groupSmfSource, /string\(tex_name\)/);
+        assert.match(groupSmfSource, /return spr_id;/);
+        assert.match(result.stdout, /reserved GameMaker identifier/);
+
+        await assertProjectGmlFilesParse(projectRoot);
     } finally {
         await rm(projectRoot, { recursive: true, force: true });
     }
