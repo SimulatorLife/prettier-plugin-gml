@@ -576,6 +576,75 @@ void test("refactor codemod --write keeps reserved built-in local names intact a
     }
 });
 
+void test("refactor codemod --write skips argument renames that would collide with reachable locals and reparses the rewritten project", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    argument: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "collision_demo",
+            [
+                "function collision_demo(M) {",
+                "    var m = array_create(16);",
+                "    array_copy(m, 0, M, 0, 16);",
+                "    return m[0] + M[0];",
+                "}",
+                "",
+                "function cm_spatialhash_get_region(spatialhash, AABB) {",
+                "    var aabb = CM_SPATIALHASH_AABB;",
+                "    if (is_undefined(aabb)) {",
+                "        return AABB[0];",
+                "    }",
+                "    return aabb[0] + AABB[0];",
+                "}",
+                "",
+                "function stile_bake_center(vbuff, polygon, N) {",
+                "    for (var n = array_length(polygon); n > 0; --n) {",
+                "        show_debug_message(N.x + n);",
+                "    }",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const updatedSource = await readFile(
+            path.join(projectRoot, "scripts/collision_demo/collision_demo.gml"),
+            "utf8"
+        );
+
+        assert.match(updatedSource, /function collision_demo\(M\)/);
+        assert.match(updatedSource, /array_copy\(m, 0, M, 0, 16\);/);
+        assert.match(updatedSource, /function cm_spatialhash_get_region\(spatialhash, AABB\)/);
+        assert.match(updatedSource, /return aabb\[0\] \+ AABB\[0\];/);
+        assert.match(updatedSource, /function stile_bake_center\(vbuff, polygon, N\)/);
+        assert.match(updatedSource, /show_debug_message\(N\.x \+ n\);/);
+        assert.match(result.stdout, /already exists in the same scope/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write lets multi-function scripts rename the resource and same-name callable independently", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {

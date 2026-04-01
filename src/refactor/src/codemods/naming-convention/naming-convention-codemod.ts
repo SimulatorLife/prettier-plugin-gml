@@ -63,6 +63,20 @@ function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit)
     }
 }
 
+function incrementScopedNameCount(names: Map<string, number>, normalizedName: string): void {
+    names.set(normalizedName, (names.get(normalizedName) ?? 0) + 1);
+}
+
+function decrementScopedNameCount(names: Map<string, number>, normalizedName: string): void {
+    const currentCount = names.get(normalizedName) ?? 0;
+    if (currentCount <= 1) {
+        names.delete(normalizedName);
+        return;
+    }
+
+    names.set(normalizedName, currentCount - 1);
+}
+
 type TopLevelRenameSelection = {
     executableRenames: Array<RenameRequest>;
     warnings: Array<string>;
@@ -185,7 +199,7 @@ export async function planNamingConventionCodemod(
     const warnings: Array<string> = [];
     const errors: Array<string> = [];
     const violations: Array<NamingConventionViolation> = [];
-    const localScopeNames = new Map<string, Set<string>>();
+    const localScopeNames = new Map<string, Map<string, number>>();
     const topLevelRenames: Array<{ symbolId: string; newName: string }> = [];
     const seenTopLevelRenames = new Set<string>();
     let localRenameCount = 0;
@@ -220,8 +234,8 @@ export async function planNamingConventionCodemod(
         }
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
-        const names = localScopeNames.get(scopeKey) ?? new Set<string>();
-        names.add(target.name.toLowerCase());
+        const names = localScopeNames.get(scopeKey) ?? new Map<string, number>();
+        incrementScopedNameCount(names, target.name.toLowerCase());
         localScopeNames.set(scopeKey, names);
     }
 
@@ -258,11 +272,16 @@ export async function planNamingConventionCodemod(
         }
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
-        const existingNames = localScopeNames.get(scopeKey) ?? new Set<string>();
+        const existingNames = localScopeNames.get(scopeKey) ?? new Map<string, number>();
         const normalizedSuggestedName = evaluation.suggestedName.toLowerCase();
         const normalizedCurrentName = target.name.toLowerCase();
+        const existingSuggestedNameCount = existingNames.get(normalizedSuggestedName) ?? 0;
+        const isCaseOnlyRename = normalizedSuggestedName === normalizedCurrentName;
+        const hasSameScopeNameConflict = isCaseOnlyRename
+            ? existingSuggestedNameCount > 1
+            : existingSuggestedNameCount > 0;
 
-        if (existingNames.has(normalizedSuggestedName) && normalizedSuggestedName !== normalizedCurrentName) {
+        if (evaluation.suggestedName !== target.name && hasSameScopeNameConflict) {
             warnings.push(
                 `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because the target name already exists in the same scope.`
             );
@@ -283,7 +302,8 @@ export async function planNamingConventionCodemod(
             workspace.addEdit(occurrence.path, occurrence.start, occurrence.end, evaluation.suggestedName);
         }
 
-        existingNames.add(normalizedSuggestedName);
+        decrementScopedNameCount(existingNames, normalizedCurrentName);
+        incrementScopedNameCount(existingNames, normalizedSuggestedName);
         localScopeNames.set(scopeKey, existingNames);
         localRenameCount += 1;
     }

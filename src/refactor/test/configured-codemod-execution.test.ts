@@ -1307,6 +1307,214 @@ void test("executeConfiguredCodemods skips exclusive-prefix variable renames whe
     });
 });
 
+void test("executeConfiguredCodemods skips argument renames that would collide with locals in reachable scopes", async () => {
+    const sourceText = [
+        "function sample_builder(M, AABB, N) {",
+        "    var m = array_create(16);",
+        "    var aabb = CM_SPATIALHASH_AABB;",
+        "    for (var n = 3; n > 0; --n) {",
+        "        show_debug_message(M[0] + AABB[0] + N.x + m[0] + aabb[0] + n);",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+    const mParameterStart = sourceText.indexOf("M,");
+    const mReferenceStart = sourceText.indexOf("M[0]");
+    const localMDefinitionStart = sourceText.indexOf("var m");
+    const localMReferenceStart = sourceText.indexOf("m[0]");
+    const aabbParameterStart = sourceText.indexOf("AABB");
+    const aabbReferenceStart = sourceText.indexOf("AABB[0]");
+    const localAabbDefinitionStart = sourceText.indexOf("var aabb");
+    const localAabbReferenceStart = sourceText.indexOf("aabb[0]");
+    const nParameterStart = sourceText.indexOf("N)");
+    const nReferenceStart = sourceText.indexOf("N.x");
+    const loopNDefinitionStart = sourceText.indexOf("var n");
+    const loopNReferenceStart = sourceText.lastIndexOf("n)");
+
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "M",
+                category: "argument",
+                path: "scripts/sample_builder.gml",
+                scopeId: "scope:function:sample_builder",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: mParameterStart,
+                        end: mParameterStart + 1,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:sample_builder"
+                    },
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: mReferenceStart,
+                        end: mReferenceStart + 1,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:sample_builder"
+                    }
+                ]
+            },
+            {
+                name: "m",
+                category: "localVariable",
+                path: "scripts/sample_builder.gml",
+                scopeId: "scope:function:sample_builder",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: localMDefinitionStart + 4,
+                        end: localMDefinitionStart + 5,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:sample_builder"
+                    },
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: localMReferenceStart,
+                        end: localMReferenceStart + 1,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:sample_builder"
+                    }
+                ]
+            },
+            {
+                name: "AABB",
+                category: "argument",
+                path: "scripts/sample_builder.gml",
+                scopeId: "scope:function:sample_builder",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: aabbParameterStart,
+                        end: aabbParameterStart + 4,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:sample_builder"
+                    },
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: aabbReferenceStart,
+                        end: aabbReferenceStart + 4,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:sample_builder"
+                    }
+                ]
+            },
+            {
+                name: "aabb",
+                category: "localVariable",
+                path: "scripts/sample_builder.gml",
+                scopeId: "scope:function:sample_builder",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: localAabbDefinitionStart + 4,
+                        end: localAabbDefinitionStart + 8,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:sample_builder"
+                    },
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: localAabbReferenceStart,
+                        end: localAabbReferenceStart + 4,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:sample_builder"
+                    }
+                ]
+            },
+            {
+                name: "N",
+                category: "argument",
+                path: "scripts/sample_builder.gml",
+                scopeId: "scope:function:sample_builder",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: nParameterStart,
+                        end: nParameterStart + 1,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:sample_builder"
+                    },
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: nReferenceStart,
+                        end: nReferenceStart + 1,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:sample_builder"
+                    }
+                ]
+            },
+            {
+                name: "n",
+                category: "loopIndexVariable",
+                path: "scripts/sample_builder.gml",
+                scopeId: "scope:function:sample_builder",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: loopNDefinitionStart + 4,
+                        end: loopNDefinitionStart + 5,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:sample_builder"
+                    },
+                    {
+                        path: "scripts/sample_builder.gml",
+                        start: loopNReferenceStart,
+                        end: loopNReferenceStart + 1,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:sample_builder"
+                    }
+                ]
+            }
+        ]
+    };
+
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const fileContents = new Map<string, string>([["scripts/sample_builder.gml", sourceText]]);
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/sample_builder.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    argument: { caseStyle: "lower_snake" }
+                }
+            },
+            codemods: { namingConvention: {} }
+        },
+        readFile: async (filePath) => fileContents.get(filePath) ?? "",
+        writeFile: async (filePath, content) => {
+            fileContents.set(filePath, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, false);
+    assert.ok(
+        result.summaries[0]?.warnings.some((warning) => warning.includes("already exists in the same scope")),
+        "expected a warning when a rename would collide with an existing same-scope declaration"
+    );
+
+    const finalText = fileContents.get("scripts/sample_builder.gml");
+    assert.match(finalText ?? "", /function sample_builder\(M, AABB, N\)/);
+    assert.match(finalText ?? "", /var m = array_create\(16\);/);
+    assert.match(finalText ?? "", /var aabb = CM_SPATIALHASH_AABB;/);
+    assert.match(finalText ?? "", /for \(var n = 3; n > 0; --n\)/);
+
+    assert.doesNotThrow(() => {
+        const ast = Parser.GMLParser.parse(finalText ?? "");
+        assert.ok(ast && ast.type === "Program");
+    });
+});
+
 void test("executeConfiguredCodemods requests naming targets by selected GML file paths", async () => {
     const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
     const firstOccurrence = sourceText.indexOf("bad_name");
