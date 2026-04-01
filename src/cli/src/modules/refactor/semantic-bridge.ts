@@ -1689,6 +1689,27 @@ export class GmlSemanticBridge {
         const declarationStartIndex = declaration?.start?.index ?? null;
         const declarationScopeId = declaration?.scopeId ?? null;
         const occurrences: Array<SymbolOccurrence> = [];
+        const absolutePath = path.resolve(this.projectRoot, filePath);
+        const fileContents = fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath, "utf8") : null;
+
+        const isMemberAccessReference = (startIndex: number): boolean => {
+            if (fileContents === null || startIndex <= 0) {
+                return false;
+            }
+
+            for (let cursor = startIndex - 1; cursor >= 0; cursor -= 1) {
+                const character = fileContents[cursor];
+                if (character === undefined) {
+                    return false;
+                }
+
+                if (!/\s/u.test(character)) {
+                    return character === ".";
+                }
+            }
+
+            return false;
+        };
 
         const matchesDeclaration = (candidate: any): boolean => {
             if (!candidate) {
@@ -1716,6 +1737,10 @@ export class GmlSemanticBridge {
                 continue;
             }
 
+            if (isMemberAccessReference(reference.start?.index ?? -1)) {
+                continue;
+            }
+
             const referenceClassifications = Core.asArray(reference.classifications).filter(
                 (classification): classification is string => typeof classification === "string"
             );
@@ -1725,7 +1750,10 @@ export class GmlSemanticBridge {
                     (classification) => classification === "variable" || classification === "parameter"
                 ) ||
                     referenceClassifications.some(
-                        (classification) => classification === "enum-member" || classification === "member"
+                        (classification) =>
+                            classification === "enum-member" ||
+                            classification === "member" ||
+                            classification === "property"
                     ))
             ) {
                 continue;

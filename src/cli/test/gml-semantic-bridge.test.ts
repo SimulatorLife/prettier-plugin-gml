@@ -118,13 +118,17 @@ void describe("GmlSemanticBridge tests", () => {
     });
 
     void it("listNamingConventionTargets does not treat enum-member references as local variable occurrences", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-local-occurrences-"));
         const sourceText = "function demo(X) {\n    var collider = array_create(CM.X);\n    return X;\n}\n";
+        const relativeFilePath = "scripts/demo/demo.gml";
+        fs.mkdirSync(path.join(tmpRoot, "scripts", "demo"), { recursive: true });
+        fs.writeFileSync(path.join(tmpRoot, relativeFilePath), sourceText, "utf8");
         const parameterStart = sourceText.indexOf("X)");
         const enumMemberReferenceStart = sourceText.indexOf("CM.X") + "CM.".length;
         const localReferenceStart = sourceText.lastIndexOf("X;");
         const mockProjectIndex = {
             files: {
-                "scripts/demo/demo.gml": {
+                [relativeFilePath]: {
                     declarations: [
                         {
                             name: "X",
@@ -169,7 +173,7 @@ void describe("GmlSemanticBridge tests", () => {
             }
         };
 
-        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
         const targets = await bridge.listNamingConventionTargets();
         const argumentTarget = targets.find((target) => target.category === "argument" && target.name === "X");
 

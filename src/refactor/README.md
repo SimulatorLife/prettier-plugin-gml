@@ -413,6 +413,12 @@ project index once per file. The refactor test suite includes a tracked
 stress test for this path, so the existing `pnpm run test:refactor` and
 `pnpm run test:ci` jobs catch regressions in both behavior and runtime.
 
+Naming-convention edits also normalize semantic occurrence spans to exclusive
+end indexes before generating workspace edits, and local-variable rename
+targets explicitly exclude property/member access tokens (for example
+`enum_name.Member`) so codemods do not corrupt valid member accesses when a
+local identifier happens to share the same spelling.
+
 #### Policy Shape
 
 ```ts
