@@ -1804,7 +1804,10 @@ void describe("GmlSemanticBridge tests", () => {
             isConstructorStaticMember: () => true
         };
 
-        const result = (bridge as any).isConstructorStaticMemberDeclaration("a.gml", { name: "sub", start: 10 });
+        const result = (bridge as any).isConstructorStaticMemberDeclaration("a.gml", {
+            name: "sub",
+            start: { index: 10 }
+        });
         assert.equal(result, true);
     });
 });

@@ -73,6 +73,16 @@ export class WorkspaceEdit {
     }
 
     addEdit(path: string, start: number, end: number, newText: string): void {
+        for (const existing of this.edits) {
+            if (
+                existing.path === path &&
+                existing.start === start &&
+                existing.end === end &&
+                existing.newText === newText
+            ) {
+                return; // Exact duplicate
+            }
+        }
         const telemetryState = getTelemetryState(this);
         this.edits.push({ path, start, end, newText });
         telemetryState.touchedFiles.add(path);

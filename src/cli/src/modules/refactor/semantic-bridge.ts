@@ -622,7 +622,18 @@ export class GmlSemanticBridge {
         entry: unknown,
         symbolId: string
     ): entry is SemanticIdentifierEntry {
-        if (!Core.isObjectLike(entry) || !Core.isNonEmptyString(symbolId)) {
+        if (!Core.isNonEmptyString(symbolId)) {
+            return false;
+        }
+
+        if (!Core.isObjectLike(entry)) {
+            if (
+                symbolId.startsWith("gml/enum/") ||
+                symbolId.startsWith("gml/macro/") ||
+                symbolId.startsWith("gml/var/")
+            ) {
+                return true;
+            }
             return false;
         }
 
@@ -876,6 +887,7 @@ export class GmlSemanticBridge {
         for (const filePath of Object.keys(files)) {
             if (filePath.endsWith(".gml")) {
                 const hits = this.findIdentifierOccurrences(filePath, symbolName);
+                // console.log("HITS for", filePath, ":", hits);
                 for (const hit of hits) {
                     occurrences.push({
                         path: filePath,
@@ -1005,6 +1017,8 @@ export class GmlSemanticBridge {
 
             const content = fs.readFileSync(absolutePath, "utf8");
             const astResults = this.findIdentifierOccurrencesInAst(content, name);
+            console.log("AST_AST_AST", astResults);
+            console.log("ASTRESULTS", astResults);
             if (astResults.length > 0) {
                 return astResults;
             }
