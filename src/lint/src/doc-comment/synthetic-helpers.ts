@@ -305,7 +305,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             }
         }
 
-        for (const key in node) {
+        for (const key of Object.keys(node)) {
             if (key === "parent" || key === "enclosingNode" || key === "precedingNode" || key === "followingNode")
                 continue;
             const child = node[key];

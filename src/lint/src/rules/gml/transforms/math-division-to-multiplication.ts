@@ -197,7 +197,7 @@ export function applyDivisionToMultiplication(node: MutableGameMakerAstNode) {
     // operations. The depth-first traversal ensures child nodes are optimized
     // before their parents, which is critical when a division expression contains
     // nested divisions (e.g., `(x / 2) / 3` should become `x * 0.5 * 0.333...`).
-    for (const key in node) {
+    for (const key of Object.keys(node)) {
         // Skip parent references to avoid cycles
         if (key === "parent") continue;
 

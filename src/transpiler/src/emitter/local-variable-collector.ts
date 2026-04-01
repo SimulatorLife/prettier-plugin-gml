@@ -63,10 +63,8 @@ function collectVarDeclarationsFromTree(root: unknown, localNames: Set<string>):
 
         collectVarDeclaratorNames(currentNode, localNames);
 
-        for (const key in currentNode) {
-            if (Object.hasOwn(currentNode, key)) {
-                traversalStack.push(currentNode[key]);
-            }
+        for (const key of Object.keys(currentNode)) {
+            traversalStack.push(currentNode[key]);
         }
     }
 }
