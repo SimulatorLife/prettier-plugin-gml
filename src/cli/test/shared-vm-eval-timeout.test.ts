@@ -41,9 +41,9 @@ void describe("resolveVmEvalTimeout", () => {
         assert.strictEqual(resolveVmEvalTimeout("2500"), 2500);
     });
 
-    void it("returns null when the timeout is disabled", () => {
-        assert.strictEqual(resolveVmEvalTimeout(0), null);
-        assert.strictEqual(resolveVmEvalTimeout("0"), null);
+    void it("returns 0 when the timeout is disabled", () => {
+        assert.strictEqual(resolveVmEvalTimeout(0), 0);
+        assert.strictEqual(resolveVmEvalTimeout("0"), 0);
     });
 
     void it("ignores empty string overrides", () => {
@@ -77,7 +77,7 @@ void describe("VM evaluation timeout defaults", () => {
     void it("supports disabling the timeout by default", () => {
         setDefaultVmEvalTimeoutMs(0);
         assert.strictEqual(getDefaultVmEvalTimeoutMs(), 0);
-        assert.strictEqual(resolveVmEvalTimeout(), null);
+        assert.strictEqual(resolveVmEvalTimeout(), 0);
     });
 
     void it("rejects negative overrides", () => {
@@ -101,7 +101,7 @@ void describe("VM evaluation timeout environment overrides", () => {
         applyVmEvalTimeoutEnvOverride();
 
         assert.strictEqual(getDefaultVmEvalTimeoutMs(), 0);
-        assert.strictEqual(resolveVmEvalTimeout(), null);
+        assert.strictEqual(resolveVmEvalTimeout(), 0);
     });
 
     void it("ignores invalid environment overrides", () => {
