@@ -622,19 +622,21 @@ export class GmlSemanticBridge {
         entry: unknown,
         symbolId: string
     ): entry is SemanticIdentifierEntry {
-        if (!Core.isObjectLike(entry)) {
+        if (!Core.isObjectLike(entry) || !Core.isNonEmptyString(symbolId)) {
             return false;
         }
 
         const typedEntry = entry as { identifierId?: unknown };
 
-        if (symbolId.startsWith("gml/enum/") || symbolId.startsWith("gml/macro/")) {
+        if (symbolId.startsWith("gml/enum/") || symbolId.startsWith("gml/macro/") || symbolId.startsWith("gml/var/")) {
             return true;
         }
 
         return (
             typeof typedEntry.identifierId === "string" &&
-            (typedEntry.identifierId.startsWith("enum:") || typedEntry.identifierId.startsWith("macro:"))
+            (typedEntry.identifierId.startsWith("enum:") ||
+                typedEntry.identifierId.startsWith("macro:") ||
+                typedEntry.identifierId.startsWith("instance:"))
         );
     }
 
@@ -1556,8 +1558,7 @@ export class GmlSemanticBridge {
                 const occurrences = this.collectLocalOccurrences(
                     filePath,
                     declaration,
-                    category === "staticVariable" &&
-                        this.isUniqueConstructorStaticMemberDeclaration(filePath, declaration)
+                    category === "staticVariable" && this.isConstructorStaticMemberDeclaration(filePath, declaration)
                 );
 
                 if (occurrences.length === 0) {
@@ -2246,10 +2247,7 @@ export class GmlSemanticBridge {
         );
     }
 
-    private isUniqueConstructorStaticMemberDeclaration(
-        filePath: string,
-        declaration: Record<string, unknown>
-    ): boolean {
+    private isConstructorStaticMemberDeclaration(filePath: string, declaration: Record<string, unknown>): boolean {
         const declarationStart = Core.isObjectLike(declaration.start)
             ? (declaration.start as Record<string, unknown>)
             : null;
@@ -2262,7 +2260,7 @@ export class GmlSemanticBridge {
             return false;
         }
 
-        return (this.getConstructorStaticMemberNameCounts().get(declaration.name) ?? 0) === 1;
+        return true;
     }
 
     private getConstructorStaticMemberNameCounts(): Map<string, number> {

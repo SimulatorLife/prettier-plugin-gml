@@ -1772,4 +1772,39 @@ void describe("GmlSemanticBridge tests", () => {
         assert.equal(charMatTarget?.occurrences.length, 2);
         assert.equal(charMatTarget?.occurrences[0]?.kind, "definition");
     });
+
+    void it("shouldCollectUnresolvedProjectFileReferences correctly authorizes collection of instance variables", () => {
+        const mockProjectIndex = {};
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+        // Verify symbol ID handling
+        assert.equal(
+            (bridge as any).shouldCollectUnresolvedProjectFileReferences(
+                { identifierId: "instance:sub" },
+                "gml/var/sub"
+            ),
+            true
+        );
+    });
+
+    void it("isConstructorStaticMemberDeclaration does not enforce uniqueness count", () => {
+        const mockProjectIndex = {
+            files: {
+                "a.gml": {
+                    declarations: [
+                        { name: "sub", start: { index: 1 }, classifications: ["staticVariable"] },
+                        { name: "sub", start: { index: 10 }, classifications: ["staticVariable"] }
+                    ]
+                }
+            }
+        };
+        const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
+
+        // Mock method to bypass internal calls
+        (bridge as any).localNamingCategoryResolver = {
+            isConstructorStaticMember: () => true
+        };
+
+        const result = (bridge as any).isConstructorStaticMemberDeclaration("a.gml", { name: "sub", start: 10 });
+        assert.equal(result, true);
+    });
 });
