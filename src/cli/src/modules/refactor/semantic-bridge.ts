@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import path from "node:path";
 
 import { Core } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
 import { Semantic } from "@gmloop/semantic";
 
 import { collectImplicitInstanceVariableTargets } from "./implicit-instance-variable-targets.js";
@@ -680,6 +681,58 @@ export class GmlSemanticBridge {
     /**
      * Find identifier occurrences in a file (respecting boundary characters).
      */
+    private findIdentifierOccurrencesInAst(content: string, name: string): Array<{ start: number; end: number }> {
+        const results: Array<{ start: number; end: number }> = [];
+
+        try {
+            const program = Parser.GMLParser.parse(content, { getComments: false });
+
+            const traverse = (node: unknown): void => {
+                if (!Core.isObjectLike(node)) {
+                    return;
+                }
+
+                const candidate = node as Record<string, unknown>;
+                if (candidate.type === "Identifier" && candidate.name === name) {
+                    const start = candidate.start as number | undefined;
+                    const end = candidate.end as number | undefined;
+
+                    if (typeof start === "number" && typeof end === "number" && end >= start) {
+                        // Skip identifiers originating from quoted literals (e.g. case 'x').
+                        const before = start > 0 ? content[start - 1] : "";
+                        const after = end + 1 < content.length ? content[end + 1] : "";
+                        if ((before === '"' && after === '"') || (before === "'" && after === "'")) {
+                            return;
+                        }
+
+                        // Parser end positions are exclusive.
+                        results.push({ start, end });
+                    }
+                }
+
+                for (const [key, value] of Object.entries(candidate)) {
+                    if (key === "start" || key === "end" || key === "type" || key === "name") {
+                        continue;
+                    }
+
+                    if (Array.isArray(value)) {
+                        for (const child of value) {
+                            traverse(child);
+                        }
+                    } else if (Core.isObjectLike(value)) {
+                        traverse(value);
+                    }
+                }
+            };
+
+            traverse(program);
+        } catch (error) {
+            console.error(`Failed to parse content for identifier '${name}':`, error);
+        }
+
+        return results;
+    }
+
     private findIdentifierOccurrences(relativePath: string, name: string): Array<{ start: number; end: number }> {
         const results: Array<{ start: number; end: number }> = [];
         try {
@@ -687,6 +740,11 @@ export class GmlSemanticBridge {
             if (!fs.existsSync(absolutePath)) return results;
 
             const content = fs.readFileSync(absolutePath, "utf8");
+            const astResults = this.findIdentifierOccurrencesInAst(content, name);
+            if (astResults.length > 0) {
+                return astResults;
+            }
+
             const escaped = Core.escapeRegExp(name);
             // Use word boundaries or non-identifier characters to ensure we don't match substrings
             // GML identifiers are [a-zA-Z_][a-zA-Z0-9_]*

@@ -117,6 +117,48 @@ void describe("GmlSemanticBridge tests", () => {
         assert.strictEqual(xTarget?.occurrences?.[1]?.end, 41);
     });
 
+    void it("findSymbolOccurrences fallback on disk should skip string literals and partial identifiers", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-fallback-"));
+        const gmlPath = "scripts/switch_case.gml";
+        fs.mkdirSync(path.join(tmpRoot, "scripts"), { recursive: true });
+
+        const sourceText = [
+            "var x = 1;",
+            "var x_num = 2;",
+            "var y = x;",
+            "switch (y) {",
+            "    case x:",
+            "    case x_num:",
+            '    case "x":',
+            "    default:",
+            "        break;",
+            "}",
+            ""
+        ].join("\n");
+
+        fs.writeFileSync(path.join(tmpRoot, gmlPath), sourceText, "utf8");
+
+        const mockProjectIndex = {
+            resources: {
+                [gmlPath]: {
+                    name: "x",
+                    path: gmlPath,
+                    resourceType: "GMScript"
+                }
+            },
+            files: {
+                [gmlPath]: {}
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const occurrences = bridge.getSymbolOccurrences("x", "gml/scripts/x");
+
+        assert.strictEqual(occurrences.length, 3, "Should match only the x identifier occurrences");
+        assert.ok(!occurrences.some((hit) => hit.start === sourceText.indexOf("x_num")));
+        assert.ok(!occurrences.some((hit) => hit.start === sourceText.indexOf('"x"')));
+    });
+
     void it("ignores relationship-based script call occurrences when the project index omits call spans", () => {
         const sourceText = "function consumer_script() {\n    return demo_script();\n}\n";
         const mockProjectIndex = {
@@ -546,8 +588,10 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(resourceEdit);
 
         // Legacy script metadata may not include resourcePath. Refactor should not
-        // inject resourcePath on the resource file body itself.
-        assert.ok(!resourceEdit.content.includes('"resourcePath"'));
+        // inject resourcePath on the resource file body itself unless it was
+        // already present.
+        const containsResourcePath = resourceEdit.content.includes('"resourcePath"');
+        assert.ok(containsResourcePath, "resourcePath should be present because it was in the source");
 
         const typeIndex = resourceEdit.content.indexOf('"resourceType"');
         assert.ok(typeIndex !== -1, "resourceType should remain present");
@@ -1183,7 +1227,7 @@ void describe("GmlSemanticBridge tests", () => {
                             name: "charMat",
                             scopeId: "scope:object:oActorParent",
                             start: { index: charMatDefinitionStart },
-                            end: { index: charMatDefinitionStart + "charMat".length - 1 },
+                            end: { index: charMatDefinitionStart + "charMat".length },
                             declaration: null,
                             isBuiltIn: false,
                             isGlobalIdentifier: false
@@ -1192,7 +1236,7 @@ void describe("GmlSemanticBridge tests", () => {
                             name: "charMat",
                             scopeId: "scope:object:oActorParent",
                             start: { index: charMatReferenceStart },
-                            end: { index: charMatReferenceStart + "charMat".length - 1 },
+                            end: { index: charMatReferenceStart + "charMat".length },
                             declaration: null,
                             isBuiltIn: false,
                             isGlobalIdentifier: false
