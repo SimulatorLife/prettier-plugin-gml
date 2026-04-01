@@ -609,6 +609,19 @@ void test("Transpiler.emitJavaScript preserves subsequent statements after globa
     assert.ok(result.includes("foo = 5"), "Should keep assignments following the globalvar declaration");
 });
 
+void test("Transpiler.emitJavaScript qualifies globalvar forward references as globals", () => {
+    // GML allows using a globalvar-declared name before the declaration appears
+    // in source. The emitter must pre-collect all globalvar names so that forward
+    // references are emitted as `global.<name>` rather than bare identifiers.
+    const source = "foo = 1;\nglobalvar foo;";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.ok(result.includes("global.foo"), "Forward-referenced globalvar name should be prefixed with global.");
+    assert.ok(!result.startsWith("foo ="), "First statement should NOT emit foo as a bare identifier");
+});
+
 void test("Transpiler.emitJavaScript handles nested control flow", () => {
     const source = "if (x > 0) { for (var i = 0; i < x; i += 1) { y += i; } }";
     const parser = new Parser.GMLParser(source, {});

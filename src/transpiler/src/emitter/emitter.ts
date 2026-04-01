@@ -57,6 +57,7 @@ import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "./con
 import { lowerEnumDeclaration } from "./enum-lowering.js";
 import { escapeTemplateText, stringifyStructKey } from "./js-string-utils.js";
 import { normalizeGmlNumericLiteral } from "./literal-normalization.js";
+import { collectGlobalVarNames } from "./local-variable-collector.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { ensureStatementTerminated } from "./statement-termination-policy.js";
 import { StringBuilder } from "./string-builder.js";
@@ -87,6 +88,14 @@ export class GmlToJsEmitter {
     emit(ast: StatementLike): string {
         if (!ast) {
             return "";
+        }
+        // Pre-collect all globalvar-declared names before walking the AST so that
+        // identifiers referenced before their `globalvar` declaration (a legal GML
+        // forward reference) are emitted as `global.<name>` rather than bare names.
+        if (ast.type === "Program") {
+            for (const name of collectGlobalVarNames(ast)) {
+                this.globalVars.add(name);
+            }
         }
         return this.visit(ast);
     }
