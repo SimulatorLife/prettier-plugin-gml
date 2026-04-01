@@ -84,36 +84,6 @@ import {
 } from "./type-guards.js";
 import { joinDeclaratorPartsWithCommas } from "./variable-declarator-layout.js";
 
-// TODO: Use Core.* directly instead of destructuring the Core namespace across
-// package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
-// `getCommentArray(...)`.
-const {
-    ASSIGNMENT_EXPRESSION,
-    BLOCK_STATEMENT,
-    CALL_EXPRESSION,
-    CONSTRUCTOR_DECLARATION,
-    DEFINE_STATEMENT,
-    DO_UNTIL_STATEMENT,
-    EXPRESSION_STATEMENT,
-    FOR_STATEMENT,
-    FUNCTION_DECLARATION,
-    EMPTY_STATEMENT,
-    FUNCTION_EXPRESSION,
-    IF_STATEMENT,
-    LITERAL,
-    MACRO_DECLARATION,
-    MEMBER_DOT_EXPRESSION,
-    MEMBER_INDEX_EXPRESSION,
-    PROGRAM,
-    REPEAT_STATEMENT,
-    STRUCT_EXPRESSION,
-    TEMPLATE_STRING_TEXT,
-    VARIABLE_DECLARATION,
-    VARIABLE_DECLARATOR,
-    WHILE_STATEMENT,
-    WITH_STATEMENT
-} = Core;
-
 const forcedStructArgumentBreaks = new WeakMap();
 const MIN_VARIABLE_DECLARATIONS_BEFORE_LOOP_PADDING = 4;
 
@@ -451,9 +421,9 @@ function markDocCommentsAsPrinted(node, path) {
         });
     } else {
         const parentNode = safeGetParentNode(path);
-        if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
+        if (parentNode && parentNode.type === Core.VARIABLE_DECLARATOR) {
             const grandParentNode = safeGetParentNode(path, 1);
-            if (grandParentNode && grandParentNode.type === VARIABLE_DECLARATION && grandParentNode.docComments) {
+            if (grandParentNode && grandParentNode.type === Core.VARIABLE_DECLARATION && grandParentNode.docComments) {
                 grandParentNode.docComments.forEach((comment: any) => {
                     if (comment && typeof comment === "object") {
                         comment.printed = true;
@@ -491,7 +461,7 @@ function printFunctionParameters(node, path, options, print) {
 }
 
 function printConstructorClause(node, _path, _options, print) {
-    if (node.type !== CONSTRUCTOR_DECLARATION) {
+    if (node.type !== Core.CONSTRUCTOR_DECLARATION) {
         return "";
     }
 
@@ -538,7 +508,7 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
 
 function tryPrintVariableNode(node, path, options, print) {
     switch (node.type) {
-        case EXPRESSION_STATEMENT: {
+        case Core.EXPRESSION_STATEMENT: {
             const printed = print("expression");
             return printed === "" ? null : printed;
         }
@@ -704,15 +674,15 @@ function printCallExpressionNode(node, path, options, print) {
     } else {
         const callbackArguments = node.arguments.filter(
             (argument) =>
-                argument?.type === FUNCTION_DECLARATION ||
-                argument?.type === FUNCTION_EXPRESSION ||
-                argument?.type === CONSTRUCTOR_DECLARATION
+                argument?.type === Core.FUNCTION_DECLARATION ||
+                argument?.type === Core.FUNCTION_EXPRESSION ||
+                argument?.type === Core.CONSTRUCTOR_DECLARATION
         );
         const structArguments = [];
         const structArgumentsToBreak = [];
         for (let index = 0; index < node.arguments.length; index++) {
             const argument = node.arguments[index];
-            if (argument?.type === STRUCT_EXPRESSION) {
+            if (argument?.type === Core.STRUCT_EXPRESSION) {
                 structArguments.push(argument);
                 const previousArgument = index > 0 ? node.arguments[index - 1] : null;
                 if (shouldForceBreakStructArgument(argument, options, previousArgument)) {
@@ -741,10 +711,10 @@ function printCallExpressionNode(node, path, options, print) {
 
         const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
             (argumentNode) =>
-                argumentNode?.type === FUNCTION_DECLARATION ||
-                argumentNode?.type === FUNCTION_EXPRESSION ||
-                argumentNode?.type === CONSTRUCTOR_DECLARATION ||
-                argumentNode?.type === STRUCT_EXPRESSION
+                argumentNode?.type === Core.FUNCTION_DECLARATION ||
+                argumentNode?.type === Core.FUNCTION_EXPRESSION ||
+                argumentNode?.type === Core.CONSTRUCTOR_DECLARATION ||
+                argumentNode?.type === Core.STRUCT_EXPRESSION
         );
 
         const shouldIncludeInlineVariant =
@@ -791,13 +761,13 @@ function printCallExpressionNode(node, path, options, print) {
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {
-    if (isInLValueChain(path) && path.parent?.type === CALL_EXPRESSION) {
+    if (isInLValueChain(path) && path.parent?.type === Core.CALL_EXPRESSION) {
         const objectNode = path.getValue()?.object;
         const shouldAllowBreakBeforeDot =
             objectNode &&
-            (objectNode.type === CALL_EXPRESSION ||
-                objectNode.type === MEMBER_DOT_EXPRESSION ||
-                objectNode.type === MEMBER_INDEX_EXPRESSION);
+            (objectNode.type === Core.CALL_EXPRESSION ||
+                objectNode.type === Core.MEMBER_DOT_EXPRESSION ||
+                objectNode.type === Core.MEMBER_INDEX_EXPRESSION);
 
         if (shouldAllowBreakBeforeDot) {
             return concat([print(OBJECT_TYPE), softline, ".", print("property")]);
@@ -878,15 +848,15 @@ function printNewExpressionNode(node, path, options, print) {
 
     const callbackArguments = node.arguments.filter(
         (argument) =>
-            argument?.type === FUNCTION_DECLARATION ||
-            argument?.type === FUNCTION_EXPRESSION ||
-            argument?.type === CONSTRUCTOR_DECLARATION
+            argument?.type === Core.FUNCTION_DECLARATION ||
+            argument?.type === Core.FUNCTION_EXPRESSION ||
+            argument?.type === Core.CONSTRUCTOR_DECLARATION
     );
     const structArguments = [];
     const structArgumentsToBreak = [];
     for (let index = 0; index < node.arguments.length; index++) {
         const argument = node.arguments[index];
-        if (argument?.type === STRUCT_EXPRESSION) {
+        if (argument?.type === Core.STRUCT_EXPRESSION) {
             structArguments.push(argument);
             const previousArgument = index > 0 ? node.arguments[index - 1] : null;
             if (shouldForceBreakStructArgument(argument, options, previousArgument)) {
@@ -915,10 +885,10 @@ function printNewExpressionNode(node, path, options, print) {
 
     const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
         (argumentNode) =>
-            argumentNode?.type === FUNCTION_DECLARATION ||
-            argumentNode?.type === FUNCTION_EXPRESSION ||
-            argumentNode?.type === CONSTRUCTOR_DECLARATION ||
-            argumentNode?.type === STRUCT_EXPRESSION
+            argumentNode?.type === Core.FUNCTION_DECLARATION ||
+            argumentNode?.type === Core.FUNCTION_EXPRESSION ||
+            argumentNode?.type === Core.CONSTRUCTOR_DECLARATION ||
+            argumentNode?.type === Core.STRUCT_EXPRESSION
     );
 
     const shouldIncludeInlineVariant = shouldUseCallbackLayout && !shouldForceBreakArguments && simplePrefixLength > 1;
@@ -1258,7 +1228,7 @@ function buildTemplateStringParts(atoms, path, print) {
     for (let index = 0; index < length; index += 1) {
         const atom = atoms[index];
 
-        if (atom?.type === TEMPLATE_STRING_TEXT && typeof atom.value === STRING_TYPE) {
+        if (atom?.type === Core.TEMPLATE_STRING_TEXT && typeof atom.value === STRING_TYPE) {
             parts.push(atom.value);
             continue;
         }
@@ -1384,7 +1354,7 @@ function buildCallArgumentsDocs(
     const firstArgumentNode = node.arguments[0];
     const firstArgumentText = firstArgumentNode?.value;
     const firstArgumentIsStringLiteral =
-        firstArgumentNode?.type === LITERAL &&
+        firstArgumentNode?.type === Core.LITERAL &&
         typeof firstArgumentText === STRING_TYPE &&
         (firstArgumentText.startsWith('"') || firstArgumentText.startsWith("'") || firstArgumentText.startsWith('@"'));
 
@@ -1557,7 +1527,7 @@ function printInBlock(path, options, print, expressionKey) {
     const parentNode = path.getValue();
     const node = parentNode[expressionKey];
 
-    if (node.type === BLOCK_STATEMENT) {
+    if (node.type === Core.BLOCK_STATEMENT) {
         return [print(expressionKey), optionalSemicolon(node.type)];
     }
 
@@ -1594,7 +1564,7 @@ function shouldPrintBlockAlternateAsElseIf(node) {
     }
 
     const [onlyStatement] = body;
-    return onlyStatement?.type === IF_STATEMENT;
+    return onlyStatement?.type === Core.IF_STATEMENT;
 }
 
 // print a delimited sequence of elements
@@ -1825,10 +1795,10 @@ function buildStatementPartsForPrinter({
     if (!node) {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
-    const isTopLevel = childPath.parent?.type === PROGRAM;
+    const isTopLevel = childPath.parent?.type === Core.PROGRAM;
     const printed = print();
 
-    if (printed == null || (printed === "" && node.type !== EMPTY_STATEMENT)) {
+    if (printed == null || (printed === "" && node.type !== Core.EMPTY_STATEMENT)) {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
 
@@ -1855,7 +1825,7 @@ function buildStatementPartsForPrinter({
         nodeStartIndex
     });
 
-    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
+    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== Core.PROGRAM;
 
     const textForSemicolons = originalTextCache || "";
     let hasTerminatingSemicolon = false;
@@ -1870,14 +1840,14 @@ function buildStatementPartsForPrinter({
         hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
     }
 
-    const isVariableDeclaration = node.type === VARIABLE_DECLARATION;
+    const isVariableDeclaration = node.type === Core.VARIABLE_DECLARATION;
     const isStaticDeclaration = isVariableDeclaration && node.kind === "static";
     const hasFunctionInitializer =
         isVariableDeclaration &&
         Array.isArray(node.declarations) &&
         node.declarations.some((declaration) => {
             const initType = declaration?.init?.type;
-            return initType === FUNCTION_EXPRESSION || initType === FUNCTION_DECLARATION;
+            return initType === Core.FUNCTION_EXPRESSION || initType === Core.FUNCTION_DECLARATION;
         });
 
     if (isFirstStatementInBlock && isStaticDeclaration) {
@@ -1976,20 +1946,20 @@ function normalizeStatementSemicolon({ node, semi, hasTerminatingSemicolon, isSt
     }
 
     const initializerIsFunctionExpression =
-        node.type === VARIABLE_DECLARATION &&
+        node.type === Core.VARIABLE_DECLARATION &&
         Array.isArray(node.declarations) &&
         node.declarations.length === 1 &&
-        (node.declarations[0]?.init?.type === FUNCTION_EXPRESSION ||
-            node.declarations[0]?.init?.type === FUNCTION_DECLARATION);
+        (node.declarations[0]?.init?.type === Core.FUNCTION_EXPRESSION ||
+            node.declarations[0]?.init?.type === Core.FUNCTION_DECLARATION);
 
     if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
         return semi;
     }
 
     const assignmentExpressionForSemicolonCheck =
-        node.type === ASSIGNMENT_EXPRESSION
+        node.type === Core.ASSIGNMENT_EXPRESSION
             ? node
-            : node.type === EXPRESSION_STATEMENT && node.expression?.type === ASSIGNMENT_EXPRESSION
+            : node.type === Core.EXPRESSION_STATEMENT && node.expression?.type === Core.ASSIGNMENT_EXPRESSION
               ? node.expression
               : null;
 
@@ -2077,23 +2047,23 @@ function applyTrailingSpacing({
 }
 
 function isStaticFunctionVariableDeclaration(node) {
-    if (node?.type !== VARIABLE_DECLARATION || node.kind !== "static" || !Array.isArray(node.declarations)) {
+    if (node?.type !== Core.VARIABLE_DECLARATION || node.kind !== "static" || !Array.isArray(node.declarations)) {
         return false;
     }
 
     return node.declarations.some((declaration) => {
         const initializerType = declaration?.init?.type;
-        return initializerType === FUNCTION_EXPRESSION || initializerType === FUNCTION_DECLARATION;
+        return initializerType === Core.FUNCTION_EXPRESSION || initializerType === Core.FUNCTION_DECLARATION;
     });
 }
 
 function isLoopLikeStatement(node) {
     return (
-        node?.type === FOR_STATEMENT ||
-        node?.type === WHILE_STATEMENT ||
-        node?.type === REPEAT_STATEMENT ||
-        node?.type === DO_UNTIL_STATEMENT ||
-        node?.type === WITH_STATEMENT
+        node?.type === Core.FOR_STATEMENT ||
+        node?.type === Core.WHILE_STATEMENT ||
+        node?.type === Core.REPEAT_STATEMENT ||
+        node?.type === Core.DO_UNTIL_STATEMENT ||
+        node?.type === Core.WITH_STATEMENT
     );
 }
 
@@ -2108,7 +2078,7 @@ function countContiguousVariableDeclarationsBeforeIndexWithSource(
 
     let count = 0;
     for (let cursor = index; cursor >= 0; cursor -= 1) {
-        if (statements[cursor]?.type !== VARIABLE_DECLARATION) {
+        if (statements[cursor]?.type !== Core.VARIABLE_DECLARATION) {
             break;
         }
 
@@ -2212,7 +2182,7 @@ function shouldForceVariableBlockBeforeLoopPadding(
     nextNode,
     originalText: string | null
 ): boolean {
-    if (node?.type !== VARIABLE_DECLARATION || !isLoopLikeStatement(nextNode)) {
+    if (node?.type !== Core.VARIABLE_DECLARATION || !isLoopLikeStatement(nextNode)) {
         return false;
     }
 
@@ -2279,7 +2249,7 @@ function handleIntermediateTrailingSpacing({
     }
 
     const nextLineProbeIndex =
-        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
+        node?.type === Core.DEFINE_STATEMENT || node?.type === Core.MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
 
     const forceFollowingEmptyLine = node?._gmlForceFollowingEmptyLine === true;
     const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
@@ -2295,7 +2265,7 @@ function handleIntermediateTrailingSpacing({
         ? false
         : util.isNextLineEmpty(options.originalText, nextLineProbeIndex) || hasSourceBlankLineBeforeNextNode;
 
-    const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
+    const isSanitizedMacro = node?.type === Core.MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
         isSanitizedMacro && macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
     const hasAutomaticPaddingCapacity = canForceAutomaticPadding(
@@ -2317,7 +2287,7 @@ function handleIntermediateTrailingSpacing({
         isMacroLikeNode && !isDefineMacroReplacement && !nextNodeIsMacro && hasAutomaticPaddingCapacity;
     const isLoopStatement = isLoopLikeStatement(node);
     const nextNodeIsLoop = isLoopLikeStatement(nextNode);
-    const nextNodeIsVariableDeclaration = nextNode?.type === VARIABLE_DECLARATION;
+    const nextNodeIsVariableDeclaration = nextNode?.type === Core.VARIABLE_DECLARATION;
     const shouldForceLoopSectionPadding =
         hasAutomaticPaddingCapacityWithSuppressionGuard &&
         isLoopStatement &&
@@ -2426,7 +2396,7 @@ function handleTerminalTrailingSpacing({
     const parentNode = childPath.parent;
     const isFunctionDeclarationNode = node?.type === "FunctionDeclaration";
     const trailingProbeIndex =
-        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
+        node?.type === Core.DEFINE_STATEMENT || node?.type === Core.MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
     const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
     const blockParent = safeGetParentNode(childPath) ?? childPath.parent;
     const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockParent?.parent ?? null;
