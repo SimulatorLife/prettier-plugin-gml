@@ -503,6 +503,57 @@ void test("refactor codemod --write preserves valid enum member accesses when lo
     }
 });
 
+void test("refactor codemod --write renames cross-file enum references and reparses the rewritten project", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    enum: {
+                        prefix: "e",
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "cm_misc",
+            ["enum CM_RAY {", "    MASK,", "    NUM", "}", ""].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "cm_aab",
+            ["function cm_aab_cast_ray(ray, mask = ray[CM_RAY.MASK]) {", "    return ray[CM_RAY.NUM];", "}", ""].join(
+                "\n"
+            )
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const enumSource = await readFile(path.join(projectRoot, "scripts/cm_misc/cm_misc.gml"), "utf8");
+        const consumerSource = await readFile(path.join(projectRoot, "scripts/cm_aab/cm_aab.gml"), "utf8");
+
+        assert.match(enumSource, /enum ecmRay \{/);
+        assert.match(consumerSource, /mask = ray\[ecmRay\.MASK\]/);
+        assert.match(consumerSource, /return ray\[ecmRay\.NUM\];/);
+        assert.doesNotMatch(consumerSource, /\bCM_RAY\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write keeps reserved built-in local names intact and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {

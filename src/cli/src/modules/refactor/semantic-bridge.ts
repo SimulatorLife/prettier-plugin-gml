@@ -517,6 +517,8 @@ export class GmlSemanticBridge {
             this.collectOccurrencesFromRelationships(symbolName, occurrences);
         }
 
+        this.collectUnresolvedProjectFileReferenceOccurrences(symbolName, symbolId, occurrences);
+
         // Fallback to file-system scanning only when indexed structures produced
         // no hits and the symbol is a known resource. This avoids repeated full
         // project scans during large rename batches while preserving support for
@@ -543,6 +545,26 @@ export class GmlSemanticBridge {
         }
 
         return this.shouldResourceRenameCollectDiskOccurrences(resource);
+    }
+
+    private shouldCollectUnresolvedProjectFileReferences(
+        entry: unknown,
+        symbolId: string
+    ): entry is SemanticIdentifierEntry {
+        if (!Core.isObjectLike(entry)) {
+            return false;
+        }
+
+        const typedEntry = entry as { identifierId?: unknown };
+
+        if (symbolId.startsWith("gml/enum/") || symbolId.startsWith("gml/macro/")) {
+            return true;
+        }
+
+        return (
+            typeof typedEntry.identifierId === "string" &&
+            (typedEntry.identifierId.startsWith("enum:") || typedEntry.identifierId.startsWith("macro:"))
+        );
     }
 
     /**
@@ -1055,6 +1077,63 @@ export class GmlSemanticBridge {
                 scopeId: call.from?.scopeId,
                 kind: "reference"
             });
+        }
+    }
+
+    private collectUnresolvedProjectFileReferenceOccurrences(
+        symbolName: string,
+        symbolId: string | null,
+        occurrences: Array<SymbolOccurrence>
+    ): void {
+        if (!Core.isNonEmptyString(symbolId) || !Core.isNonEmptyString(symbolName)) {
+            return;
+        }
+
+        const symbolEntry = this.findSymbolInCollections(symbolId);
+        if (!this.shouldCollectUnresolvedProjectFileReferences(symbolEntry, symbolId)) {
+            return;
+        }
+
+        for (const [filePath, fileRecord] of Object.entries(this.projectIndex.files ?? {})) {
+            const typedFileRecord = fileRecord as SemanticFileRecord;
+            for (const reference of typedFileRecord.references ?? []) {
+                if (!Core.isObjectLike(reference) || Core.isObjectLike(reference.declaration)) {
+                    continue;
+                }
+
+                const typedReference = reference as {
+                    end?: { index?: number };
+                    location?: { end?: { index?: number }; start?: { index?: number } };
+                    name?: unknown;
+                    scopeId?: unknown;
+                    start?: { index?: number };
+                    targetName?: unknown;
+                };
+
+                const referenceName =
+                    typeof typedReference.targetName === "string"
+                        ? typedReference.targetName
+                        : typeof typedReference.name === "string"
+                          ? typedReference.name
+                          : null;
+                if (referenceName !== symbolName) {
+                    continue;
+                }
+
+                const start = typedReference.start?.index ?? typedReference.location?.start?.index ?? 0;
+                const end = resolveOccurrenceEndIndex(typedReference.end?.index ?? typedReference.location?.end?.index);
+                if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
+                    continue;
+                }
+
+                occurrences.push({
+                    path: filePath,
+                    start,
+                    end,
+                    scopeId: typeof typedReference.scopeId === "string" ? typedReference.scopeId : undefined,
+                    kind: "reference"
+                });
+            }
         }
     }
 

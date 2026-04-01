@@ -1108,6 +1108,74 @@ void describe("GmlSemanticBridge tests", () => {
         }
     });
 
+    void it("getSymbolOccurrences includes unresolved cross-file enum references from project file records", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-enum-cross-file-"));
+
+        try {
+            const enumSource = ["enum CM_RAY {", "    MASK,", "    NUM", "}", ""].join("\n");
+            const consumerSource = [
+                "function cm_aab_cast_ray(ray, mask = ray[CM_RAY.MASK]) {",
+                "    return ray[CM_RAY.NUM];",
+                "}",
+                ""
+            ].join("\n");
+
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "cm_misc"), { recursive: true });
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "cm_aab"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "cm_misc", "cm_misc.yy"),
+                `${JSON.stringify({ name: "cm_misc", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "cm_misc", "cm_misc.gml"), enumSource);
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "cm_aab", "cm_aab.yy"),
+                `${JSON.stringify({ name: "cm_aab", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "cm_aab", "cm_aab.gml"), consumerSource);
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const occurrences = bridge
+                .getSymbolOccurrences("CM_RAY", "gml/enum/CM_RAY")
+                .toSorted((left, right) => left.start - right.start);
+
+            assert.deepEqual(
+                occurrences.map((occurrence) => ({
+                    kind: occurrence.kind,
+                    path: occurrence.path,
+                    start: occurrence.start,
+                    end: occurrence.end
+                })),
+                [
+                    {
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        path: "scripts/cm_misc/cm_misc.gml",
+                        start: enumSource.indexOf("CM_RAY"),
+                        end: enumSource.indexOf("CM_RAY") + "CM_RAY".length
+                    },
+                    {
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        path: "scripts/cm_aab/cm_aab.gml",
+                        start: consumerSource.indexOf("CM_RAY"),
+                        end: consumerSource.indexOf("CM_RAY") + "CM_RAY".length
+                    },
+                    {
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        path: "scripts/cm_aab/cm_aab.gml",
+                        start: consumerSource.lastIndexOf("CM_RAY"),
+                        end: consumerSource.lastIndexOf("CM_RAY") + "CM_RAY".length
+                    }
+                ]
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
     void it("listMacroExpansionDependencies reports caller-scoped identifiers consumed by referenced macros", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-macro-deps-"));
 

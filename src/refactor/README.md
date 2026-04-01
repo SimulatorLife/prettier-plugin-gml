@@ -341,6 +341,9 @@ Constructor renames also update parent-constructor clauses such as
 `function Child() : BaseType() constructor {}`, and local naming rewrites skip
 identifiers that referenced `#macro` expansions read from the caller scope so
 the refactor output remains valid after GameMaker preprocesses macro bodies.
+Cross-file enum and macro renames also collect unresolved top-level consumer
+references from project file records so naming-convention runs keep
+`CM_RAY.MASK`-style uses aligned with renamed declarations.
 
 #### Contract
 
