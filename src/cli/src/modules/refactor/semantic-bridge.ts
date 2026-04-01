@@ -261,6 +261,7 @@ export class GmlSemanticBridge {
     private projectRoot: string;
     private readonly stagedMetadataContents = new Map<string, string>();
     private readonly sourceTextByPath = new Map<string, string | null>();
+    private constructorStaticMemberNameCounts: Map<string, number> | null = null;
     private indexes: SemanticBridgeIndexes | null = null;
 
     constructor(projectIndex: unknown, projectRoot: string = process.cwd()) {
@@ -277,6 +278,7 @@ export class GmlSemanticBridge {
         this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
         this.indexes = null;
         this.sourceTextByPath.clear();
+        this.constructorStaticMemberNameCounts = null;
         this.clearWorkspaceOverlay();
     }
 
@@ -1551,7 +1553,12 @@ export class GmlSemanticBridge {
                         ? "catchArgument"
                         : "argument"
                     : this.resolveLocalNamingConventionCategory(filePath, declaration);
-                const occurrences = this.collectLocalOccurrences(filePath, declaration);
+                const occurrences = this.collectLocalOccurrences(
+                    filePath,
+                    declaration,
+                    category === "staticVariable" &&
+                        this.isUniqueConstructorStaticMemberDeclaration(filePath, declaration)
+                );
 
                 if (occurrences.length === 0) {
                     continue;
@@ -1931,7 +1938,11 @@ export class GmlSemanticBridge {
         return null;
     }
 
-    private collectLocalOccurrences(filePath: string, declaration: any): Array<SymbolOccurrence> {
+    private collectLocalOccurrences(
+        filePath: string,
+        declaration: any,
+        includeConstructorMemberPropertyReferences = false
+    ): Array<SymbolOccurrence> {
         const fileRecord = this.projectIndex.files?.[filePath];
         if (!fileRecord) {
             return [];
@@ -2019,7 +2030,11 @@ export class GmlSemanticBridge {
             });
         }
 
-        return occurrences;
+        if (includeConstructorMemberPropertyReferences && typeof declaration.name === "string") {
+            this.collectUnresolvedPropertyOccurrences(declaration.name, occurrences);
+        }
+
+        return this.deduplicateOccurrences(occurrences);
     }
 
     private collectEntryOccurrences(entry: SemanticIdentifierEntry): Array<SymbolOccurrence> {
@@ -2131,6 +2146,39 @@ export class GmlSemanticBridge {
         }
     }
 
+    private collectUnresolvedPropertyOccurrences(symbolName: string, occurrences: Array<SymbolOccurrence>): void {
+        for (const unresolvedReference of this.getIndexes().unresolvedReferencesByExactName.get(symbolName) ?? []) {
+            const classifications = Core.asArray(unresolvedReference.reference.classifications);
+            if (!classifications.includes("property")) {
+                continue;
+            }
+
+            const startRecord = Core.isObjectLike(unresolvedReference.reference.start)
+                ? (unresolvedReference.reference.start as Record<string, unknown>)
+                : null;
+            const endRecord = Core.isObjectLike(unresolvedReference.reference.end)
+                ? (unresolvedReference.reference.end as Record<string, unknown>)
+                : null;
+            const start = typeof startRecord?.index === "number" ? startRecord.index : null;
+            const end = typeof endRecord?.index === "number" ? toExclusiveEndIndex(endRecord.index) : null;
+
+            if (start === null || end === null || end <= start) {
+                continue;
+            }
+
+            occurrences.push({
+                path: unresolvedReference.filePath,
+                start,
+                end,
+                scopeId:
+                    typeof unresolvedReference.reference.scopeId === "string"
+                        ? unresolvedReference.reference.scopeId
+                        : undefined,
+                kind: "reference"
+            });
+        }
+    }
+
     private isEnumMemberReferenceSourceMatch(filePath: string, startIndex: number, enumName: string): boolean {
         const sourceText = this.readProjectSourceText(filePath);
         if (sourceText === null || startIndex <= 0 || startIndex > sourceText.length) {
@@ -2196,6 +2244,58 @@ export class GmlSemanticBridge {
         return (
             this.localNamingCategoryResolver.resolveCategory(filePath, declaration.name, startIndex) ?? "localVariable"
         );
+    }
+
+    private isUniqueConstructorStaticMemberDeclaration(
+        filePath: string,
+        declaration: Record<string, unknown>
+    ): boolean {
+        const declarationStart = Core.isObjectLike(declaration.start)
+            ? (declaration.start as Record<string, unknown>)
+            : null;
+        const startIndex = typeof declarationStart?.index === "number" ? declarationStart.index : null;
+        if (typeof declaration.name !== "string" || startIndex === null) {
+            return false;
+        }
+
+        if (!this.localNamingCategoryResolver.isConstructorStaticMember(filePath, declaration.name, startIndex)) {
+            return false;
+        }
+
+        return (this.getConstructorStaticMemberNameCounts().get(declaration.name) ?? 0) === 1;
+    }
+
+    private getConstructorStaticMemberNameCounts(): Map<string, number> {
+        const existingCounts = this.constructorStaticMemberNameCounts;
+        if (existingCounts) {
+            return existingCounts;
+        }
+
+        const counts = new Map<string, number>();
+        for (const [filePath, fileRecord] of Object.entries(
+            (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>
+        )) {
+            for (const declaration of fileRecord.declarations ?? []) {
+                const declarationStart = Core.isObjectLike(declaration.start)
+                    ? (declaration.start as Record<string, unknown>)
+                    : null;
+                const startIndex = typeof declarationStart?.index === "number" ? declarationStart.index : null;
+                if (typeof declaration.name !== "string" || startIndex === null) {
+                    continue;
+                }
+
+                if (
+                    !this.localNamingCategoryResolver.isConstructorStaticMember(filePath, declaration.name, startIndex)
+                ) {
+                    continue;
+                }
+
+                counts.set(declaration.name, (counts.get(declaration.name) ?? 0) + 1);
+            }
+        }
+
+        this.constructorStaticMemberNameCounts = counts;
+        return counts;
     }
 
     private findResourceByName(name: string, caseInsensitive = false): any {

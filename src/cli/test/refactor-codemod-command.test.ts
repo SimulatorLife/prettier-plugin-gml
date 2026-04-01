@@ -1003,6 +1003,63 @@ void test("refactor codemod --write does not rename plain functions in mixed mul
     }
 });
 
+void test("refactor codemod --write renames unique constructor static member calls across files", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    staticVariable: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "vector2",
+            [
+                "function Vector2(x, y) constructor {",
+                "    self.x = x;",
+                "    self.y = y;",
+                "",
+                "    static Sub = function(val) {",
+                "        return new Vector2(self.x - val.x, self.y - val.y);",
+                "    };",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "movement",
+            ["function movement(pos, prev_pos) {", "    return pos.Sub(prev_pos);", "}", ""].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const vectorSource = await readFile(path.join(projectRoot, "scripts/vector2/vector2.gml"), "utf8");
+        const movementSource = await readFile(path.join(projectRoot, "scripts/movement/movement.gml"), "utf8");
+
+        assert.match(vectorSource, /static sub = function\(val\) \{/);
+        assert.match(movementSource, /return pos\.sub\(prev_pos\);/);
+        assert.doesNotMatch(movementSource, /pos\.Sub\(prev_pos\)/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write lets multi-function scripts rename the resource and same-name callable independently", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {

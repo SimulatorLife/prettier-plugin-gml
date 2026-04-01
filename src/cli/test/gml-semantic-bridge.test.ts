@@ -1344,6 +1344,69 @@ void describe("GmlSemanticBridge tests", () => {
         }
     });
 
+    void it("listNamingConventionTargets includes unresolved dotted references for unique constructor static members", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-struct-static-member-"));
+
+        try {
+            const vectorSource = [
+                "function Vector2(x, y) constructor {",
+                "    static Sub = function(val) {",
+                "        return new Vector2(x - val.x, y - val.y);",
+                "    };",
+                "}",
+                ""
+            ].join("\n");
+            const consumerSource = [
+                "function move_step(pos, prev_pos) {",
+                "    return pos.Sub(prev_pos);",
+                "}",
+                ""
+            ].join("\n");
+
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "vec"), { recursive: true });
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "move_step"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "vec", "vec.yy"),
+                `${JSON.stringify({ name: "vec", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "vec", "vec.gml"), vectorSource);
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "move_step", "move_step.yy"),
+                `${JSON.stringify({ name: "move_step", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "move_step", "move_step.gml"), consumerSource);
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const targets = await bridge.listNamingConventionTargets();
+            const subTarget = targets.find((target) => target.category === "staticVariable" && target.name === "Sub");
+
+            assert.ok(subTarget);
+            assert.deepEqual(
+                subTarget?.occurrences.map((occurrence) => ({
+                    kind: occurrence.kind,
+                    path: occurrence.path
+                })),
+                [
+                    {
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        path: "scripts/vec/vec.gml"
+                    },
+                    {
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        path: "scripts/move_step/move_step.gml"
+                    }
+                ]
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
     void it("listMacroExpansionDependencies reports caller-scoped identifiers consumed by referenced macros", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-macro-deps-"));
 
