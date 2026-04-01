@@ -246,6 +246,15 @@ export class GmlSemanticBridge {
     }
 
     /**
+     * Update the underlying project index in place. Useful after codemod passes
+     * when the engine updates the project tree to evaluate the next sequence.
+     */
+    updateProjectIndex(projectIndex: unknown): void {
+        this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
+        this.clearWorkspaceOverlay();
+    }
+
+    /**
      * Reset the staged workspace overlay used while composing batch rename plans.
      */
     clearWorkspaceOverlay(): void {

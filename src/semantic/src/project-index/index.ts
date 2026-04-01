@@ -6,6 +6,7 @@ export * from "./cache.js";
 export * from "./concurrency.js";
 export * from "./constants.js";
 export * from "./coordinator.js";
+export * from "./fs-facade.js";
 export * from "./gml-parser-facade.js";
 export * from "./identifier-roles.js";
 export * from "./identifier-sink.js";

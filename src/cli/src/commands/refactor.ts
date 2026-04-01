@@ -427,7 +427,35 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
         writeFile: (filePath, content) => writeFile(resolvePath(filePath), content, "utf8"),
         renameFile: (oldPath, newPath) => rename(resolvePath(oldPath), resolvePath(newPath)),
         dryRun,
-        onlyCodemods: selectedCodemodIds
+        onlyCodemods: selectedCodemodIds,
+        onAfterCodemod: async (summary, context) => {
+            if (!summary.changed) {
+                return;
+            }
+            if (verbose) {
+                console.log(`Rebuilding project index after codemod ${summary.id}...`);
+            }
+            const updatedProjectIndex = await buildProjectIndex(
+                projectRoot,
+                {
+                    ...Semantic.defaultFsFacade,
+                    readFile: async (filePath) => {
+                        const content = await context.readFile(filePath);
+                        return content ?? (await readFile(resolvePath(filePath), "utf8"));
+                    }
+                },
+                {
+                    logger: verbose ? console : undefined,
+                    concurrency: { gml: 1 }
+                }
+            );
+
+            // Access the underlying GmlSemanticBridge and update it directly
+            const semanticBridge = engine.semantic as any;
+            if (semanticBridge && typeof semanticBridge.updateProjectIndex === "function") {
+                semanticBridge.updateProjectIndex(updatedProjectIndex);
+            }
+        }
     });
 
     let encounteredErrors = false;

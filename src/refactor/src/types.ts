@@ -727,6 +727,12 @@ export interface ConfiguredCodemodRunRequest {
      */
     dryRunOverlayStorageBackend?: StorageBackend;
     onTelemetry?: (telemetry: CodemodExecutionTelemetry) => void;
+    onAfterCodemod?: (
+        summary: ConfiguredCodemodSummary,
+        context: {
+            readFile: WorkspaceReadFile;
+        }
+    ) => MaybePromise<void>;
 }
 
 /**
