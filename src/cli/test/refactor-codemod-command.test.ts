@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -7,139 +7,14 @@ import test from "node:test";
 import { Parser } from "@gmloop/parser";
 
 import { runCliTestCommand } from "../src/cli.js";
-
-/**
- * Write a UTF-8 file inside a temporary synthetic GameMaker project.
- */
-async function writeProjectFile(projectRoot: string, relativePath: string, contents: string): Promise<void> {
-    const absolutePath = path.join(projectRoot, relativePath);
-    await mkdir(path.dirname(absolutePath), { recursive: true });
-    await writeFile(absolutePath, contents, "utf8");
-}
-
-/**
- * Register a resource entry in the synthetic project's GameMaker manifest.
- */
-async function registerProjectResource(projectRoot: string, resourceName: string, resourcePath: string): Promise<void> {
-    const projectFilePath = path.join(projectRoot, "MyGame.yyp");
-    const projectDocument = JSON.parse(await readFile(projectFilePath, "utf8")) as Record<string, unknown>;
-    const resourceEntries = Array.isArray(projectDocument.resources) ? [...projectDocument.resources] : [];
-
-    resourceEntries.push({
-        id: {
-            name: resourceName,
-            path: resourcePath
-        }
-    });
-
-    projectDocument.resources = resourceEntries;
-    await writeProjectFile(projectRoot, "MyGame.yyp", `${JSON.stringify(projectDocument, null, 4)}\n`);
-}
-
-/**
- * Create a script resource with its metadata and source file.
- */
-async function writeScriptResource(projectRoot: string, scriptName: string, sourceText: string): Promise<void> {
-    const resourcePath = `scripts/${scriptName}/${scriptName}.yy`;
-    await writeProjectFile(
-        projectRoot,
-        resourcePath,
-        `${JSON.stringify(
-            {
-                resourceType: "GMScript",
-                resourcePath,
-                name: scriptName
-            },
-            null,
-            4
-        )}\n`
-    );
-    await writeProjectFile(projectRoot, `scripts/${scriptName}/${scriptName}.gml`, sourceText);
-    await registerProjectResource(projectRoot, scriptName, resourcePath);
-}
-
-/**
- * Create an object resource with event source files.
- */
-async function writeObjectResource(
-    projectRoot: string,
-    objectName: string,
-    eventFiles: Record<string, string>
-): Promise<void> {
-    const resourcePath = `objects/${objectName}/${objectName}.yy`;
-    await writeProjectFile(
-        projectRoot,
-        resourcePath,
-        `${JSON.stringify(
-            {
-                resourceType: "GMObject",
-                resourcePath,
-                name: objectName
-            },
-            null,
-            4
-        )}\n`
-    );
-
-    for (const [relativeEventFilePath, sourceText] of Object.entries(eventFiles)) {
-        await writeProjectFile(projectRoot, `objects/${objectName}/${relativeEventFilePath}`, sourceText);
-    }
-
-    await registerProjectResource(projectRoot, objectName, resourcePath);
-}
-
-/**
- * Create a temporary GameMaker project root for CLI codemod tests.
- */
-async function createSyntheticProject(config: Record<string, unknown>): Promise<string> {
-    const projectRoot = await mkdtemp(path.join(os.tmpdir(), "gmloop-refactor-cli-"));
-    await writeProjectFile(
-        projectRoot,
-        "MyGame.yyp",
-        `${JSON.stringify({ name: "MyGame", resourceType: "GMProject", resources: [] }, null, 4)}\n`
-    );
-    await writeProjectFile(projectRoot, "gmloop.json", `${JSON.stringify(config, null, 4)}\n`);
-    return projectRoot;
-}
-
-/**
- * Recursively collect all `.gml` files in a synthetic project.
- */
-async function listProjectGmlFiles(projectRoot: string, directory = projectRoot): Promise<Array<string>> {
-    const entries = await readdir(directory, { withFileTypes: true });
-    const gmlFiles: Array<string> = [];
-
-    for (const entry of entries) {
-        const absolutePath = path.join(directory, entry.name);
-        if (entry.isDirectory()) {
-            gmlFiles.push(...(await listProjectGmlFiles(projectRoot, absolutePath)));
-            continue;
-        }
-
-        if (entry.isFile() && absolutePath.endsWith(".gml")) {
-            gmlFiles.push(path.relative(projectRoot, absolutePath));
-        }
-    }
-
-    return gmlFiles.toSorted();
-}
-
-/**
- * Parse every `.gml` file in the synthetic project to verify the refactor output
- * remains valid GameMaker code.
- */
-async function assertProjectGmlFilesParse(projectRoot: string): Promise<void> {
-    const gmlFiles = await listProjectGmlFiles(projectRoot);
-    assert.ok(gmlFiles.length > 0, "expected the synthetic project to contain GML files");
-
-    for (const relativePath of gmlFiles) {
-        const sourceText = await readFile(path.join(projectRoot, relativePath), "utf8");
-        assert.doesNotThrow(() => {
-            const ast = Parser.GMLParser.parse(sourceText);
-            assert.equal(ast.type, "Program");
-        }, `expected ${relativePath} to remain parseable after refactor codemods`);
-    }
-}
+import {
+    assertProjectGmlFilesParse,
+    createSyntheticRefactorProject as createSyntheticProject,
+    registerProjectResource,
+    writeObjectResource,
+    writeProjectFile,
+    writeScriptResource
+} from "./test-helpers/refactor-codemod-command-fixture.js";
 
 void test("refactor codemod --list discovers gmloop.json and tolerates unrelated top-level config", async () => {
     const projectRoot = await createSyntheticProject({
@@ -580,6 +455,89 @@ void test("refactor codemod --write renames implicit instance variables across i
         assert.doesNotMatch(playerSource, /\.camXfrom\b/);
         assert.doesNotMatch(cameraSource, /\.upDir\b/);
         assert.doesNotMatch(cameraSource, /\.activePlayer\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write does not overlap object-resource renames with implicit instance-variable renames", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    resource: {
+                        caseStyle: "lower_snake"
+                    },
+                    objectResourceName: {
+                        prefix: "obj_"
+                    },
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeObjectResource(projectRoot, "oCamera", {
+            "Create_0.gml": ["camMat = matrix_build_identity();", "camXfrom = x;", ""].join("\n")
+        });
+        await writeObjectResource(projectRoot, "oPlayer", {
+            "Create_0.gml": [
+                "if (instance_exists(oCamera)) {",
+                "    with (oCamera) {",
+                "        show_debug_message(camMat[0]);",
+                "    }",
+                "}",
+                "camera_horizontal_x = pos.x - oCamera.camXfrom;",
+                "camera_horizontal_y = pos.y - oCamera.camMat[1];",
+                ""
+            ].join("\n"),
+            "Draw_73.gml": [
+                "if (instance_exists(oCamera)) {",
+                "    draw_text(0, 0, string(oCamera.camXfrom));",
+                "}",
+                ""
+            ].join("\n")
+        });
+        await writeObjectResource(projectRoot, "oSystem", {
+            "Other_2.gml": ["instance_create_depth(0, 0, 0, oCamera);", ""].join("\n")
+        });
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.doesNotMatch(result.stderr, /Overlapping edits detected/);
+
+        await assert.doesNotReject(access(path.join(projectRoot, "objects/obj_o_camera/obj_o_camera.yy")));
+        await assert.rejects(access(path.join(projectRoot, "objects/oCamera/oCamera.yy")));
+
+        const cameraSource = await readFile(path.join(projectRoot, "objects/obj_o_camera/Create_0.gml"), "utf8");
+        const playerCreateSource = await readFile(path.join(projectRoot, "objects/obj_o_player/Create_0.gml"), "utf8");
+        const playerDrawSource = await readFile(path.join(projectRoot, "objects/obj_o_player/Draw_73.gml"), "utf8");
+        const systemSource = await readFile(path.join(projectRoot, "objects/obj_o_system/Other_2.gml"), "utf8");
+
+        assert.match(cameraSource, /cam_mat = matrix_build_identity\(\);/);
+        assert.match(cameraSource, /cam_xfrom = x;/);
+        assert.match(playerCreateSource, /if \(instance_exists\(obj_o_camera\)\) \{/);
+        assert.match(playerCreateSource, /with \(obj_o_camera\) \{/);
+        assert.match(playerCreateSource, /show_debug_message\(cam_mat\[0\]\);/);
+        assert.match(playerCreateSource, /camera_horizontal_x = pos\.x - obj_o_camera\.cam_xfrom;/);
+        assert.match(playerCreateSource, /camera_horizontal_y = pos\.y - obj_o_camera\.cam_mat\[1\];/);
+        assert.match(playerDrawSource, /draw_text\(0, 0, string\(obj_o_camera\.cam_xfrom\)\);/);
+        assert.match(systemSource, /instance_create_depth\(0, 0, 0, obj_o_camera\);/);
+        assert.doesNotMatch(playerCreateSource, /\boCamera\b/);
+        assert.doesNotMatch(playerDrawSource, /\boCamera\b/);
+        assert.doesNotMatch(systemSource, /\boCamera\b/);
 
         await assertProjectGmlFilesParse(projectRoot);
     } finally {

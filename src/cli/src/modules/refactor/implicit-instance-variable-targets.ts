@@ -28,6 +28,7 @@ type ImplicitInstanceVariableCollectorParameters = {
     files: Record<string, SemanticFileRecord>;
     knownEnumNames: Set<string>;
     knownNamesByObjectDirectory: Map<string, Set<string>>;
+    knownResourceNames: Set<string>;
     projectRoot: string;
     shouldIncludePath: (candidatePath: string | null | undefined) => boolean;
 };
@@ -181,6 +182,10 @@ function deduplicateCandidateOccurrences(occurrences: Array<CandidateOccurrence>
     return [...occurrencesByKey.values()].sort((left, right) => left.start - right.start);
 }
 
+function isKnownProjectResourceName(referenceName: string, knownResourceNames: ReadonlySet<string>): boolean {
+    return knownResourceNames.has(referenceName.toLowerCase());
+}
+
 /**
  * Collect unresolved assignment-backed object fields as implicit instance-variable naming targets.
  */
@@ -214,6 +219,10 @@ export function collectImplicitInstanceVariableTargets(
             }
 
             const referenceName = source.slice(candidate.start, candidate.end);
+            if (isKnownProjectResourceName(referenceName, parameters.knownResourceNames)) {
+                continue;
+            }
+
             if (knownNames.has(referenceName)) {
                 continue;
             }

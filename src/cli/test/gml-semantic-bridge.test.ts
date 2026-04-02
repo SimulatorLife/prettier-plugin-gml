@@ -2479,6 +2479,98 @@ void describe("GmlSemanticBridge tests", () => {
         );
     });
 
+    void it("listNamingConventionTargets does not synthesize implicit instance-variable targets for known resource identifiers", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-resource-name-targets-"));
+        const systemFilePath = "objects/oSystem/Other_2.gml";
+        const playerFilePath = "objects/oPlayer/Create_0.gml";
+        const systemSource = ["instance_create_depth(0, 0, 0, oCamera);", "if (instance_exists(oCamera)) {}", ""].join(
+            "\n"
+        );
+        const playerSource = [
+            "if (instance_exists(oCamera)) {",
+            "    show_debug_message(oCamera.camXfrom);",
+            "}",
+            ""
+        ].join("\n");
+
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oSystem"), { recursive: true });
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oPlayer"), { recursive: true });
+        fs.writeFileSync(path.join(tmpRoot, systemFilePath), systemSource, "utf8");
+        fs.writeFileSync(path.join(tmpRoot, playerFilePath), playerSource, "utf8");
+
+        const systemCreateDepthStart = findNthIndex(systemSource, "oCamera", 1);
+        const systemInstanceExistsStart = findNthIndex(systemSource, "oCamera", 2);
+        const playerInstanceExistsStart = findNthIndex(playerSource, "oCamera", 1);
+        const playerDottedOwnerStart = findNthIndex(playerSource, "oCamera", 2);
+
+        const mockProjectIndex = {
+            identifiers: {
+                instanceVariables: {}
+            },
+            resources: {
+                "objects/oCamera/oCamera.yy": {
+                    path: "objects/oCamera/oCamera.yy",
+                    name: "oCamera",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                }
+            },
+            files: {
+                [systemFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oSystem",
+                            start: { index: systemCreateDepthStart },
+                            end: { index: systemCreateDepthStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oSystem",
+                            start: { index: systemInstanceExistsStart },
+                            end: { index: systemInstanceExistsStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                },
+                [playerFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: playerInstanceExistsStart },
+                            end: { index: playerInstanceExistsStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: playerDottedOwnerStart },
+                            end: { index: playerDottedOwnerStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const targets = await bridge.listNamingConventionTargets([systemFilePath, playerFilePath]);
+
+        assert.ok(!targets.some((target) => target.category === "instanceVariable" && target.name === "oCamera"));
+    });
+
     void it("listNamingConventionTargets excludes enum-member property references from implicit instance-variable targets", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-implicit-enum-members-"));
         const enumFilePath = "scripts/cm_misc/cm_misc.gml";

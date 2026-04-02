@@ -42,7 +42,8 @@ function collectIdentifierOccurrencesFromAst(sourceText: string): Map<string, Ar
             const candidate = node as Record<string, unknown>;
             if (candidate.type === "Identifier" && typeof candidate.name === "string") {
                 const start = typeof candidate.start === "number" ? candidate.start : null;
-                const end = typeof candidate.end === "number" ? candidate.end : null;
+                const endInclusive = typeof candidate.end === "number" ? candidate.end : null;
+                const end = endInclusive === null ? null : endInclusive + 1;
 
                 if (start !== null && end !== null && end >= start) {
                     const before = start > 0 ? sourceText[start - 1] : "";

@@ -242,6 +242,57 @@ function includesAnyRequestedNamingCategory(
     return requestedCategories === null || categories.some((category) => requestedCategories.has(category));
 }
 
+function normalizeNamingTargetQueryPath(projectRoot: string, candidatePath: string): string {
+    const normalizedCandidatePath = candidatePath.replaceAll("\\", "/");
+    const normalizedProjectRoot = path.resolve(projectRoot).replaceAll("\\", "/");
+    const absoluteCandidatePath = path.isAbsolute(normalizedCandidatePath)
+        ? normalizedCandidatePath
+        : path.resolve(projectRoot, normalizedCandidatePath).replaceAll("\\", "/");
+
+    if (
+        absoluteCandidatePath === normalizedProjectRoot ||
+        absoluteCandidatePath.startsWith(`${normalizedProjectRoot}/`)
+    ) {
+        return path.posix.relative(normalizedProjectRoot, absoluteCandidatePath);
+    }
+
+    return normalizedCandidatePath;
+}
+
+function createNamingTargetPathPredicate(
+    projectRoot: string,
+    filePaths?: Array<string>
+): (candidatePath: string | null | undefined) => boolean {
+    if (filePaths === undefined || filePaths.length === 0) {
+        return (candidatePath: string | null | undefined): boolean => Core.isNonEmptyString(candidatePath);
+    }
+
+    const normalizedIncludedPaths = new Set(
+        filePaths.filter(Core.isNonEmptyString).map((filePath) => normalizeNamingTargetQueryPath(projectRoot, filePath))
+    );
+    const selectedOwnerDirectories = new Set(
+        [...normalizedIncludedPaths]
+            .filter((candidatePath) => candidatePath.endsWith(".gml"))
+            .map((candidatePath) => path.posix.dirname(candidatePath))
+    );
+
+    return (candidatePath: string | null | undefined): boolean => {
+        if (!Core.isNonEmptyString(candidatePath)) {
+            return false;
+        }
+
+        const normalizedCandidatePath = normalizeNamingTargetQueryPath(projectRoot, candidatePath);
+        if (normalizedIncludedPaths.has(normalizedCandidatePath)) {
+            return true;
+        }
+
+        return (
+            normalizedCandidatePath.endsWith(".yy") &&
+            selectedOwnerDirectories.has(path.posix.dirname(normalizedCandidatePath))
+        );
+    };
+}
+
 function toExclusiveEndIndex(endIndex: number): number {
     // The semantic index stores end offsets as the final character position.
     // Refactor text edits use one-past-the-end (exclusive) indexes.
@@ -1636,17 +1687,8 @@ export class GmlSemanticBridge {
         categories?: ReadonlyArray<BridgeNamingConventionCategory>
     ): MaybePromise<Array<BridgeNamingConventionTarget>> {
         const targets: Array<BridgeNamingConventionTarget> = [];
-        const includedFiles = filePaths === undefined ? new Set<string>() : new Set(filePaths);
         const requestedCategories = categories === undefined ? null : new Set(categories);
-        const shouldFilterByFile = includedFiles.size > 0;
-
-        const shouldIncludePath = (candidatePath: string | null | undefined): boolean => {
-            if (!candidatePath) {
-                return false;
-            }
-
-            return !shouldFilterByFile || includedFiles.has(candidatePath);
-        };
+        const shouldIncludePath = createNamingTargetPathPredicate(this.projectRoot, filePaths);
 
         const pushTarget = (target: BridgeNamingConventionTarget): void => {
             targets.push(target);
@@ -1848,6 +1890,13 @@ export class GmlSemanticBridge {
     ): void {
         const knownEnumNames = new Set<string>();
         const knownNamesByObjectDirectory = new Map<string, Set<string>>();
+        const knownResourceNames = new Set<string>();
+
+        for (const resource of Object.values(this.resources ?? {})) {
+            if (typeof resource?.name === "string") {
+                knownResourceNames.add(resource.name.toLowerCase());
+            }
+        }
 
         for (const entry of Object.values(this.identifiers.enums ?? {})) {
             if (typeof entry?.name === "string") {
@@ -1872,6 +1921,7 @@ export class GmlSemanticBridge {
             files: (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>,
             knownEnumNames,
             knownNamesByObjectDirectory,
+            knownResourceNames,
             projectRoot: this.projectRoot,
             shouldIncludePath
         })) {
