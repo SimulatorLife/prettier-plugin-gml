@@ -424,7 +424,10 @@ function recreateMemberPathExpression(
     sourceNode: MutableGameMakerAstNode
 ): MutableGameMakerAstNode | null {
     const segments = path.split(".").filter((segment) => segment.length > 0);
-    if (segments.length < 3) {
+    // A member access path requires at least two segments (e.g. "a.b").
+    // Single-segment or empty paths are plain identifiers or invalid – not
+    // something we need to reconstruct as a MemberDotExpression chain.
+    if (segments.length < 2) {
         return null;
     }
 
@@ -503,7 +506,12 @@ function isCollectibleMemberAccessNode(
         return false;
     }
 
-    return memberPath.split(".").length >= 3;
+    // A MemberDotExpression always produces a path with at least two segments.
+    // The original ">= 3" guard was overly restrictive: two-segment paths such
+    // as "arr.length" or "obj.count" are equally valid candidates for caching
+    // and invariant hoisting.  Only require the minimum depth that can actually
+    // be represented as a MemberDotExpression.
+    return memberPath.split(".").length >= 2;
 }
 
 function createCachedVariableDeclaration(
