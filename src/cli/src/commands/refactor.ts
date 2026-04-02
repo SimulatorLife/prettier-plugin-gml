@@ -19,6 +19,7 @@ import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
 import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
+import { resolveIndexedRootTargetGmlFiles } from "./refactor-target-gml-files.js";
 
 const { buildProjectIndex } = Semantic;
 const {
@@ -396,7 +397,8 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
         logger: verbose ? console : undefined
     });
     const engine = createRefactorEngineForProject(projectIndex, projectRoot);
-    const gmlFilePaths = await collectTargetGmlFiles(projectRoot, targetPaths);
+    const indexedRootTargetGmlFiles = resolveIndexedRootTargetGmlFiles(projectRoot, targetPaths, projectIndex);
+    const gmlFilePaths = indexedRootTargetGmlFiles ?? (await collectTargetGmlFiles(projectRoot, targetPaths));
     const selectedCodemodIds = listConfiguredCodemods(config.refactor ?? {}, onlyCodemods)
         .filter((codemod) => codemod.configured && codemod.selected)
         .map((codemod) => codemod.id);
