@@ -7,9 +7,18 @@ import { Refactor } from "@gmloop/refactor";
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
 const FUNCTION_COUNT = 2400;
-const PERFORMANCE_THRESHOLD_MS = 650;
+const UNRESOLVED_REFERENCE_FILE_COUNT = 180;
+const UNRESOLVED_REFERENCES_PER_FILE = 120;
+const PERFORMANCE_THRESHOLD_MS = 420;
 
 type RenameValidationCacheStats = {
+    evictions: number;
+    hits: number;
+    misses: number;
+    size: number;
+};
+
+type SemanticCacheStats = {
     evictions: number;
     hits: number;
     misses: number;
@@ -21,13 +30,25 @@ type WrappedRefactorEngine = InstanceType<typeof Refactor.RefactorEngine> & {
 };
 
 function createTopLevelNamingConventionFixture(): {
-    files: Record<string, { declarations: Array<{ filePath: string; identifierId: string; name: string }> }>;
+    files: Record<
+        string,
+        {
+            declarations: Array<{ filePath: string; identifierId: string; name: string }>;
+            references?: Array<Record<string, unknown>>;
+        }
+    >;
     projectIndex: Record<string, unknown>;
     projectRoot: string;
     sourceTexts: Map<string, string>;
 } {
     const projectRoot = "/project";
-    const files: Record<string, { declarations: Array<{ filePath: string; identifierId: string; name: string }> }> = {};
+    const files: Record<
+        string,
+        {
+            declarations: Array<{ filePath: string; identifierId: string; name: string }>;
+            references?: Array<Record<string, unknown>>;
+        }
+    > = {};
     const scripts: Record<
         string,
         {
@@ -86,6 +107,32 @@ function createTopLevelNamingConventionFixture(): {
             end: { index: referenceEndInclusive }
         });
         usageOffset += `${currentName}();\n`.length;
+    }
+
+    for (let fileIndex = 0; fileIndex < UNRESOLVED_REFERENCE_FILE_COUNT; fileIndex += 1) {
+        const filePath = `scripts/unresolved_${fileIndex}.gml`;
+        const references: Array<Record<string, unknown>> = [];
+        const lines: Array<string> = [];
+        let offset = 0;
+
+        for (let referenceIndex = 0; referenceIndex < UNRESOLVED_REFERENCES_PER_FILE; referenceIndex += 1) {
+            const currentName = `unresolved_name_${fileIndex}_${referenceIndex}`;
+            const sourceLine = `${currentName}();\n`;
+            references.push({
+                name: currentName,
+                filePath,
+                start: { index: offset },
+                end: { index: offset + currentName.length - 1 }
+            });
+            lines.push(sourceLine);
+            offset += sourceLine.length;
+        }
+
+        sourceTexts.set(filePath, lines.join(""));
+        files[filePath] = {
+            declarations: [],
+            references
+        };
     }
 
     return {
@@ -170,6 +217,11 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
                     renameValidationCache: { getStats(): RenameValidationCacheStats };
                 }
             ).renameValidationCache.getStats(),
+            semanticCacheStats: (
+                engine as unknown as {
+                    getSemanticCacheStats(): SemanticCacheStats;
+                }
+            ).getSemanticCacheStats(),
             validateRenameRequestCallCount,
             result
         };
@@ -190,6 +242,14 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
     assert.equal(result.cacheStats.evictions, 0);
     assert.equal(result.cacheStats.hits, 0);
     assert.equal(result.cacheStats.misses, FUNCTION_COUNT);
+    assert.ok(
+        result.semanticCacheStats.hits >= FUNCTION_COUNT,
+        `Expected semantic cache reuse during batch planning, received ${result.semanticCacheStats.hits} hits`
+    );
+    assert.ok(
+        result.semanticCacheStats.size > 0,
+        "Expected semantic cache to retain batched symbol query results during codemod planning"
+    );
     assert.ok(
         durationMs <= PERFORMANCE_THRESHOLD_MS,
         `Expected namingConvention codemod runtime to finish within ${PERFORMANCE_THRESHOLD_MS}ms, received ${durationMs.toFixed(2)}ms`
