@@ -30,18 +30,13 @@ const DEFAULT_REFERENCE_KEYS = Object.freeze(
     ])
 );
 
-const PROJECT_REFERENCE_KEYS = Object.freeze(new Set<string>(["id", "roomId"]));
-
-const RESOURCE_REFERENCE_KEYS_BY_SCHEMA = Object.freeze({
-    project: PROJECT_REFERENCE_KEYS
-});
+const RESOURCE_REFERENCE_KEYS_BY_SCHEMA: Partial<Record<ProjectMetadataSchemaName, ReadonlySet<string>>> =
+    Object.freeze({});
 
 function getReferenceKeySet(schemaName: ProjectMetadataSchemaName | null): ReadonlySet<string> {
-    if (!schemaName) {
-        return DEFAULT_REFERENCE_KEYS;
-    }
-
-    return RESOURCE_REFERENCE_KEYS_BY_SCHEMA[schemaName] ?? DEFAULT_REFERENCE_KEYS;
+    return schemaName
+        ? (RESOURCE_REFERENCE_KEYS_BY_SCHEMA[schemaName] ?? DEFAULT_REFERENCE_KEYS)
+        : DEFAULT_REFERENCE_KEYS;
 }
 
 function extractTerminalPropertyName(propertyPath: string): string | null {
@@ -162,10 +157,6 @@ function collectAssetReferenceCandidates(
     root: Record<string, unknown>,
     schemaName: ProjectMetadataSchemaName | null
 ): Array<AssetReferenceCandidate> {
-    if (schemaName === "project") {
-        return collectProjectManifestReferenceCandidates(root);
-    }
-
     const acceptedReferenceKeys = getReferenceKeySet(schemaName);
     const collected: Array<AssetReferenceCandidate> = [];
     const stack: Array<{ value: Record<string, unknown> | Array<unknown>; path: string }> = [{ value: root, path: "" }];
@@ -208,6 +199,12 @@ function collectAssetReferenceCandidates(
 
 /**
  * Extract resource-to-resource metadata references from a parsed .yy/.yyp document.
+ *
+ * Project manifest files (.yyp) are handled via a dedicated collector that
+ * extracts references from top-level arrays (resources, RoomOrderNodes, Options,
+ * Folders) using their structural shape rather than the generic schema-driven
+ * traversal. The @bscotch/yy "project" schema is intentionally avoided for
+ * `.yyp` files to prevent data loss, so manifest detection is done by file path.
  */
 export function extractAssetReferencesFromMetadataDocument({
     document,
@@ -218,8 +215,12 @@ export function extractAssetReferencesFromMetadataDocument({
     sourcePath: string;
     projectRoot: string;
 }) {
-    const schemaName = resolveProjectMetadataSchemaName(sourcePath, document.resourceType);
-    const collected = collectAssetReferenceCandidates(document, schemaName);
+    const collected = isProjectManifestPath(sourcePath)
+        ? collectProjectManifestReferenceCandidates(document)
+        : collectAssetReferenceCandidates(
+              document,
+              resolveProjectMetadataSchemaName(sourcePath, document.resourceType)
+          );
 
     return collected
         .map((candidate) => {
