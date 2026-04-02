@@ -608,11 +608,14 @@ export class GmlSemanticBridge {
             this.collectConstructorRuntimeTypeReferenceOccurrences(symbolName, occurrences);
         }
 
-        // Fallback to file-system scanning only when indexed structures produced
-        // no hits and the symbol is a known resource. This avoids repeated full
-        // project scans during large rename batches while preserving support for
-        // resource-name references that may not be fully indexed.
-        if (occurrences.length === 0 && this.shouldCollectDiskOccurrences(symbolName, symbolId)) {
+        // Fallback to file-system scanning when a resource rename still has no
+        // GML occurrences. Synthetic resource declarations in `.yy` files count
+        // as occurrences, but they are not enough to update cross-file code
+        // references such as `instance_create_depth(..., oCamera)`.
+        if (
+            this.shouldCollectDiskOccurrences(symbolName, symbolId) &&
+            !occurrences.some((occurrence) => occurrence.path.endsWith(".gml"))
+        ) {
             this.collectOccurrencesFromGmlFiles(symbolName, occurrences);
         }
 

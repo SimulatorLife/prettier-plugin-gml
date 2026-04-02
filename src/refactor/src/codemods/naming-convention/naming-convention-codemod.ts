@@ -205,15 +205,18 @@ function collectNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: R
                 const siblingResourcePath = normalizedFilePath.replace(/\.gml$/i, ".yy");
                 const ownerDirectory = path.posix.dirname(normalizedFilePath);
                 const ownerResourceName = path.posix.basename(ownerDirectory);
-                const ownerResourcePath = path.posix.join(ownerDirectory, `${ownerResourceName}.yy`);
+                const ownerParentDirectory = path.posix.dirname(ownerDirectory);
+                const ownerResourcePath =
+                    ownerParentDirectory === "." ? null : path.posix.join(ownerDirectory, `${ownerResourceName}.yy`);
 
                 return [
                     normalizedFilePath,
                     path.resolve(projectRoot, normalizedFilePath),
                     siblingResourcePath,
                     path.resolve(projectRoot, siblingResourcePath),
-                    ownerResourcePath,
-                    path.resolve(projectRoot, ownerResourcePath)
+                    ...(ownerResourcePath === null
+                        ? []
+                        : [ownerResourcePath, path.resolve(projectRoot, ownerResourcePath)])
                 ];
             })
         )

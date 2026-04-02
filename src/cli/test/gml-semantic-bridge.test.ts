@@ -550,6 +550,49 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(bridge.hasSymbol("gml/objects/ogravitysphere"), "Should find object resource case-insensitively");
     });
 
+    void it("getSymbolOccurrences supplements resource declarations with scanned GML references", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-resource-occurrences-"));
+        const resourcePath = "objects/oCamera/oCamera.yy";
+        const eventPath = "objects/oSystem/Other_2.gml";
+        const eventSource = "instance_create_depth(0, 0, 0, oCamera);\n";
+
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oSystem"), { recursive: true });
+        fs.writeFileSync(path.join(tmpRoot, eventPath), eventSource, "utf8");
+
+        const mockProjectIndex = {
+            identifiers: {},
+            resources: {
+                [resourcePath]: {
+                    path: resourcePath,
+                    name: "oCamera",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                }
+            },
+            files: {
+                [eventPath]: {
+                    references: [
+                        {
+                            name: "oCamera",
+                            start: { index: eventSource.indexOf("oCamera") },
+                            end: { index: eventSource.indexOf("oCamera") + "oCamera".length - 1 },
+                            scopeId: "scope:object:oSystem",
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const occurrences = bridge.getSymbolOccurrences("oCamera", "gml/objects/oCamera");
+
+        assert.ok(occurrences.some((occurrence) => occurrence.path === resourcePath));
+        assert.ok(occurrences.some((occurrence) => occurrence.path === eventPath));
+    });
+
     void it("getAdditionalSymbolEdits rewrites yy metadata using structured updates", () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-"));
         const resourcePath = "objects/oGravitySphere/oGravitySphere.yy";

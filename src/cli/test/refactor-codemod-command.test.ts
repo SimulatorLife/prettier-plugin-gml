@@ -802,16 +802,24 @@ void test("refactor codemod --write renames object resources together with objec
 
         await assert.doesNotReject(access(path.join(projectRoot, "objects/o_camera/o_camera.yy")));
         await assert.rejects(access(path.join(projectRoot, "objects/oCamera/oCamera.yy")));
+        await assert.doesNotReject(access(path.join(projectRoot, "objects/o_system/o_system.yy")));
+        await assert.rejects(access(path.join(projectRoot, "objects/oSystem/oSystem.yy")));
 
         const projectSource = await readFile(path.join(projectRoot, "MyGame.yyp"), "utf8");
         const resourceSource = await readFile(path.join(projectRoot, "objects/o_camera/o_camera.yy"), "utf8");
-        const systemSource = await readFile(path.join(projectRoot, "objects/oSystem/Other_2.gml"), "utf8");
+        const systemResourceSource = await readFile(path.join(projectRoot, "objects/o_system/o_system.yy"), "utf8");
+        const systemSource = await readFile(path.join(projectRoot, "objects/o_system/Other_2.gml"), "utf8");
 
         assert.match(projectSource, /"name"\s*:\s*"o_camera"/);
         assert.match(projectSource, /"path"\s*:\s*"objects\/o_camera\/o_camera\.yy"/);
+        assert.match(projectSource, /"name"\s*:\s*"o_system"/);
+        assert.match(projectSource, /"path"\s*:\s*"objects\/o_system\/o_system\.yy"/);
         assert.doesNotMatch(projectSource, /\boCamera\b/);
+        assert.doesNotMatch(projectSource, /\boSystem\b/);
         assert.match(resourceSource, /"name"\s*:\s*"o_camera"/);
         assert.match(resourceSource, /"resourcePath"\s*:\s*"objects\/o_camera\/o_camera\.yy"/);
+        assert.match(systemResourceSource, /"name"\s*:\s*"o_system"/);
+        assert.match(systemResourceSource, /"resourcePath"\s*:\s*"objects\/o_system\/o_system\.yy"/);
         assert.match(systemSource, /instance_create_depth\(0, 0, 0, o_camera\);/);
         assert.doesNotMatch(systemSource, /\boCamera\b/);
 

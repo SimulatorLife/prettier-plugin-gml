@@ -102,6 +102,39 @@ function semanticSupportsBatchWorkspaceOverlay(
     return Core.hasMethods(semantic, ["clearWorkspaceOverlay", "stageWorkspaceEdit"]);
 }
 
+function dropRedundantTextEditsForMetadataRewrites(workspace: WorkspaceEdit): WorkspaceEdit {
+    const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
+    if (metadataEdits.length === 0) {
+        return workspace;
+    }
+
+    const metadataPaths = new Set(metadataEdits.map((metadataEdit) => metadataEdit.path));
+    const hasRedundantTextEdits = workspace.edits.some((edit) => metadataPaths.has(edit.path));
+    if (!hasRedundantTextEdits) {
+        return workspace;
+    }
+
+    const normalizedWorkspace = new WorkspaceEdit();
+
+    for (const edit of workspace.edits) {
+        if (metadataPaths.has(edit.path)) {
+            continue;
+        }
+
+        normalizedWorkspace.addEdit(edit.path, edit.start, edit.end, edit.newText);
+    }
+
+    for (const metadataEdit of metadataEdits) {
+        normalizedWorkspace.addMetadataEdit(metadataEdit.path, metadataEdit.content);
+    }
+
+    for (const fileRename of fileRenames) {
+        normalizedWorkspace.addFileRename(fileRename.oldPath, fileRename.newPath);
+    }
+
+    return normalizedWorkspace;
+}
+
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
@@ -605,7 +638,7 @@ export class RefactorEngine {
             }
         }
 
-        return workspace;
+        return dropRedundantTextEditsForMetadataRewrites(workspace);
     }
 
     /**
