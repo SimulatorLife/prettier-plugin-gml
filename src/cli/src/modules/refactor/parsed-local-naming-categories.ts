@@ -12,6 +12,7 @@ type ParsedLocalDeclarationMetadata = {
 };
 
 type ParsedLocalDeclarationMetadataMap = ReadonlyMap<string, ParsedLocalDeclarationMetadata>;
+const REQUIRES_PARSED_LOCAL_CATEGORY_SCAN_PATTERN = /\bstatic\b|\bfor\s*\(\s*var\b/u;
 
 function createDeclarationLookupKey(name: string, start: number): string {
     return `${name}:${start}`;
@@ -177,7 +178,9 @@ export class ParsedLocalNamingCategoryResolver {
         try {
             if (fs.existsSync(absoluteFilePath)) {
                 const sourceText = fs.readFileSync(absoluteFilePath, "utf8");
-                parsedCategories = extractParsedLocalDeclarationMetadata(sourceText);
+                if (REQUIRES_PARSED_LOCAL_CATEGORY_SCAN_PATTERN.test(sourceText)) {
+                    parsedCategories = extractParsedLocalDeclarationMetadata(sourceText);
+                }
             }
         } catch {
             parsedCategories = new Map();

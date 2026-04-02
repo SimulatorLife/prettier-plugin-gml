@@ -197,6 +197,29 @@ function findDependentMacroNames(
     return dependentMacroNames.toSorted();
 }
 
+function collectNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: ReadonlyArray<string>): Array<string> {
+    return [
+        ...new Set(
+            selectedFilePaths.flatMap((filePath) => {
+                const normalizedFilePath = filePath.replaceAll("\\", "/");
+                const siblingResourcePath = normalizedFilePath.replace(/\.gml$/i, ".yy");
+                const ownerDirectory = path.posix.dirname(normalizedFilePath);
+                const ownerResourceName = path.posix.basename(ownerDirectory);
+                const ownerResourcePath = path.posix.join(ownerDirectory, `${ownerResourceName}.yy`);
+
+                return [
+                    normalizedFilePath,
+                    path.resolve(projectRoot, normalizedFilePath),
+                    siblingResourcePath,
+                    path.resolve(projectRoot, siblingResourcePath),
+                    ownerResourcePath,
+                    path.resolve(projectRoot, ownerResourcePath)
+                ];
+            })
+        )
+    ];
+}
+
 /**
  * Plan naming-policy-driven edits for the selected project paths.
  */
@@ -255,19 +278,7 @@ export async function planNamingConventionCodemod(
     const queriedTargets = await semantic.listNamingConventionTargets(
         selectedFilePaths.length === 0
             ? undefined
-            : [
-                  ...new Set(
-                      selectedFilePaths.flatMap((filePath) => {
-                          const resourcePath = filePath.replace(/\.gml$/i, ".yy");
-                          return [
-                              filePath,
-                              path.resolve(parameters.projectRoot, filePath),
-                              resourcePath,
-                              path.resolve(parameters.projectRoot, resourcePath)
-                          ];
-                      })
-                  )
-              ]
+            : collectNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths)
     );
     const selectedTargets = queriedTargets.filter((target) =>
         isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])

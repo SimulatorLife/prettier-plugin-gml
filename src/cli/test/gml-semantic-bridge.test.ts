@@ -1775,6 +1775,85 @@ void describe("GmlSemanticBridge tests", () => {
         }
     });
 
+    void it("listNamingConventionTargets includes unresolved bare calls for unique constructor static members", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-static-member-bare-call-"));
+
+        try {
+            const stateSource = [
+                "function generator_state() {",
+                "    static _struct = new GeneratorState();",
+                "    return _struct;",
+                "}",
+                "",
+                "function GeneratorState() constructor {",
+                "    Reset();",
+                "",
+                "    static Reset = function() {",
+                "        return 1;",
+                "    };",
+                "}",
+                ""
+            ].join("\n");
+            const consumerSource = [
+                "function initialize() {",
+                "    static _generator_state = generator_state();",
+                "    with (_generator_state) {",
+                "        Reset();",
+                "    }",
+                "}",
+                ""
+            ].join("\n");
+
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "generator_state"), { recursive: true });
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "initialize"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "generator_state", "generator_state.yy"),
+                `${JSON.stringify({ name: "generator_state", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "generator_state", "generator_state.gml"), stateSource);
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "initialize", "initialize.yy"),
+                `${JSON.stringify({ name: "initialize", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "initialize", "initialize.gml"), consumerSource);
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const targets = await bridge.listNamingConventionTargets();
+            const resetTarget = targets.find(
+                (target) => target.category === "staticVariable" && target.name === "Reset"
+            );
+
+            assert.ok(resetTarget);
+            assert.deepEqual(
+                resetTarget?.occurrences.map((occurrence) => ({
+                    kind: occurrence.kind,
+                    path: occurrence.path
+                })),
+                [
+                    {
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        path: "scripts/generator_state/generator_state.gml"
+                    },
+                    {
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        path: "scripts/generator_state/generator_state.gml"
+                    },
+                    {
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        path: "scripts/initialize/initialize.gml"
+                    }
+                ]
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
     void it("listMacroExpansionDependencies reports caller-scoped identifiers consumed by referenced macros", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-macro-deps-"));
 
@@ -2188,6 +2267,187 @@ void describe("GmlSemanticBridge tests", () => {
         assert.equal(charMatTarget?.symbolId, null);
         assert.equal(charMatTarget?.occurrences.length, 2);
         assert.equal(charMatTarget?.occurrences[0]?.kind, "definition");
+    });
+
+    void it("listNamingConventionTargets widens implicit instance-variable targets across inherited and dotted object references", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-instance-targets-wide-"));
+        const parentFilePath = "objects/oActorParent/Create_0.gml";
+        const childFilePath = "objects/oPlayer/Create_0.gml";
+        const cameraFilePath = "objects/oCamera/Create_0.gml";
+        const parentSource = ["upDir = new Vector3(0, 0, 1);", ""].join("\n");
+        const childSource = ["event_inherited();", "basis = { up: upDir };", "show_debug_message(upDir);", ""].join(
+            "\n"
+        );
+        const cameraSource = ["follow_id = oPlayer;", "show_debug_message(follow_id.upDir);", ""].join("\n");
+
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oActorParent"), { recursive: true });
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oPlayer"), { recursive: true });
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oCamera"), { recursive: true });
+        fs.writeFileSync(path.join(tmpRoot, parentFilePath), parentSource, "utf8");
+        fs.writeFileSync(path.join(tmpRoot, childFilePath), childSource, "utf8");
+        fs.writeFileSync(path.join(tmpRoot, cameraFilePath), cameraSource, "utf8");
+
+        const parentDefinitionStart = findNthIndex(parentSource, "upDir", 1);
+        const childPropertyReferenceStart = findNthIndex(childSource, "upDir", 1);
+        const childBareReferenceStart = findNthIndex(childSource, "upDir", 2);
+        const dottedReferenceStart = findNthIndex(cameraSource, "upDir", 1);
+
+        const mockProjectIndex = {
+            identifiers: {
+                instanceVariables: {}
+            },
+            files: {
+                [parentFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "upDir",
+                            scopeId: "scope:object:oActorParent",
+                            start: { index: parentDefinitionStart },
+                            end: { index: parentDefinitionStart + "upDir".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                },
+                [childFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "upDir",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: childPropertyReferenceStart },
+                            end: { index: childPropertyReferenceStart + "upDir".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "upDir",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: childBareReferenceStart },
+                            end: { index: childBareReferenceStart + "upDir".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                },
+                [cameraFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "upDir",
+                            scopeId: "scope:object:oCamera",
+                            start: { index: dottedReferenceStart },
+                            end: { index: dottedReferenceStart + "upDir".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const targets = await bridge.listNamingConventionTargets([parentFilePath, childFilePath, cameraFilePath]);
+        const upDirTarget = targets.find((target) => target.category === "instanceVariable" && target.name === "upDir");
+
+        assert.ok(upDirTarget);
+        assert.equal(upDirTarget?.path, parentFilePath);
+        assert.equal(upDirTarget?.scopeId, "objects/oActorParent");
+        assert.equal(upDirTarget?.occurrences.length, 4);
+        assert.deepEqual(
+            upDirTarget?.occurrences.map((occurrence) => `${occurrence.kind}:${occurrence.path}`).toSorted(),
+            [
+                `definition:${parentFilePath}`,
+                `reference:${cameraFilePath}`,
+                `reference:${childFilePath}`,
+                `reference:${childFilePath}`
+            ].toSorted()
+        );
+    });
+
+    void it("listNamingConventionTargets excludes enum-member property references from implicit instance-variable targets", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-implicit-enum-members-"));
+        const enumFilePath = "scripts/cm_misc/cm_misc.gml";
+        const objectFilePath = "objects/oPlayer/Draw_73.gml";
+        const enumSource = ["enum CM {", "    R,", "    NUM", "}", ""].join("\n");
+        const objectSource = ["R = 1;", "show_debug_message(R);", "show_debug_message(collider[CM.R]);", ""].join("\n");
+
+        fs.mkdirSync(path.join(tmpRoot, "scripts", "cm_misc"), { recursive: true });
+        fs.writeFileSync(path.join(tmpRoot, enumFilePath), enumSource, "utf8");
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oPlayer"), { recursive: true });
+        fs.writeFileSync(path.join(tmpRoot, objectFilePath), objectSource, "utf8");
+
+        const definitionStart = objectSource.indexOf("R =");
+        const bareReferenceStart = objectSource.indexOf("R);");
+        const enumMemberReferenceStart = objectSource.indexOf("CM.R") + "CM.".length;
+
+        const mockProjectIndex = {
+            identifiers: {
+                enums: {
+                    "enum:CM": {
+                        name: "CM",
+                        declarations: [
+                            {
+                                name: "CM",
+                                filePath: enumFilePath,
+                                start: { index: enumSource.indexOf("CM") },
+                                end: { index: enumSource.indexOf("CM") + "CM".length - 1 }
+                            }
+                        ]
+                    }
+                }
+            },
+            files: {
+                [objectFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "R",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: definitionStart },
+                            end: { index: definitionStart + "R".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "R",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: bareReferenceStart },
+                            end: { index: bareReferenceStart + "R".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "R",
+                            scopeId: "scope:object:oPlayer",
+                            classifications: ["property"],
+                            start: { index: enumMemberReferenceStart },
+                            end: { index: enumMemberReferenceStart + "R".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const targets = await bridge.listNamingConventionTargets([enumFilePath, objectFilePath]);
+        const rTarget = targets.find((target) => target.category === "instanceVariable" && target.name === "R");
+
+        assert.ok(rTarget);
+        assert.deepEqual(
+            rTarget?.occurrences.map((occurrence) => occurrence.start),
+            [definitionStart, bareReferenceStart]
+        );
     });
 
     void it("shouldCollectUnresolvedProjectFileReferences correctly authorizes collection of instance variables", () => {
