@@ -1002,11 +1002,7 @@ function traverseAst(root, visitor) {
         }
         seen.add(node);
         visitor(node);
-        for (const key in node) {
-            if (!Object.hasOwn(node, key)) {
-                continue;
-            }
-
+        for (const key of Object.keys(node)) {
             pushNodeValueChildren(stack, node[key]);
         }
     }

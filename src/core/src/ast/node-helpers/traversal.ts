@@ -164,12 +164,10 @@ export function visitChildNodes(node: unknown, callback: (child: unknown) => voi
         return;
     }
 
-    for (const key in node) {
-        if (Object.hasOwn(node, key)) {
-            const value = (node as Record<string, unknown>)[key];
-            if (isObjectLike(value)) {
-                callback(value);
-            }
+    for (const key of Object.keys(node as Record<string, unknown>)) {
+        const value = (node as Record<string, unknown>)[key];
+        if (isObjectLike(value)) {
+            callback(value);
         }
     }
 }
