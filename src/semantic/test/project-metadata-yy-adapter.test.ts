@@ -5,6 +5,8 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+    applyProjectMetadataStringMutations,
+    findProjectMetadataValueTextRange,
     getProjectMetadataValueAtPath,
     isProjectMetadataParseError,
     isProjectMetadataSchemaValidationError,
@@ -174,6 +176,64 @@ void test("updateProjectMetadataReferenceByPath updates direct string paths", ()
 
     assert.equal(changed, true);
     assert.equal(getProjectMetadataValueAtPath(document, "Folders.0.folderPath"), "folders/Code.yy");
+});
+
+void test("findProjectMetadataValueTextRange locates nested manifest reference strings", () => {
+    const rawContents = `{
+  "resources":[
+    {"id":{"name":"CM_TRIANGLE_GET_CAPSULE_REF","path":"scripts/CM_TRIANGLE_GET_CAPSULE_REF/CM_TRIANGLE_GET_CAPSULE_REF.yy",},},
+  ],
+}
+`;
+
+    const nameRange = findProjectMetadataValueTextRange(rawContents, "resources.0.id.name");
+    const pathRange = findProjectMetadataValueTextRange(rawContents, "resources.0.id.path");
+
+    assert.deepEqual(nameRange && rawContents.slice(nameRange.start, nameRange.end), '"CM_TRIANGLE_GET_CAPSULE_REF"');
+    assert.deepEqual(
+        pathRange && rawContents.slice(pathRange.start, pathRange.end),
+        '"scripts/CM_TRIANGLE_GET_CAPSULE_REF/CM_TRIANGLE_GET_CAPSULE_REF.yy"'
+    );
+});
+
+void test("applyProjectMetadataStringMutations preserves unrelated room float literals", () => {
+    const rawContents = `{
+  "layers":[
+    {"instances":[
+      {"objectId":{"name":"oPlayer","path":"objects/oPlayer/oPlayer.yy",},"rotation":3.7500002,"scaleX":1.7499999,},
+      {"objectId":{"name":"oGoal","path":"objects/oGoal/oGoal.yy",},"rotation":0.0,"scaleX":1.0,},
+    ],"depth":100.0,},
+  ],
+}
+`;
+
+    const rewritten = applyProjectMetadataStringMutations(rawContents, [
+        {
+            propertyPath: "layers.0.instances.0.objectId.name",
+            value: "obj_o_player"
+        },
+        {
+            propertyPath: "layers.0.instances.0.objectId.path",
+            value: "objects/obj_o_player/obj_o_player.yy"
+        },
+        {
+            propertyPath: "layers.0.instances.1.objectId.name",
+            value: "obj_o_goal"
+        },
+        {
+            propertyPath: "layers.0.instances.1.objectId.path",
+            value: "objects/obj_o_goal/obj_o_goal.yy"
+        }
+    ]);
+
+    assert.ok(rewritten);
+    assert.match(rewritten, /"name":"obj_o_player"/u);
+    assert.match(rewritten, /"path":"objects\/obj_o_player\/obj_o_player\.yy"/u);
+    assert.match(rewritten, /"name":"obj_o_goal"/u);
+    assert.match(rewritten, /"path":"objects\/obj_o_goal\/obj_o_goal\.yy"/u);
+    assert.match(rewritten, /"rotation":3\.7500002/u);
+    assert.match(rewritten, /"scaleX":1\.7499999/u);
+    assert.match(rewritten, /"depth":100\.0/u);
 });
 
 void test("readProjectMetadataDocumentFromFile parses metadata from disk", () => {

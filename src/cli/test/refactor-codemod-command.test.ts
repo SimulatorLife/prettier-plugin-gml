@@ -1068,6 +1068,56 @@ void test("refactor codemod --write keeps same-name macros intact when renaming 
     }
 });
 
+void test("refactor codemod --write keeps project manifest entries aligned for batched case-only script resource renames", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    resource: {
+                        caseStyle: "lower_snake"
+                    },
+                    macro: {
+                        caseStyle: "upper_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "CM_TRIANGLE_GET_CAPSULE_REF",
+            ["#macro CM_TRIANGLE_GET_CAPSULE_REF var refX = X;\\", "var refY = Y;", ""].join("\n")
+        );
+        await writeScriptResource(projectRoot, "Object", "// resource-only script fixture\n");
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+
+        const manifestSource = await readFile(path.join(projectRoot, "MyGame.yyp"), "utf8");
+        assert.match(
+            manifestSource,
+            /"name"\s*:\s*"cm_triangle_get_capsule_ref"[\s\S]*"path"\s*:\s*"scripts\/cm_triangle_get_capsule_ref\/cm_triangle_get_capsule_ref\.yy"/u
+        );
+        assert.match(manifestSource, /"name"\s*:\s*"object"[\s\S]*"path"\s*:\s*"scripts\/object\/object\.yy"/u);
+        assert.doesNotMatch(manifestSource, /\bCM_TRIANGLE_GET_CAPSULE_REF\b/u);
+        assert.doesNotMatch(manifestSource, /"scripts\/Object\/Object\.yy"/u);
+
+        await access(path.join(projectRoot, "scripts/cm_triangle_get_capsule_ref/cm_triangle_get_capsule_ref.yy"));
+        await access(path.join(projectRoot, "scripts/object/object.yy"));
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write keeps reserved built-in local names intact and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {

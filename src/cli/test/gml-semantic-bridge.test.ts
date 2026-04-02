@@ -1097,7 +1097,7 @@ void describe("GmlSemanticBridge tests", () => {
               "isDnd":false,
               "layers":[
                 {"$GMRInstanceLayer":"","%Name":"Instances_3","depth":100,"effectEnabled":true,"effectType":null,"gridX":32,"gridY":32,"hierarchyFrozen":false,"inheritLayerDepth":false,"inheritLayerSettings":false,"inheritSubLayers":true,"inheritVisibility":true,"instances":[
-                    {"$GMRInstance":"v4","%Name":"inst_104A19B6","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_104A19B6","objectId":{"name":"oPlayer","path":"objects/oPlayer/oPlayer.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":640.0,"y":480.0,},
+                    {"$GMRInstance":"v4","%Name":"inst_104A19B6","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_104A19B6","objectId":{"name":"oPlayer","path":"objects/oPlayer/oPlayer.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":3.7500002,"scaleX":1.7499999,"scaleY":1.0,"x":640.0,"y":480.0,},
                     {"$GMRInstance":"v4","%Name":"inst_722E568F","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_722E568F","objectId":{"name":"oGoal","path":"objects/oGoal/oGoal.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":1056.0,"y":544.0,},
                   ],"layers":[],"name":"Instances_3","properties":[],"resourceType":"GMRInstanceLayer","resourceVersion":"2.0","userdefinedDepth":false,"visible":true,},
                 {"$GMRBackgroundLayer":"","%Name":"Background","animationFPS":15.0,"animationSpeedType":0,"colour":4278190080,"depth":300,"effectEnabled":true,"effectType":null,"gridX":32,"gridY":32,"hierarchyFrozen":false,"hspeed":0.0,"htiled":false,"inheritLayerDepth":false,"inheritLayerSettings":false,"inheritSubLayers":true,"inheritVisibility":true,"layers":[],"name":"Background","properties":[],"resourceType":"GMRBackgroundLayer","resourceVersion":"2.0","spriteId":null,"stretch":false,"userdefinedAnimFPS":false,"userdefinedDepth":false,"visible":true,"vspeed":0.0,"vtiled":false,"x":0,"y":0,},
@@ -1175,8 +1175,9 @@ void describe("GmlSemanticBridge tests", () => {
         assert.match(roomEdit.content, /"name":"oEndGoal"/u);
         assert.match(roomEdit.content, /"path":"objects\/oEndGoal\/oEndGoal\.yy"/u);
         assert.match(roomEdit.content, /"imageSpeed":1\.0/u);
-        assert.match(roomEdit.content, /"rotation":0\.0/u);
-        assert.match(roomEdit.content, /"scaleX":1\.0/u);
+        assert.match(roomEdit.content, /"rotation":3\.7500002/u);
+        assert.match(roomEdit.content, /"scaleX":1\.7499999/u);
+        assert.match(roomEdit.content, /"scaleY":1\.0/u);
         assert.match(roomEdit.content, /"animationFPS":15\.0/u);
         assert.match(roomEdit.content, /"PhysicsWorldGravityY":10\.0/u);
         assert.match(roomEdit.content, /"PhysicsWorldPixToMetres":0\.1/u);
