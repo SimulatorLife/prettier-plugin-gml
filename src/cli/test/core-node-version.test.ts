@@ -17,4 +17,44 @@ void describe("assertSupportedNodeVersion", () => {
         // is sufficient here.
         assert.doesNotThrow(() => assertSupportedNodeVersion());
     });
+
+    void it("throws when the Node.js major version is too old", () => {
+        const original = process.version;
+        Object.defineProperty(process, "version", { value: "v16.0.0", configurable: true });
+        try {
+            assert.throws(
+                () => assertSupportedNodeVersion(),
+                (err: unknown) => err instanceof Error && /required/.test(err.message)
+            );
+        } finally {
+            Object.defineProperty(process, "version", { value: original, configurable: true });
+        }
+    });
+
+    void it("throws when the Node.js minor version is below the minimum for that major", () => {
+        const original = process.version;
+        // Node 18.17.x is below the 18.18.0 minimum.
+        Object.defineProperty(process, "version", { value: "v18.17.0", configurable: true });
+        try {
+            assert.throws(
+                () => assertSupportedNodeVersion(),
+                (err: unknown) => err instanceof Error && /18\.18\.0/.test(err.message)
+            );
+        } finally {
+            Object.defineProperty(process, "version", { value: original, configurable: true });
+        }
+    });
+
+    void it("throws a TypeError when the version string cannot be parsed", () => {
+        const original = process.version;
+        Object.defineProperty(process, "version", { value: "not-a-version", configurable: true });
+        try {
+            assert.throws(
+                () => assertSupportedNodeVersion(),
+                (err: unknown) => err instanceof TypeError && /Unable to determine/.test(err.message)
+            );
+        } finally {
+            Object.defineProperty(process, "version", { value: original, configurable: true });
+        }
+    });
 });
