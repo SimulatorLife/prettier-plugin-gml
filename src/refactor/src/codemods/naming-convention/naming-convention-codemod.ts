@@ -67,10 +67,6 @@ function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit)
     }
 }
 
-function incrementScopedNameCount(names: Map<string, number>, normalizedName: string): void {
-    names.set(normalizedName, (names.get(normalizedName) ?? 0) + 1);
-}
-
 function decrementScopedNameCount(names: Map<string, number>, normalizedName: string): void {
     const currentCount = names.get(normalizedName) ?? 0;
     if (currentCount <= 1) {
@@ -319,7 +315,7 @@ export async function planNamingConventionCodemod(
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const names = localScopeNames.get(scopeKey) ?? new Map<string, number>();
-        incrementScopedNameCount(names, target.name.toLowerCase());
+        Core.incrementMapValue(names, target.name.toLowerCase());
         localScopeNames.set(scopeKey, names);
     }
 
@@ -395,7 +391,7 @@ export async function planNamingConventionCodemod(
         }
 
         decrementScopedNameCount(existingNames, normalizedCurrentName);
-        incrementScopedNameCount(existingNames, normalizedSuggestedName);
+        Core.incrementMapValue(existingNames, normalizedSuggestedName);
         localScopeNames.set(scopeKey, existingNames);
         localRenameCount += 1;
     }
