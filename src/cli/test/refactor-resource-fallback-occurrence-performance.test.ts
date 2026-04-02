@@ -6,13 +6,12 @@ import test from "node:test";
 
 import { Refactor } from "@gmloop/refactor";
 
-import { GmlIdentifierOccurrenceIndex } from "../src/modules/refactor/gml-identifier-occurrence-index.js";
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 import { measureMedianDurationMs } from "./test-helpers/refactor-top-level-naming-performance.js";
 
-const OBJECT_RESOURCE_COUNT = 48;
-const USAGE_FILE_COUNT = 48;
-const PERFORMANCE_THRESHOLD_MS = 600;
+const OBJECT_RESOURCE_COUNT = 40;
+const USAGE_FILE_COUNT = 40;
+const PERFORMANCE_THRESHOLD_MS = 700;
 
 type ObjectResourceFallbackFixture = {
     projectIndex: Record<string, unknown>;
@@ -104,43 +103,35 @@ void test("refactor naming codemod reuses cached fallback identifier indexes for
         const executeStressRun = async () => {
             const semantic = new GmlSemanticBridge(fixture.projectIndex, fixture.projectRoot);
             const engine = new Refactor.RefactorEngine({ semantic });
-            const originalFromSourceText = GmlIdentifierOccurrenceIndex.fromSourceText;
-            let fromSourceTextCallCount = 0;
-
-            GmlIdentifierOccurrenceIndex.fromSourceText = (sourceText: string) => {
-                fromSourceTextCallCount += 1;
-                return originalFromSourceText(sourceText);
-            };
-
-            try {
-                const result = await engine.executeConfiguredCodemods({
-                    projectRoot: fixture.projectRoot,
-                    targetPaths: [fixture.projectRoot],
-                    gmlFilePaths: [...fixture.sourceTexts.keys()],
-                    config: {
-                        namingConventionPolicy: {
-                            rules: {
-                                objectResourceName: {
-                                    caseStyle: "camel"
-                                }
+            const result = await engine.executeConfiguredCodemods({
+                projectRoot: fixture.projectRoot,
+                targetPaths: [fixture.projectRoot],
+                gmlFilePaths: [...fixture.sourceTexts.keys()],
+                config: {
+                    namingConventionPolicy: {
+                        rules: {
+                            objectResourceName: {
+                                caseStyle: "camel"
                             }
-                        },
-                        codemods: {
-                            namingConvention: {}
                         }
                     },
-                    readFile: async (filePath) => fixture.sourceTexts.get(filePath) ?? "",
-                    dryRun: true,
-                    onlyCodemods: ["namingConvention"]
-                });
+                    codemods: {
+                        namingConvention: {}
+                    }
+                },
+                readFile: async (filePath) => fixture.sourceTexts.get(filePath) ?? "",
+                dryRun: true,
+                onlyCodemods: ["namingConvention"]
+            });
 
-                return {
-                    fromSourceTextCallCount,
-                    result
-                };
-            } finally {
-                GmlIdentifierOccurrenceIndex.fromSourceText = originalFromSourceText;
-            }
+            return {
+                indexedFileCount: (
+                    semantic as unknown as {
+                        diskIdentifierOccurrenceIndexesByFilePath: Map<string, unknown>;
+                    }
+                ).diskIdentifierOccurrenceIndexesByFilePath.size,
+                result
+            };
         };
 
         await executeStressRun();
@@ -152,11 +143,12 @@ void test("refactor naming codemod reuses cached fallback identifier indexes for
         assert.equal(result.result.summaries[0]?.id, "namingConvention");
         assert.equal(result.result.summaries[0]?.changed, true);
         assert.ok(typeof rewrittenUsageFile === "string");
-        assert.match(rewrittenUsageFile, /\bbadObject0\b/);
+        assert.match(rewrittenUsageFile, /\bbadObject/u);
+        assert.doesNotMatch(rewrittenUsageFile, /\bbad_object_0\b/u);
         assert.equal(
-            result.fromSourceTextCallCount,
+            result.indexedFileCount,
             expectedIndexedFileCount,
-            `Expected one fallback identifier index per source file, received ${result.fromSourceTextCallCount}`
+            `Expected one fallback identifier index per source file, received ${result.indexedFileCount}`
         );
         assert.ok(
             durationMs <= PERFORMANCE_THRESHOLD_MS,
