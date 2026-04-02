@@ -14,6 +14,7 @@ import {
     cloneMultiplicativeTerms,
     createBinaryExpressionNode,
     createCallExpressionNode,
+    createMultiplicationNode,
     createNegatedExpression,
     createNumericLiteral,
     createParenthesizedExpressionNode,
@@ -21,14 +22,8 @@ import {
     mutateToCallExpression,
     mutateToNumericLiteral,
     replaceNode,
-    replaceNodeWith
+    replaceNodeWith as replaceNodeByMutation
 } from "./math-ast-builders.js";
-import {
-    attemptConvertDegreesToRadians,
-    attemptSimplifyTrigonometricCall,
-    identifyTrigCall,
-    matchDegreesToRadians
-} from "./math-trig-conversions.js";
 import {
     areLiteralNumbersApproximatelyEqual,
     collectProductOperands,
@@ -36,7 +31,6 @@ import {
     computeNumericTolerance,
     evaluateNumericExpression,
     evaluateOneMinusNumeric,
-    findFirstNumericLiteral,
     isBinaryOperator,
     isEulerLiteral,
     isHalfExponentLiteral,
@@ -44,12 +38,16 @@ import {
     isLnCall,
     isNegativeOneFactor,
     isNumericZeroLiteral,
-    isPiIdentifier,
     normalizeNumericCoefficient,
     parseNumericFactor,
     scaleNumericLiteralCoefficient,
     toApproxInteger
 } from "./math-numeric-utils.js";
+import {
+    attemptConvertDegreesToRadians as simplifyDegreesToRadians,
+    attemptSimplifyTrigonometricCall,
+    identifyTrigCall
+} from "./math-trig-conversions.js";
 
 const {
     ASSIGNMENT_EXPRESSION,
@@ -95,7 +93,7 @@ const BINARY_SIMPLIFIERS: SimplificationHandler[] = [
     attemptRemoveMultiplicativeIdentity,
     attemptReplaceMultiplicationWithZero,
     attemptRemoveAdditiveIdentity,
-    attemptConvertDegreesToRadians,
+    simplifyDegreesToRadians,
     attemptSimplifyDivisionByReciprocal,
     attemptCancelReciprocalRatios,
     attemptSimplifyNegativeDivisionProduct,
@@ -332,7 +330,7 @@ function removeMultiplicativeIdentityOperand(node, key, otherKey, context) {
     const sanitizedOperand = isSafeOperand(other) ? Core.unwrapParenthesizedExpression(other) : other;
 
     const replacement = Core.cloneAstNode(sanitizedOperand);
-    if (!replaceNodeWith(node, replacement)) {
+    if (!replaceNodeByMutation(node, replacement)) {
         return false;
     }
 
@@ -351,7 +349,7 @@ function unwrapIdentityReplacementResult(node) {
         isIdentityReplacementSafeExpression(node.expression)
     ) {
         const nextNode = node.expression;
-        if (!replaceNodeWith(node, nextNode)) {
+        if (!replaceNodeByMutation(node, nextNode)) {
             break;
         }
 
@@ -728,7 +726,7 @@ function attemptCondenseSimpleScalarProduct(node, context) {
     if (Math.abs(normalizedNumber - 1) <= unitTolerance) {
         const originalExpression = Core.cloneAstNode(node);
 
-        if (!replaceNodeWith(node, operand)) {
+        if (!replaceNodeByMutation(node, operand)) {
             return false;
         }
 
@@ -870,7 +868,7 @@ function unwrapEnclosingParentheses(node, context) {
             break;
         }
 
-        replaceNodeWith(parent, current);
+        replaceNodeByMutation(parent, current);
         current = parent;
     }
 }
@@ -1034,7 +1032,7 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
     const parentLine = node?.end?.line;
     const trailingCommentValue = captureTrailingLineCommentValue(parentLine, context);
 
-    if (!replaceNodeWith(node, other)) {
+    if (!replaceNodeByMutation(node, other)) {
         return false;
     }
 
@@ -1236,7 +1234,7 @@ function attemptCancelReciprocalRatios(node, context) {
         return false;
     }
 
-    return replaceNodeWith(node, replacement);
+    return replaceNodeByMutation(node, replacement);
 }
 
 type MultiplicativeChain = {
@@ -1652,7 +1650,7 @@ function attemptCondenseScalarProduct(node, context) {
             ? createUnaryNegationNode(condensedOperand, node)
             : condensedOperand;
 
-        if (!replacement || !replaceNodeWith(node, replacement)) {
+        if (!replacement || !replaceNodeByMutation(node, replacement)) {
             return false;
         }
 
@@ -1948,7 +1946,7 @@ function attemptCollectDistributedScalars(node, context) {
             return false;
         }
 
-        replaceNodeWith(node, baseClone);
+        replaceNodeByMutation(node, baseClone);
         return true;
     }
 
@@ -3851,15 +3849,15 @@ export {
     attemptCondenseNumericChainWithMultipleBases,
     attemptCondenseScalarProduct,
     attemptCondenseSimpleScalarProduct,
-    attemptConvertDegreesToRadians,
     attemptRemoveAdditiveIdentity,
     attemptRemoveMultiplicativeIdentity,
     attemptSimplifyDivisionByReciprocal,
     attemptSimplifyNegativeDivisionProduct,
     attemptSimplifyOneMinusFactor,
     isIdentityReplacementSafeExpression,
-    matchDegreesToRadians,
     normalizeTraversalContext,
-    replaceNodeWith,
     simplifyZeroDivisionNumerators
 };
+
+export { replaceNodeWith } from "./math-ast-builders.js";
+export { attemptConvertDegreesToRadians, matchDegreesToRadians } from "./math-trig-conversions.js";
