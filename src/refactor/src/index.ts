@@ -195,4 +195,5 @@ export {
     validateCrossFileConsistency,
     validateRenameStructure
 } from "./validation.js";
-export { WorkspaceEdit } from "./workspace-edit.js";
+export type { WorkspaceRevisionProvider } from "./workspace-edit.js";
+export { WORKSPACE_EDIT_REVISION_TOKEN, WorkspaceEdit } from "./workspace-edit.js";

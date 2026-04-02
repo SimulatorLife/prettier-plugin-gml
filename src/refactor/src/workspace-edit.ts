@@ -4,6 +4,36 @@
  * represent a semantic-safe refactoring operation across multiple files.
  */
 
+/**
+ * Well-known symbol that any workspace-edit-like object can implement to expose
+ * its current mutation revision without being an instance of {@link WorkspaceEdit}.
+ * Substitutable implementations should call this method each time they mutate
+ * their edit collection and increment the returned counter so that callers can
+ * detect staleness without relying on `instanceof` checks.
+ *
+ * @example
+ * ```ts
+ * import { WORKSPACE_EDIT_REVISION_TOKEN } from "./workspace-edit.js";
+ *
+ * class MyWorkspaceEdit {
+ *   #revision = 0;
+ *   [WORKSPACE_EDIT_REVISION_TOKEN](): number { return this.#revision; }
+ *   addEdit(...) { this.#revision++; ... }
+ * }
+ * ```
+ */
+export const WORKSPACE_EDIT_REVISION_TOKEN: unique symbol = Symbol("WorkspaceEdit.revision");
+
+/**
+ * Contract that a workspace-edit-like object must implement to participate in
+ * revision-based cache invalidation. Any class that exposes this method via the
+ * {@link WORKSPACE_EDIT_REVISION_TOKEN} symbol can be used wherever revision
+ * tracking is required, without being a concrete {@link WorkspaceEdit} instance.
+ */
+export interface WorkspaceRevisionProvider {
+    readonly [WORKSPACE_EDIT_REVISION_TOKEN]: () => number;
+}
+
 export interface TextEdit {
     path: string;
     start: number;
@@ -156,6 +186,17 @@ export class WorkspaceEdit {
         mutableState.groupedEditsRevision = mutableState.revision;
         return grouped;
     }
+
+    /**
+     * Implement the {@link WorkspaceRevisionProvider} contract so that
+     * {@link getWorkspaceEditRevision} can retrieve the revision via a
+     * capability probe rather than an `instanceof WorkspaceEdit` check.
+     * This allows substitutable workspace implementations to participate in
+     * revision-based cache invalidation by implementing the same symbol method.
+     */
+    [WORKSPACE_EDIT_REVISION_TOKEN](): number {
+        return getMutableState(this).revision;
+    }
 }
 
 /**
@@ -191,20 +232,26 @@ export function getWorkspaceEditTelemetry(workspace: WorkspaceEdit): WorkspaceEd
 }
 
 /**
- * Return the current mutation revision for a concrete {@link WorkspaceEdit}.
+ * Return the current mutation revision for any object that implements the
+ * {@link WorkspaceRevisionProvider} contract via {@link WORKSPACE_EDIT_REVISION_TOKEN}.
  * The revision increments whenever text edits, metadata edits, or file renames
  * are appended, allowing callers to invalidate caches tied to the workspace's
  * current contents without exposing the mutable bookkeeping itself.
  *
- * @param workspace - Workspace edit instance to inspect.
- * @returns Current mutation revision, or `null` for non-native workspace-like values.
+ * Any substitutable workspace implementation that exposes
+ * `[WORKSPACE_EDIT_REVISION_TOKEN](): number` participates in revision tracking
+ * without needing to be a concrete {@link WorkspaceEdit} instance.
+ *
+ * @param workspace - Workspace edit instance or compatible provider to inspect.
+ * @returns Current mutation revision, or `null` when the object does not implement the contract.
  */
-export function getWorkspaceEditRevision(workspace: WorkspaceEdit | object): number | null {
-    if (!(workspace instanceof WorkspaceEdit)) {
+export function getWorkspaceEditRevision(workspace: object): number | null {
+    const provider = workspace as Partial<WorkspaceRevisionProvider>;
+    if (typeof provider[WORKSPACE_EDIT_REVISION_TOKEN] !== "function") {
         return null;
     }
 
-    return getMutableState(workspace).revision;
+    return provider[WORKSPACE_EDIT_REVISION_TOKEN]();
 }
 
 /**
