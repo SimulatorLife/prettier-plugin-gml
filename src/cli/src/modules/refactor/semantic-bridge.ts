@@ -2717,6 +2717,7 @@ export class GmlSemanticBridge {
         for (const [filePath, fileRecord] of Object.entries(
             (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>
         )) {
+            const sourceText = this.readProjectSourceText(filePath);
             for (const declaration of fileRecord.declarations ?? []) {
                 const declarationStart = Core.isObjectLike(declaration.start)
                     ? (declaration.start as Record<string, unknown>)
@@ -2727,7 +2728,12 @@ export class GmlSemanticBridge {
                 }
 
                 if (
-                    !this.localNamingCategoryResolver.isConstructorStaticMember(filePath, declaration.name, startIndex)
+                    !this.localNamingCategoryResolver.isConstructorStaticMember(
+                        filePath,
+                        sourceText,
+                        declaration.name,
+                        startIndex
+                    )
                 ) {
                     continue;
                 }
