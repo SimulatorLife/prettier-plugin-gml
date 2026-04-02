@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { Core } from "@gmloop/core";
 
 import { evaluateNamingConvention, resolveNamingConventionRules } from "../../naming-convention-policy.js";
@@ -65,10 +63,6 @@ function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit)
     for (const fileRename of source.fileRenames) {
         destination.addFileRename(fileRename.oldPath, fileRename.newPath);
     }
-}
-
-function incrementScopedNameCount(names: Map<string, number>, normalizedName: string): void {
-    names.set(normalizedName, (names.get(normalizedName) ?? 0) + 1);
 }
 
 function decrementScopedNameCount(names: Map<string, number>, normalizedName: string): void {
@@ -218,32 +212,6 @@ function findDependentMacroNames(
     return dependentMacroNames.toSorted();
 }
 
-function collectNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: ReadonlyArray<string>): Array<string> {
-    const queryPaths = new Set<string>();
-
-    for (const filePath of selectedFilePaths) {
-        const normalizedFilePath = filePath.replaceAll("\\", "/");
-        const siblingResourcePath = normalizedFilePath.replace(/\.gml$/i, ".yy");
-        const ownerDirectory = path.posix.dirname(normalizedFilePath);
-        const ownerResourceName = path.posix.basename(ownerDirectory);
-        const ownerParentDirectory = path.posix.dirname(ownerDirectory);
-        const ownerResourcePath =
-            ownerParentDirectory === "." ? null : path.posix.join(ownerDirectory, `${ownerResourceName}.yy`);
-
-        queryPaths.add(normalizedFilePath);
-        queryPaths.add(path.resolve(projectRoot, normalizedFilePath));
-        queryPaths.add(siblingResourcePath);
-        queryPaths.add(path.resolve(projectRoot, siblingResourcePath));
-
-        if (ownerResourcePath !== null) {
-            queryPaths.add(ownerResourcePath);
-            queryPaths.add(path.resolve(projectRoot, ownerResourcePath));
-        }
-    }
-
-    return Array.from(queryPaths);
-}
-
 /**
  * Plan naming-policy-driven edits for the selected project paths.
  */
@@ -300,17 +268,15 @@ export async function planNamingConventionCodemod(
 
     const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) => isSelectedTargetPath(filePath));
     const queriedTargets = await semantic.listNamingConventionTargets(
-        selectedFilePaths.length === 0
-            ? undefined
-            : collectNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths),
+        selectedFilePaths.length === 0 ? undefined : selectedFilePaths,
         requestedCategories
     );
     const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));
-    const macroDependencyNamesByFile = collectMacroDependencyNamesByFile(
-        typeof semantic.listMacroExpansionDependencies === "function"
-            ? await semantic.listMacroExpansionDependencies(selectedFilePaths)
-            : []
-    );
+    const requiresMacroDependencyAnalysis = selectedTargets.some((target) => target.symbolId === null);
+    const macroDependencyNamesByFile =
+        requiresMacroDependencyAnalysis && typeof semantic.listMacroExpansionDependencies === "function"
+            ? collectMacroDependencyNamesByFile(await semantic.listMacroExpansionDependencies(selectedFilePaths))
+            : null;
 
     for (const target of selectedTargets) {
         if (target.symbolId !== null) {
@@ -319,7 +285,7 @@ export async function planNamingConventionCodemod(
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const names = localScopeNames.get(scopeKey) ?? new Map<string, number>();
-        incrementScopedNameCount(names, target.name.toLowerCase());
+        Core.incrementMapValue(names, target.name.toLowerCase());
         localScopeNames.set(scopeKey, names);
     }
 
@@ -382,7 +348,10 @@ export async function planNamingConventionCodemod(
             continue;
         }
 
-        const dependentMacroNames = findDependentMacroNames(macroDependencyNamesByFile, target.path, target.name);
+        const dependentMacroNames =
+            macroDependencyNamesByFile === null
+                ? []
+                : findDependentMacroNames(macroDependencyNamesByFile, target.path, target.name);
         if (dependentMacroNames.length > 0) {
             warnings.push(
                 `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because macro expansion${dependentMacroNames.length === 1 ? "" : "s"} ${dependentMacroNames.map((macroName) => `'${macroName}'`).join(", ")} ${dependentMacroNames.length === 1 ? "depends" : "depend"} on '${target.name}'.`
@@ -395,7 +364,7 @@ export async function planNamingConventionCodemod(
         }
 
         decrementScopedNameCount(existingNames, normalizedCurrentName);
-        incrementScopedNameCount(existingNames, normalizedSuggestedName);
+        Core.incrementMapValue(existingNames, normalizedSuggestedName);
         localScopeNames.set(scopeKey, existingNames);
         localRenameCount += 1;
     }

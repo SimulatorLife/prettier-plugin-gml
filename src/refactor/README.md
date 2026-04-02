@@ -30,6 +30,7 @@ It does not replace lint or formatter domains:
 ## Features
 
 - Naming-convention codemods treat unique constructor static members as cross-file rename targets, including dotted calls like `value.Sub()` and bare calls like `Reset()` that occur inside constructors or `with (...)` blocks.
+- Batch resource renames compose staged metadata rewrites and staged file moves, so later renames in the same run resolve the current folder/file path even for non-canonical GameMaker layouts that keep multiple object `.yy` files in one directory.
 
 ## Performance Regression Coverage
 
@@ -40,13 +41,16 @@ Current guardrails focus on the two hottest naming-convention paths that showed 
 - Top-level naming-convention batch planning now reuses the first batch validation when the rename set is unchanged, avoiding a second full pass through `validateRenameRequest`.
 - CLI local-variable naming scans now build each file's local-reference index once and reuse it for every declaration in that file.
 - CLI semantic bridge lookups for script-backed callable declarations now use a resource-path index instead of rescanning every script entry for each lookup.
+- Naming-convention planning now skips macro-expansion dependency scans for batches that only touch top-level/resource symbols, instead of parsing macro sources on every run whether local renames are present or not.
 - Resource rename metadata planning now indexes inbound metadata references once per semantic bridge and reuses parsed `.yy/.yyp` documents across the batch instead of rescanning and reparsing them for every rename.
 - `WorkspaceEdit` now caches grouped text edits per revision and skips the second structural validation pass when the same immutable workspace is applied immediately after validation.
+- The CLI refactor command now uses the semantic workspace's default GML project-index concurrency instead of forcing a serial build, so large codemod runs do not bottleneck on one-file-at-a-time indexing.
 
 The refactor workspace keeps naming-convention codemod stress tests in the regular TypeScript test suite:
 
 - [`src/refactor/test/naming-convention-performance.test.ts`](./test/naming-convention-performance.test.ts) exercises high-volume local rename planning and edit application.
 - [`src/cli/test/refactor-codemod-performance.test.ts`](../cli/test/refactor-codemod-performance.test.ts) exercises the indexed CLI bridge path for large top-level rename batches.
+- [`src/cli/test/refactor-codemod-command-performance.test.ts`](../cli/test/refactor-codemod-command-performance.test.ts) exercises end-to-end `refactor codemod --write` execution on a larger synthetic GameMaker project so CLI indexing, planning, and write-back stay bounded.
 - [`src/cli/test/refactor-naming-target-discovery-performance.test.ts`](../cli/test/refactor-naming-target-discovery-performance.test.ts) exercises naming-target discovery on mixed declaration/reference workloads so reference-only files do not rebuild local-reference indexes unnecessarily.
 - [`src/cli/test/refactor-local-naming-performance.test.ts`](../cli/test/refactor-local-naming-performance.test.ts) exercises disk-backed local-variable codemods so CI catches regressions in source-text loading, local-occurrence indexing, and member-access filtering on real files.
 - [`src/cli/test/refactor-script-resource-naming-performance.test.ts`](../cli/test/refactor-script-resource-naming-performance.test.ts) exercises script-backed function naming on large resource sets so repeated script-resource scans stay bounded.
@@ -458,6 +462,10 @@ reused during rename occurrence gathering instead of being rescanned across the
 full file map for every symbol. Batch rename planning now keeps the refactor
 semantic query cache warm while metadata overlays are staged, so later renames
 in the same codemod run can reuse symbol existence and occurrence lookups.
+When a resource rename still needs disk-backed fallback occurrence discovery,
+the CLI semantic bridge now builds one cached identifier-occurrence index per
+GML file and reuses it across the whole codemod session instead of reparsing or
+rescanning every file for every renamed resource.
 
 Naming-convention edits also normalize semantic occurrence spans to exclusive
 end indexes before generating workspace edits, and local-variable rename

@@ -951,6 +951,113 @@ void describe("GmlSemanticBridge tests", () => {
         assert.doesNotMatch(resetManifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
     });
 
+    void it("getAdditionalSymbolEdits resolves staged directory renames for sibling object resources in shared folders", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-shared-object-folder-"));
+        const parentObjectPath = "objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy";
+        const siblingObjectPath = "objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy";
+        const projectManifestPath = "project.yyp";
+
+        const parentObjectAbsolute = path.join(tmpRoot, parentObjectPath);
+        const siblingObjectAbsolute = path.join(tmpRoot, siblingObjectPath);
+        const projectManifestAbsolute = path.join(tmpRoot, projectManifestPath);
+        fs.mkdirSync(path.dirname(parentObjectAbsolute), { recursive: true });
+
+        fs.writeFileSync(
+            parentObjectAbsolute,
+            `{"name":"oColmesh2DemoCylinder","resourceType":"GMObject","resourcePath":"objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            siblingObjectAbsolute,
+            `{"name":"oColmeshDemo2Sphere","resourceType":"GMObject","resourcePath":"objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            projectManifestAbsolute,
+            `{
+                "name":"MyGame",
+                "resourceType":"GMProject",
+                "resources":[
+                    {"id":{"name":"oColmesh2DemoCylinder","path":"objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy",}},
+                    {"id":{"name":"oColmeshDemo2Sphere","path":"objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy",}}
+                ],
+            }`,
+            "utf8"
+        );
+
+        const mockProjectIndex = {
+            identifiers: {},
+            resources: {
+                [parentObjectPath]: {
+                    path: parentObjectPath,
+                    name: "oColmesh2DemoCylinder",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [siblingObjectPath]: {
+                    path: siblingObjectPath,
+                    name: "oColmeshDemo2Sphere",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [projectManifestPath]: {
+                    path: projectManifestPath,
+                    name: "MyGame",
+                    resourceType: "GMProject",
+                    assetReferences: [
+                        {
+                            propertyPath: "resources.0.id",
+                            targetPath: parentObjectPath,
+                            targetName: "oColmesh2DemoCylinder"
+                        },
+                        {
+                            propertyPath: "resources.1.id",
+                            targetPath: siblingObjectPath,
+                            targetName: "oColmeshDemo2Sphere"
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const parentRenameEdits = bridge.getAdditionalSymbolEdits(
+            "gml/objects/oColmesh2DemoCylinder",
+            "obj_o_colmesh2demo_cylinder"
+        );
+        assert.ok(parentRenameEdits);
+        bridge.stageWorkspaceEdit(parentRenameEdits);
+
+        const siblingRenameEdits = bridge.getAdditionalSymbolEdits(
+            "gml/objects/oColmeshDemo2Sphere",
+            "obj_o_colmesh_demo2sphere"
+        );
+        assert.ok(siblingRenameEdits);
+
+        assert.deepEqual(siblingRenameEdits.fileRenames, [
+            {
+                oldPath: "objects/obj_o_colmesh2demo_cylinder/oColmeshDemo2Sphere.yy",
+                newPath: "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh_demo2sphere.yy"
+            }
+        ]);
+
+        const siblingMetadataEdit = siblingRenameEdits.metadataEdits.find((entry) => entry.path === siblingObjectPath);
+        assert.ok(siblingMetadataEdit);
+        assert.match(
+            siblingMetadataEdit.content,
+            /"resourcePath"\s*:\s*"objects\/obj_o_colmesh2demo_cylinder\/obj_o_colmesh_demo2sphere\.yy"/
+        );
+
+        const manifestEdit = siblingRenameEdits.metadataEdits.find((entry) => entry.path === projectManifestPath);
+        assert.ok(manifestEdit);
+        assert.match(manifestEdit.content, /"name"\s*:\s*"obj_o_colmesh2demo_cylinder"/);
+        assert.match(manifestEdit.content, /"name"\s*:\s*"obj_o_colmesh_demo2sphere"/);
+        assert.match(
+            manifestEdit.content,
+            /"path"\s*:\s*"objects\/obj_o_colmesh2demo_cylinder\/obj_o_colmesh_demo2sphere\.yy"/
+        );
+    });
+
     void it("getAdditionalSymbolEdits preserves room float metadata across sequential staged rewrites", () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-room-floats-"));
         const playerPath = "objects/oPlayer/oPlayer.yy";
@@ -990,7 +1097,7 @@ void describe("GmlSemanticBridge tests", () => {
               "isDnd":false,
               "layers":[
                 {"$GMRInstanceLayer":"","%Name":"Instances_3","depth":100,"effectEnabled":true,"effectType":null,"gridX":32,"gridY":32,"hierarchyFrozen":false,"inheritLayerDepth":false,"inheritLayerSettings":false,"inheritSubLayers":true,"inheritVisibility":true,"instances":[
-                    {"$GMRInstance":"v4","%Name":"inst_104A19B6","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_104A19B6","objectId":{"name":"oPlayer","path":"objects/oPlayer/oPlayer.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":640.0,"y":480.0,},
+                    {"$GMRInstance":"v4","%Name":"inst_104A19B6","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_104A19B6","objectId":{"name":"oPlayer","path":"objects/oPlayer/oPlayer.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":3.7500002,"scaleX":1.7499999,"scaleY":1.0,"x":640.0,"y":480.0,},
                     {"$GMRInstance":"v4","%Name":"inst_722E568F","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_722E568F","objectId":{"name":"oGoal","path":"objects/oGoal/oGoal.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":1056.0,"y":544.0,},
                   ],"layers":[],"name":"Instances_3","properties":[],"resourceType":"GMRInstanceLayer","resourceVersion":"2.0","userdefinedDepth":false,"visible":true,},
                 {"$GMRBackgroundLayer":"","%Name":"Background","animationFPS":15.0,"animationSpeedType":0,"colour":4278190080,"depth":300,"effectEnabled":true,"effectType":null,"gridX":32,"gridY":32,"hierarchyFrozen":false,"hspeed":0.0,"htiled":false,"inheritLayerDepth":false,"inheritLayerSettings":false,"inheritSubLayers":true,"inheritVisibility":true,"layers":[],"name":"Background","properties":[],"resourceType":"GMRBackgroundLayer","resourceVersion":"2.0","spriteId":null,"stretch":false,"userdefinedAnimFPS":false,"userdefinedDepth":false,"visible":true,"vspeed":0.0,"vtiled":false,"x":0,"y":0,},
@@ -1068,8 +1175,9 @@ void describe("GmlSemanticBridge tests", () => {
         assert.match(roomEdit.content, /"name":"oEndGoal"/u);
         assert.match(roomEdit.content, /"path":"objects\/oEndGoal\/oEndGoal\.yy"/u);
         assert.match(roomEdit.content, /"imageSpeed":1\.0/u);
-        assert.match(roomEdit.content, /"rotation":0\.0/u);
-        assert.match(roomEdit.content, /"scaleX":1\.0/u);
+        assert.match(roomEdit.content, /"rotation":3\.7500002/u);
+        assert.match(roomEdit.content, /"scaleX":1\.7499999/u);
+        assert.match(roomEdit.content, /"scaleY":1\.0/u);
         assert.match(roomEdit.content, /"animationFPS":15\.0/u);
         assert.match(roomEdit.content, /"PhysicsWorldGravityY":10\.0/u);
         assert.match(roomEdit.content, /"PhysicsWorldPixToMetres":0\.1/u);
@@ -2477,6 +2585,98 @@ void describe("GmlSemanticBridge tests", () => {
                 `reference:${childFilePath}`
             ].toSorted()
         );
+    });
+
+    void it("listNamingConventionTargets does not synthesize implicit instance-variable targets for known resource identifiers", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-resource-name-targets-"));
+        const systemFilePath = "objects/oSystem/Other_2.gml";
+        const playerFilePath = "objects/oPlayer/Create_0.gml";
+        const systemSource = ["instance_create_depth(0, 0, 0, oCamera);", "if (instance_exists(oCamera)) {}", ""].join(
+            "\n"
+        );
+        const playerSource = [
+            "if (instance_exists(oCamera)) {",
+            "    show_debug_message(oCamera.camXfrom);",
+            "}",
+            ""
+        ].join("\n");
+
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oSystem"), { recursive: true });
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oPlayer"), { recursive: true });
+        fs.writeFileSync(path.join(tmpRoot, systemFilePath), systemSource, "utf8");
+        fs.writeFileSync(path.join(tmpRoot, playerFilePath), playerSource, "utf8");
+
+        const systemCreateDepthStart = findNthIndex(systemSource, "oCamera", 1);
+        const systemInstanceExistsStart = findNthIndex(systemSource, "oCamera", 2);
+        const playerInstanceExistsStart = findNthIndex(playerSource, "oCamera", 1);
+        const playerDottedOwnerStart = findNthIndex(playerSource, "oCamera", 2);
+
+        const mockProjectIndex = {
+            identifiers: {
+                instanceVariables: {}
+            },
+            resources: {
+                "objects/oCamera/oCamera.yy": {
+                    path: "objects/oCamera/oCamera.yy",
+                    name: "oCamera",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                }
+            },
+            files: {
+                [systemFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oSystem",
+                            start: { index: systemCreateDepthStart },
+                            end: { index: systemCreateDepthStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oSystem",
+                            start: { index: systemInstanceExistsStart },
+                            end: { index: systemInstanceExistsStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                },
+                [playerFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: playerInstanceExistsStart },
+                            end: { index: playerInstanceExistsStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: playerDottedOwnerStart },
+                            end: { index: playerDottedOwnerStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const targets = await bridge.listNamingConventionTargets([systemFilePath, playerFilePath]);
+
+        assert.ok(!targets.some((target) => target.category === "instanceVariable" && target.name === "oCamera"));
     });
 
     void it("listNamingConventionTargets excludes enum-member property references from implicit instance-variable targets", async () => {

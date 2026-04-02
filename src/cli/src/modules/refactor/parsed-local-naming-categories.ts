@@ -152,8 +152,13 @@ export class ParsedLocalNamingCategoryResolver {
      * Resolve a local declaration's refined naming category when syntax provides
      * more precision than the semantic project index alone.
      */
-    resolveCategory(filePath: string, name: string, start: number): ParsedLocalNamingCategory | null {
-        const fileCategories = this.loadFileCategories(filePath);
+    resolveCategory(
+        filePath: string,
+        sourceText: string | null,
+        name: string,
+        start: number
+    ): ParsedLocalNamingCategory | null {
+        const fileCategories = this.loadFileCategories(filePath, sourceText);
         return fileCategories.get(createDeclarationLookupKey(name, start))?.category ?? null;
     }
 
@@ -161,26 +166,38 @@ export class ParsedLocalNamingCategoryResolver {
      * Determine whether a static declaration belongs to constructor scope, which
      * makes dotted member accesses a valid external reference form.
      */
-    isConstructorStaticMember(filePath: string, name: string, start: number): boolean {
-        const fileCategories = this.loadFileCategories(filePath);
+    isConstructorStaticMember(filePath: string, sourceText: string | null, name: string, start: number): boolean {
+        const fileCategories = this.loadFileCategories(filePath, sourceText);
         return fileCategories.get(createDeclarationLookupKey(name, start))?.isConstructorStaticMember === true;
     }
 
-    private loadFileCategories(filePath: string): ParsedLocalDeclarationMetadataMap {
+    /**
+     * Clear cached per-file declaration metadata after the underlying project
+     * sources change.
+     */
+    clear(): void {
+        this.categoryCache.clear();
+    }
+
+    private loadFileCategories(filePath: string, sourceText: string | null): ParsedLocalDeclarationMetadataMap {
         const cachedCategories = this.categoryCache.get(filePath);
         if (cachedCategories) {
             return cachedCategories;
         }
 
-        const absoluteFilePath = path.resolve(this.projectRoot, filePath);
         let parsedCategories: ParsedLocalDeclarationMetadataMap = new Map();
 
         try {
-            if (fs.existsSync(absoluteFilePath)) {
-                const sourceText = fs.readFileSync(absoluteFilePath, "utf8");
-                if (REQUIRES_PARSED_LOCAL_CATEGORY_SCAN_PATTERN.test(sourceText)) {
-                    parsedCategories = extractParsedLocalDeclarationMetadata(sourceText);
+            let resolvedSourceText = sourceText;
+            if (resolvedSourceText === null) {
+                const absoluteFilePath = path.resolve(this.projectRoot, filePath);
+                if (fs.existsSync(absoluteFilePath)) {
+                    resolvedSourceText = fs.readFileSync(absoluteFilePath, "utf8");
                 }
+            }
+
+            if (resolvedSourceText !== null && REQUIRES_PARSED_LOCAL_CATEGORY_SCAN_PATTERN.test(resolvedSourceText)) {
+                parsedCategories = extractParsedLocalDeclarationMetadata(resolvedSourceText);
             }
         } catch {
             parsedCategories = new Map();
