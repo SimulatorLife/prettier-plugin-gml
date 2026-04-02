@@ -7,14 +7,16 @@ import { DEFAULT_RESERVED_KEYWORDS } from "../../rename/index.js";
 import type {
     ApplyWorkspaceEditOptions,
     BatchRenamePlanSummary,
+    BatchRenameValidation,
     CodemodEngine,
     MacroExpansionDependency,
     NamingConventionCodemodPlan,
     NamingConventionViolation,
     RefactorProjectConfig,
-    RenameRequest
+    RenameRequest,
+    ValidationSummary
 } from "../../types.js";
-import { detectCircularRenames, detectDuplicateTargetNames } from "../../validation.js";
+import { detectCircularRenames, detectCrossRenameNameConfusion, detectDuplicateTargetNames } from "../../validation.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
 import { createPathSelectionMatcher } from "./path-selection.js";
 
@@ -80,6 +82,7 @@ function decrementScopedNameCount(names: Map<string, number>, normalizedName: st
 
 type TopLevelRenameSelection = {
     executableRenames: Array<RenameRequest>;
+    reusableBatchValidation: BatchRenameValidation | null;
     warnings: Array<string>;
 };
 
@@ -95,9 +98,11 @@ async function selectExecutableTopLevelRenames(
 ): Promise<TopLevelRenameSelection> {
     const warnings: Array<string> = [];
     const individuallySafeRenames: Array<RenameRequest> = [];
+    const renameValidations = new Map<string, ValidationSummary>();
 
     await Core.runSequentially(renames, async (rename) => {
         const validation = await engine.validateRenameRequest(rename);
+        renameValidations.set(rename.symbolId, validation);
         warnings.push(...validation.warnings.map((warning) => `${rename.symbolId}: ${warning}`));
 
         if (!validation.valid) {
@@ -141,8 +146,23 @@ async function selectExecutableTopLevelRenames(
         }
     }
 
+    const executableRenames = individuallySafeRenames.filter((rename) => !blockedSymbolIds.has(rename.symbolId));
+
     return {
-        executableRenames: individuallySafeRenames.filter((rename) => !blockedSymbolIds.has(rename.symbolId)),
+        executableRenames,
+        reusableBatchValidation:
+            blockedSymbolIds.size === 0 && individuallySafeRenames.length === renames.length
+                ? {
+                      valid: true,
+                      errors: [],
+                      warnings: detectCrossRenameNameConfusion(executableRenames).map(
+                          ({ symbolId, newName }) =>
+                              `Rename introduces potential confusion: '${symbolId}' renamed to '${newName}' which was an original symbol name in this batch`
+                      ),
+                      renameValidations,
+                      conflictingSets: []
+                  }
+                : null,
         warnings
     };
 }
@@ -385,7 +405,8 @@ export async function planNamingConventionCodemod(
     if (includeTopLevelPlan && executableTopLevelRenames.length > 0) {
         try {
             const preparedTopLevelRenamePlan = await engine.prepareBatchRenamePlan(executableTopLevelRenames, {
-                includeImpactAnalyses: false
+                includeImpactAnalyses: false,
+                batchValidation: topLevelRenameSelection.reusableBatchValidation
             });
             warnings.push(...collectBatchPlanWarnings(preparedTopLevelRenamePlan));
 

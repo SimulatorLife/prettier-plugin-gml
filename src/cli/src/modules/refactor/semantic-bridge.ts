@@ -1752,6 +1752,7 @@ export class GmlSemanticBridge {
                 continue;
             }
 
+            const indexedReferenceOccurrences = this.getLocalReferenceOccurrences(filePath, fileRecord);
             for (const declaration of fileRecord?.declarations ?? []) {
                 if (!declaration || declaration.isBuiltIn || typeof declaration.name !== "string") {
                     continue;
@@ -1775,6 +1776,7 @@ export class GmlSemanticBridge {
                 const occurrences = this.collectLocalOccurrences(
                     filePath,
                     declaration,
+                    indexedReferenceOccurrences,
                     category === "staticVariable" && this.isConstructorStaticMemberDeclaration(filePath, declaration)
                 );
 
@@ -2159,13 +2161,9 @@ export class GmlSemanticBridge {
     private collectLocalOccurrences(
         filePath: string,
         declaration: any,
+        indexedReferenceOccurrences: LocalReferenceIndex,
         includeConstructorStaticMemberReferences = false
     ): Array<SymbolOccurrence> {
-        const fileRecord = this.projectIndex.files?.[filePath] as SemanticFileRecord | undefined;
-        if (!fileRecord) {
-            return [];
-        }
-
         const declarationStartIndex = declaration?.start?.index ?? null;
         const declarationScopeId = declaration?.scopeId ?? null;
         const occurrences: Array<SymbolOccurrence> = [
@@ -2183,12 +2181,13 @@ export class GmlSemanticBridge {
             declarationScopeId,
             declarationStartIndex
         );
-        occurrences.push(...(this.getLocalReferenceOccurrences(filePath, fileRecord).get(referenceKey) ?? []));
+        occurrences.push(...(indexedReferenceOccurrences.get(referenceKey) ?? []));
 
-        if (includeConstructorStaticMemberReferences && typeof declaration.name === "string") {
-            this.collectUnresolvedConstructorStaticMemberOccurrences(declaration.name, occurrences);
+        if (!includeConstructorStaticMemberReferences || typeof declaration.name !== "string") {
+            return occurrences;
         }
 
+        this.collectUnresolvedConstructorStaticMemberOccurrences(declaration.name, occurrences);
         return this.deduplicateOccurrences(occurrences);
     }
 

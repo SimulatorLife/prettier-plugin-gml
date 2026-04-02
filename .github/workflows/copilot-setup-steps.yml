@@ -29,7 +29,8 @@ jobs:
       - name: Read pnpm version from package.json
         id: pnpm-version
         run: |
-          echo "version=$(grep '\"packageManager\": \"pnpm@' package.json | cut -d@ -f2 | tr -d '\",')" >> "$GITHUB_OUTPUT"
+          version=$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).packageManager.split('@')[1]")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

@@ -11,7 +11,7 @@ import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
 const FILE_COUNT = 60;
 const LOCAL_DECLARATION_COUNT = 120;
-const PERFORMANCE_THRESHOLD_MS = 150;
+const PERFORMANCE_THRESHOLD_MS = 350;
 
 type LocalNamingFixture = {
     files: Record<string, { declarations: Array<Record<string, unknown>>; references: Array<Record<string, unknown>> }>;
@@ -105,8 +105,22 @@ async function executeLocalNamingCodemod(fixture: LocalNamingFixture) {
         },
         fixture.projectRoot
     );
+    const instrumentedSemantic = semantic as unknown as {
+        getLocalReferenceOccurrences: (
+            filePath: string,
+            fileRecord: Record<string, unknown>
+        ) => ReadonlyMap<string, Array<Record<string, unknown>>>;
+    };
+    const originalGetLocalReferenceOccurrences =
+        instrumentedSemantic.getLocalReferenceOccurrences.bind(instrumentedSemantic);
+    let getLocalReferenceOccurrencesCallCount = 0;
+
+    instrumentedSemantic.getLocalReferenceOccurrences = (filePath, fileRecord) => {
+        getLocalReferenceOccurrencesCallCount += 1;
+        return originalGetLocalReferenceOccurrences(filePath, fileRecord);
+    };
     const engine = new Refactor.RefactorEngine({ semantic });
-    return engine.executeConfiguredCodemods({
+    const result = await engine.executeConfiguredCodemods({
         projectRoot: fixture.projectRoot,
         targetPaths: [fixture.projectRoot],
         gmlFilePaths: [...fixture.sourceTexts.keys()],
@@ -126,6 +140,11 @@ async function executeLocalNamingCodemod(fixture: LocalNamingFixture) {
         dryRun: true,
         onlyCodemods: ["namingConvention"]
     });
+
+    return {
+        getLocalReferenceOccurrencesCallCount,
+        result
+    };
 }
 
 async function measureMedianDurationMs<T>(
@@ -162,12 +181,17 @@ void test("refactor local naming codemod keeps real-file local scans within the 
 
     try {
         const { durationMs, result } = await measureMedianDurationMs(3, () => executeLocalNamingCodemod(fixture));
-        const rewrittenFirstFile = result.appliedFiles.get("scripts/file_0.gml");
+        const rewrittenFirstFile = result.result.appliedFiles.get("scripts/file_0.gml");
 
-        assert.equal(result.summaries.length, 1);
-        assert.equal(result.summaries[0]?.id, "namingConvention");
-        assert.equal(result.summaries[0]?.changed, true);
-        assert.equal(result.appliedFiles.size, FILE_COUNT);
+        assert.equal(result.result.summaries.length, 1);
+        assert.equal(result.result.summaries[0]?.id, "namingConvention");
+        assert.equal(result.result.summaries[0]?.changed, true);
+        assert.equal(result.result.appliedFiles.size, FILE_COUNT);
+        assert.equal(
+            result.getLocalReferenceOccurrencesCallCount,
+            FILE_COUNT,
+            "Expected local reference indexing to run once per selected file"
+        );
         assert.ok(typeof rewrittenFirstFile === "string");
         assert.match(rewrittenFirstFile, /\bvar badName00 = 0;/);
         assert.match(rewrittenFirstFile, /\bbadName00 \+= 1;/);

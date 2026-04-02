@@ -211,7 +211,11 @@ export class RefactorEngine {
      * Validate symbol exists in the semantic index.
      */
     validateSymbolExists(symbolId: string): Promise<boolean> {
-        return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        if (this.semantic === null) {
+            return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        }
+
+        return this.semanticCache.hasSymbol(symbolId);
     }
 
     /**
@@ -1489,16 +1493,23 @@ export class RefactorEngine {
         options?: PrepareBatchRenamePlanOptions
     ): Promise<BatchRenamePlanSummary> {
         const opts = options ?? {};
-        const { validateHotReload = false, hotReloadOptions: rawHotOptions, includeImpactAnalyses = true } = opts;
+        const {
+            validateHotReload = false,
+            hotReloadOptions: rawHotOptions,
+            includeImpactAnalyses = true,
+            batchValidation: providedBatchValidation
+        } = opts;
         const hotReloadOptions: HotReloadValidationOptions = rawHotOptions ?? {};
 
         // Validate the batch structure and individual renames up front, detecting
         // conflicts like duplicate target names or circular rename chains before
         // planning any workspace edits. This prevents wasted work when the batch
         // is malformed.
-        const batchValidation = await this.validateBatchRenameRequest(renames, {
-            includeHotReload: validateHotReload
-        });
+        const batchValidation =
+            providedBatchValidation ??
+            (await this.validateBatchRenameRequest(renames, {
+                includeHotReload: validateHotReload
+            }));
 
         // Try to plan the batch rename to capture all edits across all symbols in a
         // single merged workspace edit. If planning fails (e.g., due to conflicts),

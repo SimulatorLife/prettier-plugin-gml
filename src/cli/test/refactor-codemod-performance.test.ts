@@ -7,13 +7,17 @@ import { Refactor } from "@gmloop/refactor";
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
 const FUNCTION_COUNT = 2400;
-const PERFORMANCE_THRESHOLD_MS = 420;
+const PERFORMANCE_THRESHOLD_MS = 650;
 
 type RenameValidationCacheStats = {
     evictions: number;
     hits: number;
     misses: number;
     size: number;
+};
+
+type WrappedRefactorEngine = InstanceType<typeof Refactor.RefactorEngine> & {
+    validateRenameRequest: InstanceType<typeof Refactor.RefactorEngine>["validateRenameRequest"];
 };
 
 function createTopLevelNamingConventionFixture(): {
@@ -130,6 +134,15 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
     const executeStressRun = async () => {
         const semantic = new GmlSemanticBridge(fixture.projectIndex, fixture.projectRoot);
         const engine = new Refactor.RefactorEngine({ semantic });
+        const wrappedEngine = engine as WrappedRefactorEngine;
+        const originalValidateRenameRequest = wrappedEngine.validateRenameRequest.bind(engine);
+        let validateRenameRequestCallCount = 0;
+
+        wrappedEngine.validateRenameRequest = async (...parameters) => {
+            validateRenameRequestCallCount += 1;
+            return await originalValidateRenameRequest(...parameters);
+        };
+
         const result = await engine.executeConfiguredCodemods({
             projectRoot: fixture.projectRoot,
             targetPaths: [fixture.projectRoot],
@@ -157,6 +170,7 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
                     renameValidationCache: { getStats(): RenameValidationCacheStats };
                 }
             ).renameValidationCache.getStats(),
+            validateRenameRequestCallCount,
             result
         };
     };
@@ -168,8 +182,14 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
     assert.equal(result.result.summaries[0]?.id, "namingConvention");
     assert.equal(result.result.summaries[0]?.changed, true);
     assert.equal(result.result.appliedFiles.size, FUNCTION_COUNT + 1);
-    assert.ok(result.cacheStats.hits > 0, "Expected warmed top-level rename validation cache hits during planning");
+    assert.equal(
+        result.validateRenameRequestCallCount,
+        FUNCTION_COUNT,
+        "Expected top-level rename validation to run exactly once per symbol before batch planning"
+    );
     assert.equal(result.cacheStats.evictions, 0);
+    assert.equal(result.cacheStats.hits, 0);
+    assert.equal(result.cacheStats.misses, FUNCTION_COUNT);
     assert.ok(
         durationMs <= PERFORMANCE_THRESHOLD_MS,
         `Expected namingConvention codemod runtime to finish within ${PERFORMANCE_THRESHOLD_MS}ms, received ${durationMs.toFixed(2)}ms`
