@@ -594,6 +594,25 @@ void test("applyWorkspaceEdit applies edits correctly", async () => {
     assert.equal(results.get("test.gml"), "new text world");
 });
 
+void test("applyWorkspaceEdit preserves edit ordering when many replacements target one file", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    const originalSource = "alpha beta gamma delta epsilon";
+
+    ws.addEdit("test.gml", 0, 5, "ALPHA");
+    ws.addEdit("test.gml", 6, 10, "BETA");
+    ws.addEdit("test.gml", 11, 16, "GAMMA");
+    ws.addEdit("test.gml", 17, 22, "DELTA");
+    ws.addEdit("test.gml", 23, 30, "EPSILON");
+
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile: async () => originalSource,
+        dryRun: true
+    });
+
+    assert.equal(results.get("test.gml"), "ALPHA BETA GAMMA DELTA EPSILON");
+});
+
 void test("applyWorkspaceEdit handles multiple files", async () => {
     const engine = new RefactorEngineClass();
     const ws = new WorkspaceEditFactory();

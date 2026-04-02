@@ -135,6 +135,32 @@ function dropRedundantTextEditsForMetadataRewrites(workspace: WorkspaceEdit): Wo
     return normalizedWorkspace;
 }
 
+function applyGroupedTextEditsToContent(
+    originalContent: string,
+    edits: ReadonlyArray<Pick<TextEdit, "end" | "newText" | "start">>
+): string {
+    if (edits.length === 0) {
+        return originalContent;
+    }
+
+    const fragments = Array.from<string>({
+        length: edits.length * 2 + 1
+    });
+    let cursor = originalContent.length;
+    let fragmentIndex = fragments.length - 1;
+
+    for (const edit of edits) {
+        fragments[fragmentIndex] = originalContent.slice(edit.end, cursor);
+        fragmentIndex -= 1;
+        fragments[fragmentIndex] = edit.newText;
+        fragmentIndex -= 1;
+        cursor = edit.start;
+    }
+
+    fragments[fragmentIndex] = originalContent.slice(0, cursor);
+    return fragments.join("");
+}
+
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
@@ -788,15 +814,7 @@ export class RefactorEngine {
         // that file, and optionally writing the modified content back to disk.
         await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
             const originalContent = await readFile(filePath);
-
-            // Apply edits from high to low offset (reverse order) so that earlier
-            // edits don't invalidate the offsets of later edits. When edits are
-            // sorted descending, modifying the end of the file first keeps positions
-            // at the beginning stable, eliminating the need to recalculate offsets.
-            let newContent = originalContent;
-            for (const edit of edits) {
-                newContent = newContent.slice(0, edit.start) + edit.newText + newContent.slice(edit.end);
-            }
+            const newContent = applyGroupedTextEditsToContent(originalContent, edits);
 
             results.set(filePath, includeResultContent ? newContent : "");
 

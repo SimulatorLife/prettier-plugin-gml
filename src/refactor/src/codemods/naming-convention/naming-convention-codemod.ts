@@ -16,7 +16,7 @@ import type {
 } from "../../types.js";
 import { detectCircularRenames, detectDuplicateTargetNames } from "../../validation.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
-import { isPathSelectedByLists } from "./path-selection.js";
+import { createPathSelectionMatcher } from "./path-selection.js";
 
 const RESERVED_LOCAL_RENAME_CATEGORIES = new Set([
     "globalVariable",
@@ -198,29 +198,29 @@ function findDependentMacroNames(
 }
 
 function collectNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: ReadonlyArray<string>): Array<string> {
-    return [
-        ...new Set(
-            selectedFilePaths.flatMap((filePath) => {
-                const normalizedFilePath = filePath.replaceAll("\\", "/");
-                const siblingResourcePath = normalizedFilePath.replace(/\.gml$/i, ".yy");
-                const ownerDirectory = path.posix.dirname(normalizedFilePath);
-                const ownerResourceName = path.posix.basename(ownerDirectory);
-                const ownerParentDirectory = path.posix.dirname(ownerDirectory);
-                const ownerResourcePath =
-                    ownerParentDirectory === "." ? null : path.posix.join(ownerDirectory, `${ownerResourceName}.yy`);
+    const queryPaths = new Set<string>();
 
-                return [
-                    normalizedFilePath,
-                    path.resolve(projectRoot, normalizedFilePath),
-                    siblingResourcePath,
-                    path.resolve(projectRoot, siblingResourcePath),
-                    ...(ownerResourcePath === null
-                        ? []
-                        : [ownerResourcePath, path.resolve(projectRoot, ownerResourcePath)])
-                ];
-            })
-        )
-    ];
+    for (const filePath of selectedFilePaths) {
+        const normalizedFilePath = filePath.replaceAll("\\", "/");
+        const siblingResourcePath = normalizedFilePath.replace(/\.gml$/i, ".yy");
+        const ownerDirectory = path.posix.dirname(normalizedFilePath);
+        const ownerResourceName = path.posix.basename(ownerDirectory);
+        const ownerParentDirectory = path.posix.dirname(ownerDirectory);
+        const ownerResourcePath =
+            ownerParentDirectory === "." ? null : path.posix.join(ownerDirectory, `${ownerResourceName}.yy`);
+
+        queryPaths.add(normalizedFilePath);
+        queryPaths.add(path.resolve(projectRoot, normalizedFilePath));
+        queryPaths.add(siblingResourcePath);
+        queryPaths.add(path.resolve(projectRoot, siblingResourcePath));
+
+        if (ownerResourcePath !== null) {
+            queryPaths.add(ownerResourcePath);
+            queryPaths.add(path.resolve(projectRoot, ownerResourcePath));
+        }
+    }
+
+    return Array.from(queryPaths);
 }
 
 /**
@@ -274,18 +274,15 @@ export async function planNamingConventionCodemod(
     const topLevelRenames: Array<{ symbolId: string; newName: string }> = [];
     const seenTopLevelRenames = new Set<string>();
     let localRenameCount = 0;
+    const isSelectedTargetPath = createPathSelectionMatcher(parameters.projectRoot, parameters.targetPaths, []);
 
-    const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) =>
-        isPathSelectedByLists(parameters.projectRoot, filePath, parameters.targetPaths, [])
-    );
+    const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) => isSelectedTargetPath(filePath));
     const queriedTargets = await semantic.listNamingConventionTargets(
         selectedFilePaths.length === 0
             ? undefined
             : collectNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths)
     );
-    const selectedTargets = queriedTargets.filter((target) =>
-        isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])
-    );
+    const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));
     const macroDependencyNamesByFile = collectMacroDependencyNamesByFile(
         typeof semantic.listMacroExpansionDependencies === "function"
             ? await semantic.listMacroExpansionDependencies(selectedFilePaths)

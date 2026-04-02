@@ -33,6 +33,11 @@ It does not replace lint or formatter domains:
 
 ## Performance Regression Coverage
 
+Current guardrails focus on the two hottest naming-convention paths that showed up in profiling:
+
+- Selected-path filtering now compiles allow/deny lists once per codemod run instead of re-resolving them for every candidate.
+- `WorkspaceEdit` application now assembles rewritten file content in a single pass, avoiding one full-string allocation per text edit.
+
 The refactor workspace keeps naming-convention codemod stress tests in the regular TypeScript test suite:
 
 - [`src/refactor/test/naming-convention-performance.test.ts`](./test/naming-convention-performance.test.ts) exercises high-volume local rename planning and edit application.
