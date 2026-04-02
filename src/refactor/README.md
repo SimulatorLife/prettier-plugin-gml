@@ -40,6 +40,8 @@ Current guardrails focus on the two hottest naming-convention paths that showed 
 - Top-level naming-convention batch planning now reuses the first batch validation when the rename set is unchanged, avoiding a second full pass through `validateRenameRequest`.
 - CLI local-variable naming scans now build each file's local-reference index once and reuse it for every declaration in that file.
 - CLI semantic bridge lookups for script-backed callable declarations now use a resource-path index instead of rescanning every script entry for each lookup.
+- Resource rename metadata planning now indexes inbound metadata references once per semantic bridge and reuses parsed `.yy/.yyp` documents across the batch instead of rescanning and reparsing them for every rename.
+- `WorkspaceEdit` now caches grouped text edits per revision and skips the second structural validation pass when the same immutable workspace is applied immediately after validation.
 
 The refactor workspace keeps naming-convention codemod stress tests in the regular TypeScript test suite:
 
@@ -48,6 +50,7 @@ The refactor workspace keeps naming-convention codemod stress tests in the regul
 - [`src/cli/test/refactor-naming-target-discovery-performance.test.ts`](../cli/test/refactor-naming-target-discovery-performance.test.ts) exercises naming-target discovery on mixed declaration/reference workloads so reference-only files do not rebuild local-reference indexes unnecessarily.
 - [`src/cli/test/refactor-local-naming-performance.test.ts`](../cli/test/refactor-local-naming-performance.test.ts) exercises disk-backed local-variable codemods so CI catches regressions in source-text loading, local-occurrence indexing, and member-access filtering on real files.
 - [`src/cli/test/refactor-script-resource-naming-performance.test.ts`](../cli/test/refactor-script-resource-naming-performance.test.ts) exercises script-backed function naming on large resource sets so repeated script-resource scans stay bounded.
+- [`src/cli/test/refactor-metadata-resource-naming-performance.test.ts`](../cli/test/refactor-metadata-resource-naming-performance.test.ts) exercises metadata-backed script resource renames on disk so repeated manifest/resource metadata parsing stays bounded.
 
 Use `pnpm run test:performance` to execute only the compiled performance suite locally. CI also runs that script explicitly on the `head` leg in addition to the normal `pnpm run test:ci` coverage pass, so performance regressions stay visible even when the broader test matrix is green.
 
@@ -455,6 +458,10 @@ reused during rename occurrence gathering instead of being rescanned across the
 full file map for every symbol. Batch rename planning now keeps the refactor
 semantic query cache warm while metadata overlays are staged, so later renames
 in the same codemod run can reuse symbol existence and occurrence lookups.
+When a resource rename still needs disk-backed fallback occurrence discovery,
+the CLI semantic bridge now builds one cached identifier-occurrence index per
+GML file and reuses it across the whole codemod session instead of reparsing or
+rescanning every file for every renamed resource.
 
 Naming-convention edits also normalize semantic occurrence spans to exclusive
 end indexes before generating workspace edits, and local-variable rename

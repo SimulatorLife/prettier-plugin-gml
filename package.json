@@ -91,7 +91,7 @@
     "test:fixtures:files": "echo test/dist/fixture-suites.js",
     "test:fixtures": "pnpm run build:ts && bash -lc 'mapfile -t tests < <(pnpm -s test:fixtures:files); ((${#tests[@]})) || { echo \"No compiled fixture test files found\" >&2; exit 1; }; node --test --test-timeout=120000 \"${tests[@]}\"'",
     "test:performance:files": "find src test -type f \\( -path '*/dist/test/*performance*.test.js' -o -path '*/dist/test/*perf*.test.js' -o -path '*/dist/test/performance/*.test.js' \\) -not -path '*/node_modules/*'",
-    "test:performance": "pnpm run build:ts && bash -lc 'mapfile -t tests < <(pnpm -s test:performance:files); ((${#tests[@]})) || { echo \"No compiled performance test files found under dist/\" >&2; exit 1; }; node --test --test-timeout=120000 \"${tests[@]}\"'",
+    "test:performance": "pnpm run build:ts && bash -lc 'mapfile -t tests < <(pnpm -s test:performance:files); ((${#tests[@]})) || { echo \"No compiled performance test files found under dist/\" >&2; exit 1; }; node --test --test-concurrency=1 --test-timeout=120000 \"${tests[@]}\"'",
     "test:fixtures:profile": "pnpm run build:ts:incremental && GMLOOP_FIXTURE_PROFILE=1 node --test test/dist/fixture-profile-report.js",
     "test:fixtures:profile:deep-cpu": "pnpm run build:ts:incremental && GMLOOP_FIXTURE_PROFILE=1 GMLOOP_FIXTURE_DEEP_CPU=1 node --test test/dist/fixture-profile-report.js",
     "format:gml": "pnpm --filter @gmloop/cli run build:types && node ./src/cli/dist/index.js format",

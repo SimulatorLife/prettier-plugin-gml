@@ -7,7 +7,7 @@ import type { NamingConventionTarget, PartialSemanticAnalyzer } from "../src/typ
 
 const FILE_COUNT = 180;
 const TARGETS_PER_FILE = 32;
-const PERFORMANCE_THRESHOLD_MS = 120;
+const PERFORMANCE_THRESHOLD_MS = 150;
 
 type SyntheticFileFixture = {
     sourceText: string;

@@ -7,6 +7,7 @@ import { test } from "node:test";
 
 import {
     getWorkspaceArrays,
+    getWorkspaceEditRevision,
     getWorkspaceEditTelemetry,
     isWorkspaceEditLike,
     validateFileRenameOperations,
@@ -162,6 +163,52 @@ void test("WorkspaceEdit ignores exact duplicate text edits", () => {
         end: 12,
         newText: "goodName"
     });
+});
+
+void test("WorkspaceEdit revision only advances when the workspace changes", () => {
+    const workspace = new WorkspaceEdit();
+
+    assert.equal(getWorkspaceEditRevision(workspace), 0);
+
+    workspace.addEdit("scripts/example.gml", 4, 12, "goodName");
+    assert.equal(getWorkspaceEditRevision(workspace), 1);
+
+    workspace.addEdit("scripts/example.gml", 4, 12, "goodName");
+    assert.equal(getWorkspaceEditRevision(workspace), 1);
+
+    workspace.addMetadataEdit("scripts/example.yy", '{"name":"goodName"}');
+    assert.equal(getWorkspaceEditRevision(workspace), 2);
+
+    workspace.addFileRename("scripts/example.gml", "scripts/good_name.gml");
+    assert.equal(getWorkspaceEditRevision(workspace), 3);
+});
+
+void test("WorkspaceEdit reuses grouped edits until the edit set changes", () => {
+    const workspace = new WorkspaceEdit();
+    workspace.addEdit("scripts/example.gml", 8, 12, "demoName");
+
+    const firstGrouping = workspace.groupByFile();
+    const secondGrouping = workspace.groupByFile();
+
+    assert.equal(firstGrouping, secondGrouping);
+
+    workspace.addEdit("scripts/example.gml", 0, 4, "demo");
+
+    const thirdGrouping = workspace.groupByFile();
+
+    assert.notEqual(thirdGrouping, firstGrouping);
+    assert.deepEqual(thirdGrouping.get("scripts/example.gml"), [
+        {
+            start: 8,
+            end: 12,
+            newText: "demoName"
+        },
+        {
+            start: 0,
+            end: 4,
+            newText: "demo"
+        }
+    ]);
 });
 
 void test("validateFileRenameOperations rejects duplicate sources, duplicate destinations, and rename chains", () => {
