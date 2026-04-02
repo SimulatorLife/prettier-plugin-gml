@@ -5,6 +5,7 @@ import type { Element } from "linkedom/types/interface/element.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
+import { assertSupportedNodeVersion } from "../cli-core/node-version.js";
 import {
     getDirectElementChildren,
     parseManualDocument,
@@ -13,7 +14,6 @@ import {
 import { getManualRootMetadataPath, readManualText, resolveManualSourceCommitHash } from "../modules/manual/source.js";
 import { type ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
-import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
 const {
