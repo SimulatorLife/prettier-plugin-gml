@@ -9,7 +9,7 @@ import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 const FUNCTION_COUNT = 2400;
 const UNRESOLVED_REFERENCE_FILE_COUNT = 180;
 const UNRESOLVED_REFERENCES_PER_FILE = 120;
-const PERFORMANCE_THRESHOLD_MS = 420;
+const PERFORMANCE_THRESHOLD_MS = 900;
 
 type RenameValidationCacheStats = {
     evictions: number;

@@ -39,12 +39,14 @@ Current guardrails focus on the two hottest naming-convention paths that showed 
 - `WorkspaceEdit` application now assembles rewritten file content in a single pass, avoiding one full-string allocation per text edit.
 - Top-level naming-convention batch planning now reuses the first batch validation when the rename set is unchanged, avoiding a second full pass through `validateRenameRequest`.
 - CLI local-variable naming scans now build each file's local-reference index once and reuse it for every declaration in that file.
+- CLI semantic bridge lookups for script-backed callable declarations now use a resource-path index instead of rescanning every script entry for each lookup.
 
 The refactor workspace keeps naming-convention codemod stress tests in the regular TypeScript test suite:
 
 - [`src/refactor/test/naming-convention-performance.test.ts`](./test/naming-convention-performance.test.ts) exercises high-volume local rename planning and edit application.
 - [`src/cli/test/refactor-codemod-performance.test.ts`](../cli/test/refactor-codemod-performance.test.ts) exercises the indexed CLI bridge path for large top-level rename batches.
 - [`src/cli/test/refactor-local-naming-performance.test.ts`](../cli/test/refactor-local-naming-performance.test.ts) exercises disk-backed local-variable codemods so CI catches regressions in source-text loading, local-occurrence indexing, and member-access filtering on real files.
+- [`src/cli/test/refactor-script-resource-naming-performance.test.ts`](../cli/test/refactor-script-resource-naming-performance.test.ts) exercises script-backed function naming on large resource sets so repeated script-resource scans stay bounded.
 
 Use `pnpm run test:performance` to execute only the compiled performance suite locally. CI also runs that script explicitly on the `head` leg in addition to the normal `pnpm run test:ci` coverage pass, so performance regressions stay visible even when the broader test matrix is green.
 

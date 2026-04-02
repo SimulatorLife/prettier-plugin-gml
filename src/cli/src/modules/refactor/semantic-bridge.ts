@@ -169,6 +169,18 @@ type IndexedUnresolvedFileReference = {
     filePath: string;
     reference: Record<string, unknown>;
 };
+type ScriptCallableDeclaration = Record<string, unknown> & {
+    filePath: string;
+    name: string;
+};
+type ScriptCallableDeclarationEntry = {
+    declaration: ScriptCallableDeclaration;
+    entry: SemanticIdentifierEntry;
+};
+type ScriptResourceIndexes = {
+    scriptCallableDeclarationsByResourcePath: Map<string, Array<ScriptCallableDeclarationEntry>>;
+    scriptEntriesByResourcePath: Map<string, Array<SemanticIdentifierEntry>>;
+};
 type SemanticBridgeIndexes = {
     entriesByIdentifierId: Map<string, SemanticIdentifierEntry>;
     entriesByRelatedName: Map<string, Set<SemanticIdentifierEntry>>;
@@ -284,6 +296,7 @@ export class GmlSemanticBridge {
         string,
         Array<Pick<SymbolOccurrence, "end" | "path" | "start">>
     > | null = null;
+    private scriptResourceIndexes: ScriptResourceIndexes | null = null;
     private readonly localReferenceOccurrencesByFilePath = new Map<string, LocalReferenceIndex>();
 
     constructor(projectIndex: unknown, projectRoot: string = process.cwd()) {
@@ -305,6 +318,7 @@ export class GmlSemanticBridge {
         this.constructorRuntimeTypeReferencesByExactName = null;
         this.enumNames = null;
         this.macroBodyReferencesByExactName = null;
+        this.scriptResourceIndexes = null;
         this.clearWorkspaceOverlay();
     }
 
@@ -574,6 +588,53 @@ export class GmlSemanticBridge {
             symbolLookupsByExactName,
             unresolvedReferencesByExactName
         };
+    }
+
+    private getScriptResourceIndexes(): ScriptResourceIndexes {
+        const existingIndexes = this.scriptResourceIndexes;
+        if (existingIndexes !== null) {
+            return existingIndexes;
+        }
+
+        const scriptCallableDeclarationsByResourcePath = new Map<string, Array<ScriptCallableDeclarationEntry>>();
+        const scriptEntriesByResourcePath = new Map<string, Array<SemanticIdentifierEntry>>();
+
+        for (const entry of Object.values(this.identifiers.scripts ?? {})) {
+            if (!Core.isNonEmptyString(entry.resourcePath)) {
+                continue;
+            }
+
+            const resourceEntries = scriptEntriesByResourcePath.get(entry.resourcePath);
+            if (resourceEntries) {
+                resourceEntries.push(entry);
+            } else {
+                scriptEntriesByResourcePath.set(entry.resourcePath, [entry]);
+            }
+
+            for (const declaration of entry.declarations ?? []) {
+                if (
+                    declaration.isSynthetic === true ||
+                    typeof declaration.name !== "string" ||
+                    typeof declaration.filePath !== "string"
+                ) {
+                    continue;
+                }
+
+                const resourceDeclarations = scriptCallableDeclarationsByResourcePath.get(entry.resourcePath) ?? [];
+                resourceDeclarations.push({
+                    entry,
+                    declaration: declaration as ScriptCallableDeclaration
+                });
+                scriptCallableDeclarationsByResourcePath.set(entry.resourcePath, resourceDeclarations);
+            }
+        }
+
+        const createdIndexes = {
+            scriptCallableDeclarationsByResourcePath,
+            scriptEntriesByResourcePath
+        };
+        this.scriptResourceIndexes = createdIndexes;
+        return createdIndexes;
     }
 
     /**
@@ -1885,10 +1946,8 @@ export class GmlSemanticBridge {
         return null;
     }
 
-    private getScriptCallableDeclarations(
-        entry: SemanticIdentifierEntry
-    ): Array<Record<string, unknown> & { filePath: string; name: string }> {
-        const declarations: Array<Record<string, unknown> & { filePath: string; name: string }> = [];
+    private getScriptCallableDeclarations(entry: SemanticIdentifierEntry): Array<ScriptCallableDeclaration> {
+        const declarations: Array<ScriptCallableDeclaration> = [];
 
         for (const declaration of entry?.declarations ?? []) {
             if (
@@ -1899,49 +1958,18 @@ export class GmlSemanticBridge {
                 continue;
             }
 
-            declarations.push(declaration as Record<string, unknown> & { filePath: string; name: string });
+            declarations.push(declaration as ScriptCallableDeclaration);
         }
 
         return declarations;
     }
 
-    private getScriptCallableDeclarationsForResource(
-        resourcePath: string
-    ): Array<{ declaration: Record<string, unknown>; entry: SemanticIdentifierEntry }> {
-        const declarations: Array<{ declaration: Record<string, unknown>; entry: SemanticIdentifierEntry }> = [];
-
-        for (const entry of Object.values(this.identifiers.scripts ?? {})) {
-            if (entry?.resourcePath !== resourcePath) {
-                continue;
-            }
-
-            for (const declaration of entry?.declarations ?? []) {
-                if (
-                    declaration?.isSynthetic === true ||
-                    typeof declaration?.name !== "string" ||
-                    typeof declaration?.filePath !== "string"
-                ) {
-                    continue;
-                }
-
-                declarations.push({
-                    entry,
-                    declaration
-                });
-            }
-        }
-
-        return declarations;
+    private getScriptCallableDeclarationsForResource(resourcePath: string): Array<ScriptCallableDeclarationEntry> {
+        return this.getScriptResourceIndexes().scriptCallableDeclarationsByResourcePath.get(resourcePath) ?? [];
     }
 
     private hasScriptEntryForResource(resourcePath: string): boolean {
-        for (const entry of Object.values(this.identifiers.scripts ?? {})) {
-            if (entry?.resourcePath === resourcePath) {
-                return true;
-            }
-        }
-
-        return false;
+        return (this.getScriptResourceIndexes().scriptEntriesByResourcePath.get(resourcePath)?.length ?? 0) > 0;
     }
 
     private isCoupledSingleFunctionScriptCallable(entry: SemanticIdentifierEntry, declarationName: string): boolean {
@@ -2138,11 +2166,7 @@ export class GmlSemanticBridge {
             return null;
         }
 
-        for (const entry of Object.values(this.identifiers.scripts ?? {})) {
-            if (entry?.resourcePath !== resourcePath) {
-                continue;
-            }
-
+        for (const entry of this.getScriptResourceIndexes().scriptEntriesByResourcePath.get(resourcePath) ?? []) {
             const declarationKinds = this.extractDeclarationKinds(entry);
             if (declarationKinds.has("constructor")) {
                 return "constructorFunction";
