@@ -23,6 +23,12 @@ type ResourceMetadataRecord = {
     path: string;
 };
 
+type ProjectMetadataReferenceIndex = {
+    manifestMetadataRecords: Array<ResourceMetadataRecord>;
+    metadataRecordsByPath: Map<string, ResourceMetadataRecord>;
+    referencingMetadataRecordsByTargetPath: Map<string, Array<ResourceMetadataRecord>>;
+};
+
 type SemanticResourceRecord = {
     name?: string;
     path?: string;
@@ -324,6 +330,8 @@ export class GmlSemanticBridge {
     private readonly localNamingCategoryResolver: ParsedLocalNamingCategoryResolver;
     private projectIndex: Record<string, unknown>;
     private projectRoot: string;
+    private readonly parsedProjectMetadataByPath = new Map<string, Record<string, unknown>>();
+    private readonly projectMetadataSourceByPath = new Map<string, string>();
     private readonly scriptCallableDeclarationsByEntry = new WeakMap<
         SemanticIdentifierEntry,
         ReadonlyArray<ScriptCallableDeclaration>
@@ -338,6 +346,7 @@ export class GmlSemanticBridge {
     > | null = null;
     private enumNames: ReadonlySet<string> | null = null;
     private indexes: SemanticBridgeIndexes | null = null;
+    private projectMetadataReferenceIndex: ProjectMetadataReferenceIndex | null = null;
     private macroBodyReferencesByExactName: Map<
         string,
         Array<Pick<SymbolOccurrence, "end" | "path" | "start">>
@@ -358,6 +367,9 @@ export class GmlSemanticBridge {
     updateProjectIndex(projectIndex: unknown): void {
         this.projectIndex = Core.isObjectLike(projectIndex) ? (projectIndex as Record<string, unknown>) : {};
         this.indexes = null;
+        this.projectMetadataReferenceIndex = null;
+        this.projectMetadataSourceByPath.clear();
+        this.parsedProjectMetadataByPath.clear();
         this.sourceTextByPath.clear();
         this.localReferenceOccurrencesByFilePath.clear();
         this.constructorStaticMemberNameCounts = null;
@@ -974,7 +986,131 @@ export class GmlSemanticBridge {
         return edit;
     }
 
-    private addResourceMetadataEdits(edit: WorkspaceEdit, resource: any, oldName: string, newName: string): void {
+    private getProjectMetadataReferenceIndex(): ProjectMetadataReferenceIndex {
+        const existingIndex = this.projectMetadataReferenceIndex;
+        if (existingIndex !== null) {
+            return existingIndex;
+        }
+
+        const manifestMetadataRecords: Array<ResourceMetadataRecord> = [];
+        const metadataRecordsByPath = new Map<string, ResourceMetadataRecord>();
+        const referencingMetadataRecordsByTargetPath = new Map<string, Array<ResourceMetadataRecord>>();
+
+        for (const resourceRecord of Object.values(this.resources)) {
+            if (!isResourceMetadataRecord(resourceRecord)) {
+                continue;
+            }
+
+            metadataRecordsByPath.set(resourceRecord.path, resourceRecord);
+            if (Semantic.isProjectManifestPath(resourceRecord.path)) {
+                manifestMetadataRecords.push(resourceRecord);
+            }
+
+            for (const assetReference of resourceRecord.assetReferences) {
+                const referencedMetadataRecords =
+                    referencingMetadataRecordsByTargetPath.get(assetReference.targetPath) ?? [];
+                referencedMetadataRecords.push(resourceRecord);
+                referencingMetadataRecordsByTargetPath.set(assetReference.targetPath, referencedMetadataRecords);
+            }
+        }
+
+        const createdIndex = {
+            manifestMetadataRecords,
+            metadataRecordsByPath,
+            referencingMetadataRecordsByTargetPath
+        };
+        this.projectMetadataReferenceIndex = createdIndex;
+        return createdIndex;
+    }
+
+    private listResourceMetadataMutationCandidates(resourcePath: string): Array<ResourceMetadataRecord> {
+        const { manifestMetadataRecords, metadataRecordsByPath, referencingMetadataRecordsByTargetPath } =
+            this.getProjectMetadataReferenceIndex();
+        const candidatesByPath = new Map<string, ResourceMetadataRecord>();
+
+        const directMetadataRecord = metadataRecordsByPath.get(resourcePath);
+        if (directMetadataRecord) {
+            candidatesByPath.set(directMetadataRecord.path, directMetadataRecord);
+        }
+
+        for (const manifestMetadataRecord of manifestMetadataRecords) {
+            candidatesByPath.set(manifestMetadataRecord.path, manifestMetadataRecord);
+        }
+
+        for (const referencingMetadataRecord of referencingMetadataRecordsByTargetPath.get(resourcePath) ?? []) {
+            candidatesByPath.set(referencingMetadataRecord.path, referencingMetadataRecord);
+        }
+
+        return [...candidatesByPath.values()];
+    }
+
+    private collectLatestBatchMetadataDocuments(edit: WorkspaceEdit): Map<string, Record<string, unknown>> {
+        const latestBatchMetadataDocuments = new Map<string, Record<string, unknown>>();
+
+        for (const metadataObject of edit.metadataObjects ?? []) {
+            latestBatchMetadataDocuments.set(metadataObject.path, metadataObject.document);
+        }
+
+        return latestBatchMetadataDocuments;
+    }
+
+    private loadMutableProjectMetadataDocument(
+        metadataPath: string,
+        latestBatchMetadataDocuments: ReadonlyMap<string, Record<string, unknown>>
+    ): { parsed: Record<string, unknown>; rawContent: string } | null {
+        const latestBatchMetadataDocument = latestBatchMetadataDocuments.get(metadataPath);
+        if (latestBatchMetadataDocument !== undefined) {
+            const parsed = structuredClone(latestBatchMetadataDocument);
+            return {
+                parsed,
+                rawContent: Semantic.stringifyProjectMetadataDocument(parsed, metadataPath)
+            };
+        }
+
+        const stagedParsedMetadata = this.stagedParsedMetadata.get(metadataPath);
+        if (stagedParsedMetadata !== undefined) {
+            return {
+                parsed: structuredClone(stagedParsedMetadata),
+                rawContent:
+                    this.stagedMetadataContents.get(metadataPath) ??
+                    Semantic.stringifyProjectMetadataDocument(stagedParsedMetadata, metadataPath)
+            };
+        }
+
+        const cachedParsedMetadata = this.parsedProjectMetadataByPath.get(metadataPath);
+        const cachedSourceText = this.projectMetadataSourceByPath.get(metadataPath);
+        if (cachedParsedMetadata !== undefined && cachedSourceText !== undefined) {
+            return {
+                parsed: structuredClone(cachedParsedMetadata),
+                rawContent: cachedSourceText
+            };
+        }
+
+        const absolutePath = path.resolve(this.projectRoot, metadataPath);
+        if (!fs.existsSync(absolutePath)) {
+            return null;
+        }
+
+        try {
+            const rawContent = fs.readFileSync(absolutePath, "utf8");
+            const parsed = Semantic.parseProjectMetadataDocumentForMutation(rawContent, absolutePath).document;
+            this.projectMetadataSourceByPath.set(metadataPath, rawContent);
+            this.parsedProjectMetadataByPath.set(metadataPath, parsed);
+            return {
+                parsed: structuredClone(parsed),
+                rawContent
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    private addResourceMetadataEdits(
+        edit: WorkspaceEdit,
+        resource: SemanticResourceRecord,
+        oldName: string,
+        newName: string
+    ): void {
         const resources = this.resources;
         if (!resources || !resource?.path) {
             return;
@@ -986,62 +1122,18 @@ export class GmlSemanticBridge {
                 ? path.posix.join(path.posix.dirname(path.posix.dirname(resource.path)), newName)
                 : path.posix.dirname(resource.path);
         const newResourcePath = path.posix.join(newResourceDir, `${newName}.yy`);
+        const latestBatchMetadataDocuments = this.collectLatestBatchMetadataDocuments(edit);
 
-        for (const resourceEntry of Object.values(resources)) {
-            if (!isResourceMetadataRecord(resourceEntry)) {
+        for (const resourceEntry of this.listResourceMetadataMutationCandidates(resource.path)) {
+            const loadedMetadataDocument = this.loadMutableProjectMetadataDocument(
+                resourceEntry.path,
+                latestBatchMetadataDocuments
+            );
+            if (loadedMetadataDocument === null) {
                 continue;
             }
 
-            const isResourceMetadataPath =
-                Semantic.isProjectResourceMetadataPath(resourceEntry.path) ||
-                Semantic.isProjectManifestPath(resourceEntry.path);
-            if (!isResourceMetadataPath) {
-                continue;
-            }
-
-            const absolutePath = path.resolve(this.projectRoot, resourceEntry.path);
-
-            let parsed: Record<string, unknown> | undefined;
-            let rawContent: string | undefined;
-
-            // Check if there's already a pending edit in the current WorkspaceEdit batch!
-            if (edit.metadataObjects && edit.metadataObjects.length > 0) {
-                const latestBatchEdit = edit.metadataObjects.findLast((obj) => obj.path === resourceEntry.path);
-                if (latestBatchEdit) {
-                    parsed = structuredClone(latestBatchEdit.document);
-                    rawContent = Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path);
-                }
-            }
-
-            if (parsed === undefined || rawContent === undefined) {
-                const stagedParsed = this.stagedParsedMetadata.get(resourceEntry.path);
-
-                if (stagedParsed === undefined) {
-                    const stagedRawContent = this.stagedMetadataContents.get(resourceEntry.path);
-                    if (stagedRawContent === undefined) {
-                        if (!fs.existsSync(absolutePath)) {
-                            continue;
-                        }
-
-                        try {
-                            rawContent = fs.readFileSync(absolutePath, "utf8");
-                        } catch {
-                            continue;
-                        }
-                    } else {
-                        rawContent = stagedRawContent;
-                    }
-
-                    try {
-                        parsed = Semantic.parseProjectMetadataDocumentForMutation(rawContent, absolutePath).document;
-                    } catch {
-                        continue;
-                    }
-                } else {
-                    parsed = structuredClone(stagedParsed);
-                    rawContent = this.stagedMetadataContents.get(resourceEntry.path) ?? "";
-                }
-            }
+            const { parsed, rawContent } = loadedMetadataDocument;
 
             let changed = false;
 

@@ -67,6 +67,7 @@ import {
 } from "./validation.js";
 import {
     getWorkspaceArrays,
+    getWorkspaceEditRevision,
     type GroupedTextEdits,
     isWorkspaceEditLike,
     type TextEdit,
@@ -75,6 +76,25 @@ import {
 } from "./workspace-edit.js";
 
 const RENAME_VALIDATION_CACHE_MAX_SIZE = 4096;
+const validatedWorkspaceRevisions = new WeakMap<object, number>();
+
+function hasCurrentValidatedWorkspaceRevision(workspace: object): boolean {
+    const currentRevision = getWorkspaceEditRevision(workspace);
+    if (currentRevision === null) {
+        return false;
+    }
+
+    return validatedWorkspaceRevisions.get(workspace) === currentRevision;
+}
+
+function rememberValidatedWorkspaceRevision(workspace: object): void {
+    const currentRevision = getWorkspaceEditRevision(workspace);
+    if (currentRevision === null) {
+        return;
+    }
+
+    validatedWorkspaceRevisions.set(workspace, currentRevision);
+}
 
 function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
     if (occurrences.length <= 1) {
@@ -802,7 +822,17 @@ export class RefactorEngine {
             }
         }
 
-        return { valid: errors.length === 0, errors, warnings };
+        const validationSummary = {
+            valid: errors.length === 0,
+            errors,
+            warnings
+        };
+
+        if (validationSummary.valid) {
+            rememberValidatedWorkspaceRevision(workspace);
+        }
+
+        return validationSummary;
     }
 
     /**
@@ -839,8 +869,10 @@ export class RefactorEngine {
         // Verify the workspace edit is structurally sound and free of conflicts
         // before modifying any files. This prevents partial application of invalid
         // edits that could leave the codebase in an inconsistent state.
-        const validation = await this.validateRename(workspace);
-        throwIfValidationFailed(validation, "Cannot apply workspace edit");
+        if (!hasCurrentValidatedWorkspaceRevision(workspace)) {
+            const validation = await this.validateRename(workspace);
+            throwIfValidationFailed(validation, "Cannot apply workspace edit");
+        }
 
         // Organize edits by file so we can process each file independently. This
         // allows us to load, edit, and save one file at a time, reducing memory
