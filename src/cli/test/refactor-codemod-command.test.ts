@@ -190,6 +190,83 @@ void test("refactor codemod --write preserves allowed leading underscores while 
     }
 });
 
+void test("refactor codemod --write renames sibling object metadata inside a folder renamed earlier in the same batch", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    resource: {
+                        caseStyle: "lower_snake"
+                    },
+                    objectResourceName: {
+                        prefix: "obj_"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeProjectFile(
+            projectRoot,
+            "objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy",
+            `{
+  "resourceType":"GMObject",
+  "resourcePath":"objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy",
+  "name":"oColmesh2DemoCylinder"
+}
+`
+        );
+        await writeProjectFile(
+            projectRoot,
+            "objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy",
+            `{
+  "resourceType":"GMObject",
+  "resourcePath":"objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy",
+  "name":"oColmeshDemo2Sphere"
+}
+`
+        );
+        await registerProjectResource(
+            projectRoot,
+            "oColmesh2DemoCylinder",
+            "objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy"
+        );
+        await registerProjectResource(
+            projectRoot,
+            "oColmeshDemo2Sphere",
+            "objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy"
+        );
+
+        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--write"], cwd: projectRoot });
+
+        assert.equal(result.exitCode, 0);
+        await access(path.join(projectRoot, "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh2demo_cylinder.yy"));
+        await access(path.join(projectRoot, "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh_demo2sphere.yy"));
+        await assert.rejects(access(path.join(projectRoot, "objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy")));
+
+        const siblingMetadata = await readFile(
+            path.join(projectRoot, "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh_demo2sphere.yy"),
+            "utf8"
+        );
+        const projectManifest = await readFile(path.join(projectRoot, "MyGame.yyp"), "utf8");
+
+        assert.match(siblingMetadata, /"name"\s*:\s*"obj_o_colmesh_demo2sphere"/);
+        assert.match(
+            siblingMetadata,
+            /"resourcePath"\s*:\s*"objects\/obj_o_colmesh2demo_cylinder\/obj_o_colmesh_demo2sphere\.yy"/
+        );
+        assert.match(projectManifest, /"name"\s*:\s*"obj_o_colmesh2demo_cylinder"/);
+        assert.match(projectManifest, /"name"\s*:\s*"obj_o_colmesh_demo2sphere"/);
+        assert.match(result.stdout, /\[namingConvention\] changed/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write normalizes existing script metadata resourceType/resourcePath order", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {

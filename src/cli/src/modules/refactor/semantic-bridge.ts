@@ -387,6 +387,7 @@ export class GmlSemanticBridge {
         SemanticIdentifierEntry,
         ReadonlyArray<ScriptCallableDeclaration>
     >();
+    private readonly stagedFileRenames: Array<{ newPath: string; oldPath: string }> = [];
     private readonly stagedMetadataContents = new Map<string, string>();
     private readonly stagedParsedMetadata = new Map<string, Record<string, unknown>>();
     private readonly sourceTextByPath = new Map<string, string | null>();
@@ -438,6 +439,7 @@ export class GmlSemanticBridge {
      * Reset the staged workspace overlay used while composing batch rename plans.
      */
     clearWorkspaceOverlay(): void {
+        this.stagedFileRenames.length = 0;
         this.stagedMetadataContents.clear();
         this.stagedParsedMetadata.clear();
     }
@@ -446,7 +448,23 @@ export class GmlSemanticBridge {
      * Stage metadata rewrites from a planned workspace edit so subsequent rename
      * planning can build on the already-planned metadata state.
      */
-    stageWorkspaceEdit(workspace: { metadataEdits?: Array<{ content: string; path: string }> }): void {
+    stageWorkspaceEdit(workspace: {
+        fileRenames?: Array<{ newPath: string; oldPath: string }>;
+        metadataEdits?: Array<{ content: string; path: string }>;
+    }): void {
+        if (Array.isArray(workspace.fileRenames)) {
+            for (const fileRename of workspace.fileRenames) {
+                if (typeof fileRename.oldPath !== "string" || typeof fileRename.newPath !== "string") {
+                    continue;
+                }
+
+                this.stagedFileRenames.push({
+                    oldPath: fileRename.oldPath,
+                    newPath: fileRename.newPath
+                });
+            }
+        }
+
         if (!Array.isArray(workspace.metadataEdits)) {
             return;
         }
@@ -469,6 +487,64 @@ export class GmlSemanticBridge {
                 // Ignore parse errors here, it will just re-read or fail later
             }
         }
+    }
+
+    private resolveWorkspaceOverlayPath(candidatePath: string): string {
+        let resolvedPath = candidatePath;
+
+        for (const fileRename of this.stagedFileRenames) {
+            if (resolvedPath === fileRename.oldPath) {
+                resolvedPath = fileRename.newPath;
+                continue;
+            }
+
+            if (!resolvedPath.startsWith(`${fileRename.oldPath}/`)) {
+                continue;
+            }
+
+            resolvedPath = `${fileRename.newPath}${resolvedPath.slice(fileRename.oldPath.length)}`;
+        }
+
+        return resolvedPath;
+    }
+
+    private resolveWorkspaceSourcePath(candidatePath: string): string {
+        let resolvedPath = candidatePath;
+
+        for (let index = this.stagedFileRenames.length - 1; index >= 0; index -= 1) {
+            const fileRename = this.stagedFileRenames[index];
+            if (!fileRename) {
+                continue;
+            }
+
+            if (resolvedPath === fileRename.newPath) {
+                resolvedPath = fileRename.oldPath;
+                continue;
+            }
+
+            if (!resolvedPath.startsWith(`${fileRename.newPath}/`)) {
+                continue;
+            }
+
+            resolvedPath = `${fileRename.oldPath}${resolvedPath.slice(fileRename.newPath.length)}`;
+        }
+
+        return resolvedPath;
+    }
+
+    private doesWorkspaceFilePathExist(candidatePath: string): boolean {
+        const absoluteCandidatePath = path.resolve(this.projectRoot, candidatePath);
+        if (fs.existsSync(absoluteCandidatePath)) {
+            return true;
+        }
+
+        const sourcePath = this.resolveWorkspaceSourcePath(candidatePath);
+        if (sourcePath === candidatePath) {
+            return false;
+        }
+
+        const absoluteSourcePath = path.resolve(this.projectRoot, sourcePath);
+        return fs.existsSync(absoluteSourcePath);
     }
 
     /**
@@ -996,11 +1072,12 @@ export class GmlSemanticBridge {
         const edit = createWorkspaceEdit();
         const oldName = entry.name;
         const oldPath = resource.path;
+        const currentResourcePath = this.resolveWorkspaceOverlayPath(oldPath);
 
         // Typical GM structure: objects/oPlayer/oPlayer.yy
-        const resourceDir = path.dirname(oldPath);
-        const resourceDirName = path.basename(resourceDir);
-        const parentDir = path.dirname(resourceDir);
+        const resourceDir = path.posix.dirname(currentResourcePath);
+        const resourceDirName = path.posix.basename(resourceDir);
+        const parentDir = path.posix.dirname(resourceDir);
 
         // 1. Rename files inside the directory that match the old name.
         // We do this BEFORE renaming the directory because GameMaker assets keep
@@ -1019,23 +1096,24 @@ export class GmlSemanticBridge {
         }
 
         for (const ext of extensionsToRename) {
-            const oldFilePath = path.join(resourceDir, `${oldName}${ext}`);
-            const newFilePath = path.join(resourceDir, `${newName}${ext}`);
+            const oldFilePath = ext === ".yy" ? currentResourcePath : path.posix.join(resourceDir, `${oldName}${ext}`);
+            const newFilePath = path.posix.join(resourceDir, `${newName}${ext}`);
 
-            // Check if file exists before adding rename (using absolute path for check)
-            const absoluteOldPath = path.resolve(this.projectRoot, oldFilePath);
-            if (fs.existsSync(absoluteOldPath)) {
+            // Later batch plans may target a path introduced by an earlier staged
+            // folder rename. Accept either the current staged destination or the
+            // corresponding on-disk source path that will become that destination.
+            if (this.doesWorkspaceFilePathExist(oldFilePath)) {
                 edit.addFileRename(oldFilePath, newFilePath);
             }
         }
 
         // 2. Rename the directory itself if it matches the resource name.
         if (resourceDirName === oldName) {
-            const newResourceDir = path.join(parentDir, newName);
+            const newResourceDir = path.posix.join(parentDir, newName);
             edit.addFileRename(resourceDir, newResourceDir);
         }
 
-        this.addResourceMetadataEdits(edit, resource, oldName, newName);
+        this.addResourceMetadataEdits(edit, resource, oldName, newName, currentResourcePath);
 
         return edit;
     }
@@ -1163,18 +1241,19 @@ export class GmlSemanticBridge {
         edit: WorkspaceEdit,
         resource: SemanticResourceRecord,
         oldName: string,
-        newName: string
+        newName: string,
+        currentResourcePath: string
     ): void {
         const resources = this.resources;
         if (!resources || !resource?.path) {
             return;
         }
 
-        const resourceDirName = path.posix.basename(path.posix.dirname(resource.path));
+        const resourceDirName = path.posix.basename(path.posix.dirname(currentResourcePath));
         const newResourceDir =
             resourceDirName === oldName
-                ? path.posix.join(path.posix.dirname(path.posix.dirname(resource.path)), newName)
-                : path.posix.dirname(resource.path);
+                ? path.posix.join(path.posix.dirname(path.posix.dirname(currentResourcePath)), newName)
+                : path.posix.dirname(currentResourcePath);
         const newResourcePath = path.posix.join(newResourceDir, `${newName}.yy`);
         const latestBatchMetadataDocuments = this.collectLatestBatchMetadataDocuments(edit);
 
@@ -1198,8 +1277,8 @@ export class GmlSemanticBridge {
                 }
 
                 if (Object.hasOwn(parsed, "resourcePath")) {
-                    const currentResourcePath = typeof parsed.resourcePath === "string" ? parsed.resourcePath : null;
-                    if (currentResourcePath !== newResourcePath) {
+                    const parsedResourcePath = typeof parsed.resourcePath === "string" ? parsed.resourcePath : null;
+                    if (parsedResourcePath !== newResourcePath) {
                         parsed.resourcePath = newResourcePath;
                         changed = true;
                     }

@@ -30,6 +30,7 @@ It does not replace lint or formatter domains:
 ## Features
 
 - Naming-convention codemods treat unique constructor static members as cross-file rename targets, including dotted calls like `value.Sub()` and bare calls like `Reset()` that occur inside constructors or `with (...)` blocks.
+- Batch resource renames compose staged metadata rewrites and staged file moves, so later renames in the same run resolve the current folder/file path even for non-canonical GameMaker layouts that keep multiple object `.yy` files in one directory.
 
 ## Performance Regression Coverage
 

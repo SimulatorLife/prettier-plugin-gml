@@ -951,6 +951,113 @@ void describe("GmlSemanticBridge tests", () => {
         assert.doesNotMatch(resetManifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
     });
 
+    void it("getAdditionalSymbolEdits resolves staged directory renames for sibling object resources in shared folders", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-shared-object-folder-"));
+        const parentObjectPath = "objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy";
+        const siblingObjectPath = "objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy";
+        const projectManifestPath = "project.yyp";
+
+        const parentObjectAbsolute = path.join(tmpRoot, parentObjectPath);
+        const siblingObjectAbsolute = path.join(tmpRoot, siblingObjectPath);
+        const projectManifestAbsolute = path.join(tmpRoot, projectManifestPath);
+        fs.mkdirSync(path.dirname(parentObjectAbsolute), { recursive: true });
+
+        fs.writeFileSync(
+            parentObjectAbsolute,
+            `{"name":"oColmesh2DemoCylinder","resourceType":"GMObject","resourcePath":"objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            siblingObjectAbsolute,
+            `{"name":"oColmeshDemo2Sphere","resourceType":"GMObject","resourcePath":"objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            projectManifestAbsolute,
+            `{
+                "name":"MyGame",
+                "resourceType":"GMProject",
+                "resources":[
+                    {"id":{"name":"oColmesh2DemoCylinder","path":"objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy",}},
+                    {"id":{"name":"oColmeshDemo2Sphere","path":"objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy",}}
+                ],
+            }`,
+            "utf8"
+        );
+
+        const mockProjectIndex = {
+            identifiers: {},
+            resources: {
+                [parentObjectPath]: {
+                    path: parentObjectPath,
+                    name: "oColmesh2DemoCylinder",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [siblingObjectPath]: {
+                    path: siblingObjectPath,
+                    name: "oColmeshDemo2Sphere",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [projectManifestPath]: {
+                    path: projectManifestPath,
+                    name: "MyGame",
+                    resourceType: "GMProject",
+                    assetReferences: [
+                        {
+                            propertyPath: "resources.0.id",
+                            targetPath: parentObjectPath,
+                            targetName: "oColmesh2DemoCylinder"
+                        },
+                        {
+                            propertyPath: "resources.1.id",
+                            targetPath: siblingObjectPath,
+                            targetName: "oColmeshDemo2Sphere"
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const parentRenameEdits = bridge.getAdditionalSymbolEdits(
+            "gml/objects/oColmesh2DemoCylinder",
+            "obj_o_colmesh2demo_cylinder"
+        );
+        assert.ok(parentRenameEdits);
+        bridge.stageWorkspaceEdit(parentRenameEdits);
+
+        const siblingRenameEdits = bridge.getAdditionalSymbolEdits(
+            "gml/objects/oColmeshDemo2Sphere",
+            "obj_o_colmesh_demo2sphere"
+        );
+        assert.ok(siblingRenameEdits);
+
+        assert.deepEqual(siblingRenameEdits.fileRenames, [
+            {
+                oldPath: "objects/obj_o_colmesh2demo_cylinder/oColmeshDemo2Sphere.yy",
+                newPath: "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh_demo2sphere.yy"
+            }
+        ]);
+
+        const siblingMetadataEdit = siblingRenameEdits.metadataEdits.find((entry) => entry.path === siblingObjectPath);
+        assert.ok(siblingMetadataEdit);
+        assert.match(
+            siblingMetadataEdit.content,
+            /"resourcePath"\s*:\s*"objects\/obj_o_colmesh2demo_cylinder\/obj_o_colmesh_demo2sphere\.yy"/
+        );
+
+        const manifestEdit = siblingRenameEdits.metadataEdits.find((entry) => entry.path === projectManifestPath);
+        assert.ok(manifestEdit);
+        assert.match(manifestEdit.content, /"name"\s*:\s*"obj_o_colmesh2demo_cylinder"/);
+        assert.match(manifestEdit.content, /"name"\s*:\s*"obj_o_colmesh_demo2sphere"/);
+        assert.match(
+            manifestEdit.content,
+            /"path"\s*:\s*"objects\/obj_o_colmesh2demo_cylinder\/obj_o_colmesh_demo2sphere\.yy"/
+        );
+    });
+
     void it("getAdditionalSymbolEdits preserves room float metadata across sequential staged rewrites", () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-room-floats-"));
         const playerPath = "objects/oPlayer/oPlayer.yy";
