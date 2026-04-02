@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import path from "node:path";
 
 import { Core } from "@gmloop/core";
-import { Parser } from "@gmloop/parser";
 import { Semantic } from "@gmloop/semantic";
 
 import { listConstructorRuntimeTypeReferenceRecords } from "./constructor-runtime-type-references.js";
+import { GmlIdentifierOccurrenceIndex } from "./gml-identifier-occurrence-index.js";
 import { collectImplicitInstanceVariableTargets } from "./implicit-instance-variable-targets.js";
 import {
     listMacroDeclarationReferenceRecords,
@@ -339,6 +339,7 @@ export class GmlSemanticBridge {
     private readonly stagedMetadataContents = new Map<string, string>();
     private readonly stagedParsedMetadata = new Map<string, Record<string, unknown>>();
     private readonly sourceTextByPath = new Map<string, string | null>();
+    private readonly diskIdentifierOccurrenceIndexesByFilePath = new Map<string, GmlIdentifierOccurrenceIndex | null>();
     private constructorStaticMemberNameCounts: Map<string, number> | null = null;
     private constructorRuntimeTypeReferencesByExactName: Map<
         string,
@@ -371,7 +372,9 @@ export class GmlSemanticBridge {
         this.projectMetadataSourceByPath.clear();
         this.parsedProjectMetadataByPath.clear();
         this.sourceTextByPath.clear();
+        this.diskIdentifierOccurrenceIndexesByFilePath.clear();
         this.localReferenceOccurrencesByFilePath.clear();
+        this.localNamingCategoryResolver.clear();
         this.constructorStaticMemberNameCounts = null;
         this.constructorRuntimeTypeReferencesByExactName = null;
         this.enumNames = null;
@@ -1289,167 +1292,27 @@ export class GmlSemanticBridge {
     /**
      * Find identifier occurrences in a file (respecting boundary characters).
      */
-    private findIdentifierOccurrencesInAst(content: string, name: string): Array<{ start: number; end: number }> {
-        const results: Array<{ start: number; end: number }> = [];
-
-        try {
-            const program = Parser.GMLParser.parse(content, { getComments: false });
-
-            const traverse = (node: unknown): void => {
-                if (!Core.isObjectLike(node)) {
-                    return;
-                }
-
-                const candidate = node as Record<string, unknown>;
-                if (candidate.type === "Identifier" && candidate.name === name) {
-                    const start = candidate.start as number | undefined;
-                    const end = candidate.end as number | undefined;
-
-                    if (typeof start === "number" && typeof end === "number" && end >= start) {
-                        // Skip identifiers originating from quoted literals (e.g. case 'x').
-                        const before = start > 0 ? content[start - 1] : "";
-                        const after = end + 1 < content.length ? content[end + 1] : "";
-                        if ((before === '"' && after === '"') || (before === "'" && after === "'")) {
-                            return;
-                        }
-
-                        // Parser identifier end positions are inclusive; convert to
-                        // the exclusive end offsets expected by refactor edits.
-                        results.push({ start, end: end + 1 });
-                    }
-                }
-
-                for (const [key, value] of Object.entries(candidate)) {
-                    if (key === "start" || key === "end" || key === "type" || key === "name") {
-                        continue;
-                    }
-
-                    if (Array.isArray(value)) {
-                        for (const child of value) {
-                            traverse(child);
-                        }
-                    } else if (Core.isObjectLike(value)) {
-                        traverse(value);
-                    }
-                }
-            };
-
-            traverse(program);
-        } catch {
-            // Ignore parse failures and let the regex fallback handle the file.
-        }
-
-        return results;
+    private findIdentifierOccurrences(
+        relativePath: string,
+        name: string
+    ): ReadonlyArray<{ end: number; start: number }> {
+        return this.getDiskIdentifierOccurrenceIndex(relativePath)?.getOccurrences(name) ?? [];
     }
 
-    private findStringLiteralRangesFromText(content: string): Array<{ start: number; end: number }> {
-        const ranges: Array<{ start: number; end: number }> = [];
-        const stringLiteralPattern = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g;
-
-        for (const match of content.matchAll(stringLiteralPattern)) {
-            if (typeof match.index !== "number") {
-                continue;
-            }
-
-            ranges.push({
-                start: match.index,
-                end: match.index + match[0].length
-            });
+    private getDiskIdentifierOccurrenceIndex(filePath: string): GmlIdentifierOccurrenceIndex | null {
+        if (this.diskIdentifierOccurrenceIndexesByFilePath.has(filePath)) {
+            return this.diskIdentifierOccurrenceIndexesByFilePath.get(filePath) ?? null;
         }
 
-        return ranges;
-    }
-
-    private findStringLiteralRangesInAst(content: string): Array<{ start: number; end: number }> {
-        const ranges: Array<{ start: number; end: number }> = [];
-
-        try {
-            const program = Parser.GMLParser.parse(content, { getComments: false });
-
-            const traverse = (node: unknown): void => {
-                if (!Core.isObjectLike(node)) {
-                    return;
-                }
-
-                const candidate = node as Record<string, unknown>;
-                if (candidate.type === "Literal" && typeof candidate.value === "string") {
-                    const literalValue = candidate.value;
-                    const isQuotedLiteral =
-                        (literalValue.startsWith('"') && literalValue.endsWith('"')) ||
-                        (literalValue.startsWith("'") && literalValue.endsWith("'"));
-
-                    if (isQuotedLiteral) {
-                        const start = candidate.start as number | undefined;
-                        const end = candidate.end as number | undefined;
-                        if (typeof start === "number" && typeof end === "number" && end >= start) {
-                            ranges.push({ start, end });
-                        }
-                    }
-                }
-
-                for (const [key, value] of Object.entries(candidate)) {
-                    if (key === "start" || key === "end" || key === "type" || key === "name" || key === "value") {
-                        continue;
-                    }
-
-                    if (Array.isArray(value)) {
-                        for (const child of value) {
-                            traverse(child);
-                        }
-                    } else if (Core.isObjectLike(value)) {
-                        traverse(value);
-                    }
-                }
-            };
-
-            traverse(program);
-        } catch {
-            return this.findStringLiteralRangesFromText(content);
+        const sourceText = this.readProjectSourceText(filePath);
+        if (sourceText === null) {
+            this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, null);
+            return null;
         }
 
-        return ranges;
-    }
-
-    private isWithinRanges(start: number, end: number, ranges: Array<{ start: number; end: number }>): boolean {
-        return ranges.some((range) => start >= range.start && end <= range.end);
-    }
-
-    private findIdentifierOccurrences(relativePath: string, name: string): Array<{ start: number; end: number }> {
-        const results: Array<{ start: number; end: number }> = [];
-        try {
-            const absolutePath = path.resolve(this.projectRoot, relativePath);
-            if (!fs.existsSync(absolutePath)) return results;
-
-            const content = fs.readFileSync(absolutePath, "utf8");
-            const astResults = this.findIdentifierOccurrencesInAst(content, name);
-            if (astResults.length > 0) {
-                return astResults;
-            }
-
-            const stringLiteralRanges = this.findStringLiteralRangesInAst(content);
-            const escaped = Core.escapeRegExp(name);
-            // Use word boundaries or non-identifier characters to ensure we don't match substrings
-            // GML identifiers are [a-zA-Z_][a-zA-Z0-9_]*
-            const regex = new RegExp(`(?<=^|[^a-zA-Z0-9_])${escaped}(?=[^a-zA-Z0-9_]|$)`, "g");
-
-            let match;
-            while ((match = regex.exec(content)) !== null) {
-                const start = match.index;
-                const end = match.index + name.length;
-
-                if (this.isWithinRanges(start, end, stringLiteralRanges)) {
-                    continue;
-                }
-
-                results.push({
-                    start,
-                    end
-                });
-            }
-        } catch {
-            /* ignore */
-        }
-        return results;
+        const occurrenceIndex = GmlIdentifierOccurrenceIndex.fromSourceText(sourceText);
+        this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, occurrenceIndex);
+        return occurrenceIndex;
     }
 
     /**
@@ -2029,6 +1892,7 @@ export class GmlSemanticBridge {
                 continue;
             }
 
+            const sourceText = this.readProjectSourceText(filePath);
             let indexedReferenceOccurrences: LocalReferenceIndex | null = null;
             for (const declaration of fileDeclarations) {
                 if (!declaration || declaration.isBuiltIn || typeof declaration.name !== "string") {
@@ -2049,13 +1913,14 @@ export class GmlSemanticBridge {
                     ? scopeRecord?.kind === "catch"
                         ? "catchArgument"
                         : "argument"
-                    : this.resolveLocalNamingConventionCategory(filePath, declaration);
+                    : this.resolveLocalNamingConventionCategory(filePath, declaration, sourceText);
                 indexedReferenceOccurrences ??= this.getLocalReferenceOccurrences(filePath, fileRecord);
                 const occurrences = this.collectLocalOccurrences(
                     filePath,
                     declaration,
                     indexedReferenceOccurrences,
-                    category === "staticVariable" && this.isConstructorStaticMemberDeclaration(filePath, declaration)
+                    category === "staticVariable" &&
+                        this.isConstructorStaticMemberDeclaration(filePath, declaration, sourceText)
                 );
 
                 if (occurrences.length === 0) {
@@ -2798,7 +2663,8 @@ export class GmlSemanticBridge {
 
     private resolveLocalNamingConventionCategory(
         filePath: string,
-        declaration: Record<string, unknown>
+        declaration: Record<string, unknown>,
+        sourceText: string | null
     ): Extract<BridgeNamingConventionCategory, "localVariable" | "loopIndexVariable" | "staticVariable"> {
         const declarationStart = Core.isObjectLike(declaration.start)
             ? (declaration.start as Record<string, unknown>)
@@ -2809,11 +2675,16 @@ export class GmlSemanticBridge {
         }
 
         return (
-            this.localNamingCategoryResolver.resolveCategory(filePath, declaration.name, startIndex) ?? "localVariable"
+            this.localNamingCategoryResolver.resolveCategory(filePath, sourceText, declaration.name, startIndex) ??
+            "localVariable"
         );
     }
 
-    private isConstructorStaticMemberDeclaration(filePath: string, declaration: Record<string, unknown>): boolean {
+    private isConstructorStaticMemberDeclaration(
+        filePath: string,
+        declaration: Record<string, unknown>,
+        sourceText: string | null
+    ): boolean {
         const declarationStart = Core.isObjectLike(declaration.start)
             ? (declaration.start as Record<string, unknown>)
             : null;
@@ -2822,7 +2693,14 @@ export class GmlSemanticBridge {
             return false;
         }
 
-        if (!this.localNamingCategoryResolver.isConstructorStaticMember(filePath, declaration.name, startIndex)) {
+        if (
+            !this.localNamingCategoryResolver.isConstructorStaticMember(
+                filePath,
+                sourceText,
+                declaration.name,
+                startIndex
+            )
+        ) {
             return false;
         }
 

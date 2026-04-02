@@ -458,6 +458,10 @@ reused during rename occurrence gathering instead of being rescanned across the
 full file map for every symbol. Batch rename planning now keeps the refactor
 semantic query cache warm while metadata overlays are staged, so later renames
 in the same codemod run can reuse symbol existence and occurrence lookups.
+When a resource rename still needs disk-backed fallback occurrence discovery,
+the CLI semantic bridge now builds one cached identifier-occurrence index per
+GML file and reuses it across the whole codemod session instead of reparsing or
+rescanning every file for every renamed resource.
 
 Naming-convention edits also normalize semantic occurrence spans to exclusive
 end indexes before generating workspace edits, and local-variable rename

@@ -26,6 +26,7 @@
     {"weight":0.05,"name":"agent-36-docstrings"},
     {"weight":0.2,"name":"agent-37-helper-substitution"},
     {"weight":0.5,"name":"agent-38-logic-deduplicate"},
+    {"weight":0.125,"name":"agent-39-refactor-performance"},
     {"weight":0.1,"name":"agent-40-memory-footprint"},
     {"weight":0.5,"name":"agent-41-test-failure"},
     {"weight":0.1,"name":"agent-42-todo-implementation"},
