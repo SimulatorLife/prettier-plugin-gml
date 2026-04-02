@@ -21,6 +21,11 @@ import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
+import {
+    hasRegisteredIgnorePath,
+    registerIgnorePath,
+    resetRegisteredIgnorePaths
+} from "../format-runtime/ignore-path-registry.js";
 import { importFormatModule, resolveFormatEntryPoint as resolveCliFormatEntryPoint } from "../format-runtime/index.js";
 import {
     hasNegatedIgnoreRules,
@@ -49,11 +54,6 @@ import {
     formatElapsedNanosecondsAsMilliseconds,
     readMonotonicNanoseconds
 } from "../shared/elapsed-time.js";
-import {
-    hasRegisteredIgnorePath,
-    registerIgnorePath,
-    resetRegisteredIgnorePaths
-} from "../shared/ignore-path-registry.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
 import {
     isHelpRequest,
