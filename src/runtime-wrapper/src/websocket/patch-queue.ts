@@ -1,6 +1,6 @@
 import type { Logger } from "../runtime/logger.js";
 import type { PatchApplicator } from "../runtime/types.js";
-import { getHighResolutionTime, getWallClockTime } from "../timing/index.js";
+import { getHighResolutionTime } from "../timing/index.js";
 import type { PatchQueueMetrics, PatchQueueState, WebSocketClientState, WebSocketConnectionMetrics } from "./types.js";
 
 const QUEUE_COMPACTION_THRESHOLD_MULTIPLIER = 2;
@@ -61,7 +61,7 @@ export function createPatchQueueState(): PatchQueueState {
  * @returns The wall-clock timestamp used for the received patch.
  */
 export function recordPatchReceived(state: WebSocketClientState): number {
-    const receivedAt = getWallClockTime();
+    const receivedAt = Date.now();
     state.connectionMetrics.patchesReceived += 1;
     state.connectionMetrics.lastPatchReceivedAt = receivedAt;
     return receivedAt;
@@ -190,7 +190,7 @@ export function flushQueuedPatches(
 
     queueMetrics.flushCount += 1;
     queueMetrics.lastFlushSize = flushSize;
-    queueMetrics.lastFlushedAt = getWallClockTime();
+    queueMetrics.lastFlushedAt = Date.now();
 
     const { patches: deduplicatedPatches, duplicateCount } = deduplicatePatchesById(patchesToFlush);
     const patchesToApply = orderPatchesForDependencyBatching(deduplicatedPatches);
@@ -211,7 +211,7 @@ export function flushQueuedPatches(
         queueMetrics.totalFlushed += flushSize;
 
         if (result.success && applied > 0) {
-            connectionMetrics.lastPatchAppliedAt = getWallClockTime();
+            connectionMetrics.lastPatchAppliedAt = Date.now();
         }
     } else {
         for (const patch of patchesToApply) {
