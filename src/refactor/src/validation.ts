@@ -533,7 +533,7 @@ export async function validateCrossFileConsistency(
 
     for (const occurrence of occurrences) {
         if (occurrence.path) {
-            fileOccurrenceCounts.set(occurrence.path, (fileOccurrenceCounts.get(occurrence.path) ?? 0) + 1);
+            Core.incrementMapValue(fileOccurrenceCounts, occurrence.path);
         }
     }
 
@@ -542,10 +542,9 @@ export async function validateCrossFileConsistency(
         const fileSymbols = fileProvider.getFileSymbols(filePath);
         if (isPromiseLike(fileSymbols)) {
             pendingFileSymbolLookups.push(
-                Promise.resolve(fileSymbols).then((resolvedFileSymbols) => {
-                    appendFileConsistencyConflicts(filePath, occurrenceCount, resolvedFileSymbols ?? []);
-                    return undefined;
-                })
+                Promise.resolve(fileSymbols).then((resolvedFileSymbols) =>
+                    appendFileConsistencyConflicts(filePath, occurrenceCount, resolvedFileSymbols ?? [])
+                )
             );
             continue;
         }
@@ -604,7 +603,7 @@ export function detectDuplicateSourceSymbolIds(
     const counts = new Map<string, number>();
     for (const rename of renames) {
         if (rename && typeof rename === "object" && typeof rename.symbolId === "string") {
-            counts.set(rename.symbolId, (counts.get(rename.symbolId) ?? 0) + 1);
+            Core.incrementMapValue(counts, rename.symbolId);
         }
     }
 
