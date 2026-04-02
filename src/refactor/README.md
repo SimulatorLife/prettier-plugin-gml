@@ -447,6 +447,12 @@ rename validation, occurrence gathering, and scope checks, preventing large
 codemod runs from repeatedly scanning every identifier collection for every
 top-level rename candidate.
 
+Unresolved project-file references are also indexed once per bridge session and
+reused during rename occurrence gathering instead of being rescanned across the
+full file map for every symbol. Batch rename planning now keeps the refactor
+semantic query cache warm while metadata overlays are staged, so later renames
+in the same codemod run can reuse symbol existence and occurrence lookups.
+
 Naming-convention edits also normalize semantic occurrence spans to exclusive
 end indexes before generating workspace edits, and local-variable rename
 targets explicitly exclude property/member access tokens (for example

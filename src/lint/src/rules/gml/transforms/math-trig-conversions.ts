@@ -281,7 +281,10 @@ function applyInnerDegreeWrapperConversion(node: unknown, functionName: string):
 }
 
 /** Handle `degtorad(dsin(…))` → `sin(…)` and `radtodeg(arcsin(…))` → `darcsin(…)`. */
-function applyOuterTrigConversion(node: unknown, conversionMap: Map<string, { name: string; expectedArgs: number }>): boolean {
+function applyOuterTrigConversion(
+    node: unknown,
+    conversionMap: Map<string, { name: string; expectedArgs: number }>
+): boolean {
     const args = Core.getCallExpressionArguments(node);
     if (args.length !== 1) {
         return false;

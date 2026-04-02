@@ -278,6 +278,7 @@ export class GmlSemanticBridge {
         string,
         Array<Pick<SymbolOccurrence, "end" | "path" | "start">>
     > | null = null;
+    private enumNames: ReadonlySet<string> | null = null;
     private indexes: SemanticBridgeIndexes | null = null;
     private macroBodyReferencesByExactName: Map<
         string,
@@ -302,6 +303,7 @@ export class GmlSemanticBridge {
         this.localReferenceOccurrencesByFilePath.clear();
         this.constructorStaticMemberNameCounts = null;
         this.constructorRuntimeTypeReferencesByExactName = null;
+        this.enumNames = null;
         this.macroBodyReferencesByExactName = null;
         this.clearWorkspaceOverlay();
     }
@@ -473,6 +475,32 @@ export class GmlSemanticBridge {
             }
         };
 
+        const appendUnresolvedReference = (
+            name: string | null,
+            filePath: string,
+            reference: Record<string, unknown>
+        ): void => {
+            if (!Core.isNonEmptyString(name)) {
+                return;
+            }
+
+            const existingReferences = unresolvedReferencesByExactName.get(name);
+            if (existingReferences) {
+                existingReferences.push({
+                    filePath,
+                    reference
+                });
+                return;
+            }
+
+            unresolvedReferencesByExactName.set(name, [
+                {
+                    filePath,
+                    reference
+                }
+            ]);
+        };
+
         for (const collectionName of priorityCollections) {
             const collection = this.identifiers[collectionName];
             if (!collection) {
@@ -525,24 +553,11 @@ export class GmlSemanticBridge {
                     continue;
                 }
 
+                const referenceTargetName = typeof reference.targetName === "string" ? reference.targetName : null;
                 const referenceName = typeof reference.name === "string" ? reference.name : null;
-                if (!Core.isNonEmptyString(referenceName)) {
-                    continue;
-                }
-
-                const existingReferences = unresolvedReferencesByExactName.get(referenceName);
-                if (existingReferences) {
-                    existingReferences.push({
-                        filePath,
-                        reference
-                    });
-                } else {
-                    unresolvedReferencesByExactName.set(referenceName, [
-                        {
-                            filePath,
-                            reference
-                        }
-                    ]);
+                appendUnresolvedReference(referenceTargetName, filePath, reference);
+                if (referenceTargetName !== referenceName) {
+                    appendUnresolvedReference(referenceName, filePath, reference);
                 }
             }
         }
@@ -1382,52 +1397,35 @@ export class GmlSemanticBridge {
             return;
         }
 
-        for (const [filePath, fileRecord] of Object.entries(this.projectIndex.files ?? {})) {
-            const typedFileRecord = fileRecord as SemanticFileRecord;
-            for (const reference of typedFileRecord.references ?? []) {
-                if (!Core.isObjectLike(reference) || Core.isObjectLike(reference.declaration)) {
-                    continue;
-                }
-
-                const typedReference = reference as {
-                    classifications?: Array<unknown>;
-                    end?: { index?: number };
-                    location?: { end?: { index?: number }; start?: { index?: number } };
-                    name?: unknown;
-                    scopeId?: unknown;
-                    start?: { index?: number };
-                    targetName?: unknown;
-                };
-
-                const referenceName =
-                    typeof typedReference.targetName === "string"
-                        ? typedReference.targetName
-                        : typeof typedReference.name === "string"
-                          ? typedReference.name
-                          : null;
-                if (referenceName !== symbolName) {
-                    continue;
-                }
-
-                const start = typedReference.start?.index ?? typedReference.location?.start?.index ?? 0;
-                const end = resolveOccurrenceEndIndex(typedReference.end?.index ?? typedReference.location?.end?.index);
-                if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
-                    continue;
-                }
-
-                const classifications = Core.asArray(typedReference.classifications);
-                if (classifications.includes("property") && this.isKnownEnumMemberReference(filePath, start)) {
-                    continue;
-                }
-
-                occurrences.push({
-                    path: filePath,
-                    start,
-                    end,
-                    scopeId: typeof typedReference.scopeId === "string" ? typedReference.scopeId : undefined,
-                    kind: "reference"
-                });
+        for (const unresolvedReference of this.getIndexes().unresolvedReferencesByExactName.get(symbolName) ?? []) {
+            const typedReference = unresolvedReference.reference as {
+                classifications?: Array<unknown>;
+                end?: { index?: number };
+                location?: { end?: { index?: number }; start?: { index?: number } };
+                scopeId?: unknown;
+                start?: { index?: number };
+            };
+            const start = typedReference.start?.index ?? typedReference.location?.start?.index ?? 0;
+            const end = resolveOccurrenceEndIndex(typedReference.end?.index ?? typedReference.location?.end?.index);
+            if (!Core.isNonEmptyString(unresolvedReference.filePath) || end === null || end <= start) {
+                continue;
             }
+
+            const classifications = Core.asArray(typedReference.classifications);
+            if (
+                classifications.includes("property") &&
+                this.isKnownEnumMemberReference(unresolvedReference.filePath, start)
+            ) {
+                continue;
+            }
+
+            occurrences.push({
+                path: unresolvedReference.filePath,
+                start,
+                end,
+                scopeId: typeof typedReference.scopeId === "string" ? typedReference.scopeId : undefined,
+                kind: "reference"
+            });
         }
     }
 
@@ -2500,13 +2498,7 @@ export class GmlSemanticBridge {
             return false;
         }
 
-        for (const entry of Object.values(this.identifiers.enums ?? {})) {
-            if (entry?.name === ownerName) {
-                return true;
-            }
-        }
-
-        return false;
+        return this.getEnumNames().has(ownerName);
     }
 
     private readDottedReferenceOwnerName(filePath: string, startIndex: number): string | null {
@@ -2623,6 +2615,23 @@ export class GmlSemanticBridge {
 
         this.constructorStaticMemberNameCounts = counts;
         return counts;
+    }
+
+    private getEnumNames(): ReadonlySet<string> {
+        const cachedEnumNames = this.enumNames;
+        if (cachedEnumNames !== null) {
+            return cachedEnumNames;
+        }
+
+        const enumNames = new Set<string>();
+        for (const entry of Object.values(this.identifiers.enums ?? {})) {
+            if (typeof entry?.name === "string") {
+                enumNames.add(entry.name);
+            }
+        }
+
+        this.enumNames = enumNames;
+        return enumNames;
     }
 
     private findResourceByName(name: string, caseInsensitive = false): any {

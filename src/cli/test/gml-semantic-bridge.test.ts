@@ -1631,6 +1631,72 @@ void describe("GmlSemanticBridge tests", () => {
         }
     });
 
+    void it("getSymbolOccurrences preserves unresolved targetName-only project-file references", () => {
+        const enumSource = ["enum CM_RAY {", "    MASK", "}", ""].join("\n");
+        const consumerSource = ["return CM_RAY.MASK;", ""].join("\n");
+        const declarationStart = enumSource.indexOf("CM_RAY");
+        const referenceStart = consumerSource.indexOf("CM_RAY");
+        const projectIndex = {
+            identifiers: {
+                enums: {
+                    "enum:CM_RAY": {
+                        identifierId: "enum:CM_RAY",
+                        name: "CM_RAY",
+                        declarations: [
+                            {
+                                name: "CM_RAY",
+                                filePath: "scripts/cm_misc/cm_misc.gml",
+                                start: { index: declarationStart },
+                                end: { index: declarationStart + "CM_RAY".length - 1 }
+                            }
+                        ],
+                        references: []
+                    }
+                }
+            },
+            files: {
+                "scripts/cm_aab/cm_aab.gml": {
+                    references: [
+                        {
+                            targetName: "CM_RAY",
+                            classifications: ["property"],
+                            start: { index: referenceStart },
+                            end: { index: referenceStart + "CM_RAY".length - 1 }
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(projectIndex, "/tmp");
+        const occurrences = bridge
+            .getSymbolOccurrences("CM_RAY", "gml/enum/CM_RAY")
+            .toSorted((left, right) => left.start - right.start);
+
+        assert.deepEqual(
+            occurrences.map((occurrence) => ({
+                kind: occurrence.kind,
+                path: occurrence.path,
+                start: occurrence.start,
+                end: occurrence.end
+            })),
+            [
+                {
+                    kind: Refactor.OccurrenceKind.DEFINITION,
+                    path: "scripts/cm_misc/cm_misc.gml",
+                    start: declarationStart,
+                    end: declarationStart + "CM_RAY".length
+                },
+                {
+                    kind: Refactor.OccurrenceKind.REFERENCE,
+                    path: "scripts/cm_aab/cm_aab.gml",
+                    start: referenceStart,
+                    end: referenceStart + "CM_RAY".length
+                }
+            ]
+        );
+    });
+
     void it("getSymbolOccurrences for script resources ignores same-name macro occurrences", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-script-macro-"));
 

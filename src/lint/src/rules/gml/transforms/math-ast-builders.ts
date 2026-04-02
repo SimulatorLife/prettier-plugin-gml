@@ -8,7 +8,12 @@ import { Core } from "@gmloop/core";
 const { BINARY_EXPRESSION, CALL_EXPRESSION, LITERAL, PARENTHESIZED_EXPRESSION, UNARY_EXPRESSION, isObjectLike } = Core;
 
 /** Create a new binary-expression node with the given operator and operands. */
-export function createBinaryExpressionNode(operator: string, left: unknown, right: unknown, template: unknown): unknown {
+export function createBinaryExpressionNode(
+    operator: string,
+    left: unknown,
+    right: unknown,
+    template: unknown
+): unknown {
     const expression = {
         type: BINARY_EXPRESSION,
         operator,
@@ -174,12 +179,7 @@ export function replaceNodeWith(target: unknown, source: unknown): boolean {
  * Mutate `target` in-place so it becomes a call to `name(…args)`.
  * Delegates to `createCallExpressionNode` + `replaceNode`.
  */
-export function mutateToCallExpression(
-    target: unknown,
-    name: string,
-    args: unknown[],
-    template: unknown
-): void {
+export function mutateToCallExpression(target: unknown, name: string, args: unknown[], template: unknown): void {
     const call = createCallExpressionNode(name, args, template);
 
     if (!call) {

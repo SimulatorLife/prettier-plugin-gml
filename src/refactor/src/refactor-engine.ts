@@ -188,7 +188,10 @@ export class RefactorEngine {
             maxSize: RENAME_VALIDATION_CACHE_MAX_SIZE
         });
         this.semanticCache = new SemanticQueryCache(semantic, {
-            maxSize: 1000,
+            // Batch codemods can validate and then plan several thousand symbol
+            // queries in one run. Keep enough room for those session-local
+            // results so the planning phase can reuse the validation lookups.
+            maxSize: 8192,
             ttlMs: 300_000,
             maxOccurrenceCacheEntries: 4000
         });
@@ -936,7 +939,10 @@ export class RefactorEngine {
 
                 if (supportsBatchWorkspaceOverlay) {
                     await (semantic as any).stageWorkspaceEdit(workspace);
-                    this.semanticCache.invalidateAll();
+                    // Metadata overlays affect subsequent metadata planning, but
+                    // they do not mutate the semantic source index itself. Keep
+                    // the semantic query cache warm so large batch codemods can
+                    // reuse symbol existence and occurrence lookups.
                 }
             });
         } finally {
