@@ -29,6 +29,23 @@ It does not replace lint or formatter domains:
 
 ## Features
 
+- Naming-convention codemods treat unique constructor static members as cross-file rename targets, including dotted calls like `value.Sub()` and bare calls like `Reset()` that occur inside constructors or `with (...)` blocks.
+
+## Performance Regression Coverage
+
+Current guardrails focus on the two hottest naming-convention paths that showed up in profiling:
+
+- Selected-path filtering now compiles allow/deny lists once per codemod run instead of re-resolving them for every candidate.
+- `WorkspaceEdit` application now assembles rewritten file content in a single pass, avoiding one full-string allocation per text edit.
+
+The refactor workspace keeps naming-convention codemod stress tests in the regular TypeScript test suite:
+
+- [`src/refactor/test/naming-convention-performance.test.ts`](./test/naming-convention-performance.test.ts) exercises high-volume local rename planning and edit application.
+- [`src/cli/test/refactor-codemod-performance.test.ts`](../cli/test/refactor-codemod-performance.test.ts) exercises the indexed CLI bridge path for large top-level rename batches.
+- [`src/cli/test/refactor-local-naming-performance.test.ts`](../cli/test/refactor-local-naming-performance.test.ts) exercises disk-backed local-variable codemods so CI catches regressions in source-text loading, local-occurrence indexing, and member-access filtering on real files.
+
+These tests run through the normal `pnpm run test:ci` workflow, so CI enforces both correctness and the current performance thresholds.
+
 ### Project-wide Codemod Execution
 
 Run loop-length hoisting as a single transaction across multiple files through the refactor engine:
@@ -565,6 +582,8 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
 #### Notes
 
 - Current runtime target coverage includes resource names, script/constructor/struct declarations, enums, enum members, macros, globals, instance variables, locals, static locals, loop indices, arguments, and catch arguments.
+- Naming-convention planning expands selected `.gml` paths to their owning resource `.yy` files, so object event rewrites also execute the matching object resource rename transaction instead of leaving code and metadata out of sync.
+- Implicit instance-variable coverage follows unresolved object-event assignments across related object event files, including inherited child-object reads and dotted object-property reads, while excluding known enum-owner member accesses such as `CM.R` so enum members are not folded into instance-variable renames.
 - `staticVariable` and `loopIndexVariable` are syntax-refined local-variable categories. The refactor engine only exposes concrete categories that it can currently rename with complete occurrence coverage from the semantic bridge.
 - Prefix/suffix matching is strict and case-sensitive.
 - Parent/category relationships are not stored in `ResolvedNamingRule`; they are only used during rule resolution.

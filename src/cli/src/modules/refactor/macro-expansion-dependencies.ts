@@ -26,10 +26,24 @@ type MacroExpansionDependency = {
     referencedNames: Array<string>;
 };
 
+export interface MacroDeclarationReferenceOccurrence {
+    end: number;
+    name: string;
+    start: number;
+}
+
+export interface MacroDeclarationReferenceRecord {
+    macroName: string;
+    path: string;
+    references: Array<MacroDeclarationReferenceOccurrence>;
+}
+
 const DEFAULT_DECLARATION_KEYWORDS = new Set(["enum", "function", "globalvar", "static", "var"]);
 const BUILT_IN_IDENTIFIER_NAMES = new Set(
     Core.normalizeIdentifierMetadataEntries(Core.getIdentifierMetadata()).map((entry) => entry.name.toLowerCase())
 );
+const MACRO_REFERENCE_PROBE_PREFIX = "function __gmloop_macro_probe__() {\n";
+const MACRO_REFERENCE_PROBE_SUFFIX = "\n}\n";
 
 function createSelectedFilePredicate(selectedFilePaths?: Array<string>): (candidatePath: string) => boolean {
     if (!Array.isArray(selectedFilePaths) || selectedFilePaths.length === 0) {
@@ -62,43 +76,62 @@ function normalizeMacroBody(tokens: ReadonlyArray<unknown>): string {
         .join(" ");
 }
 
+function shouldCollectMacroReferenceIdentifier(node: unknown): node is {
+    classifications?: Array<string>;
+    declaration?: unknown;
+    name: string;
+} {
+    if (!Core.isIdentifierNode(node)) {
+        return false;
+    }
+
+    const typedIdentifierNode = node as { name?: unknown };
+    if (!Core.isNonEmptyString(typedIdentifierNode.name)) {
+        return false;
+    }
+
+    const typedNode = node as {
+        classifications?: Array<string>;
+        declaration?: unknown;
+        end?: unknown;
+        start?: unknown;
+    };
+    const classifications = Core.asArray(typedNode.classifications);
+    if (!classifications.includes("reference")) {
+        return false;
+    }
+
+    if (Core.isObjectLike(typedNode.declaration)) {
+        return false;
+    }
+
+    if (BUILT_IN_IDENTIFIER_NAMES.has(typedIdentifierNode.name.toLowerCase())) {
+        return false;
+    }
+    return true;
+}
+
 function collectMacroReferenceNamesFromAst(bodySourceText: string): Set<string> {
-    const ast = Parser.GMLParser.parse(`function __gmloop_macro_probe__() {\n${bodySourceText}\n}\n`, {
-        getComments: false,
-        getLocations: true,
-        simplifyLocations: false,
-        scopeTrackerOptions: {
-            enabled: true,
-            createScopeTracker: () => new Semantic.SemanticScopeCoordinator()
+    const ast = Parser.GMLParser.parse(
+        `${MACRO_REFERENCE_PROBE_PREFIX}${bodySourceText}${MACRO_REFERENCE_PROBE_SUFFIX}`,
+        {
+            getComments: false,
+            getLocations: true,
+            simplifyLocations: false,
+            scopeTrackerOptions: {
+                enabled: true,
+                createScopeTracker: () => new Semantic.SemanticScopeCoordinator()
+            }
         }
-    });
+    );
     const referenceNames = new Set<string>();
 
     Core.walkAst(ast, (node) => {
-        if (!Core.isIdentifierNode(node)) {
+        if (!shouldCollectMacroReferenceIdentifier(node)) {
             return;
         }
 
-        const classifications = Core.asArray((node as { classifications?: Array<string> }).classifications);
-        if (!classifications.includes("reference")) {
-            return;
-        }
-
-        const declaration = (node as { declaration?: unknown }).declaration;
-        if (Core.isObjectLike(declaration)) {
-            return;
-        }
-
-        const identifierName = node.name;
-        if (!Core.isNonEmptyString(identifierName)) {
-            return;
-        }
-
-        if (BUILT_IN_IDENTIFIER_NAMES.has(identifierName.toLowerCase())) {
-            return;
-        }
-
-        referenceNames.add(identifierName);
+        referenceNames.add(node.name);
     });
 
     return referenceNames;
@@ -133,6 +166,57 @@ function collectMacroReferenceNamesFromTokens(tokens: ReadonlyArray<unknown>): S
     return referenceNames;
 }
 
+function collectStringLiteralRanges(bodySourceText: string): Array<{ start: number; end: number }> {
+    const ranges: Array<{ start: number; end: number }> = [];
+    const stringLiteralPattern = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g;
+
+    for (const match of bodySourceText.matchAll(stringLiteralPattern)) {
+        if (typeof match.index !== "number") {
+            continue;
+        }
+
+        ranges.push({
+            start: match.index,
+            end: match.index + match[0].length
+        });
+    }
+
+    return ranges;
+}
+
+function collectMacroReferenceOccurrencesFromSource(
+    bodySourceText: string,
+    referencedNames: ReadonlySet<string>
+): Array<MacroDeclarationReferenceOccurrence> {
+    const referenceOccurrences: Array<MacroDeclarationReferenceOccurrence> = [];
+    const stringLiteralRanges = collectStringLiteralRanges(bodySourceText);
+
+    for (const referencedName of [...referencedNames].sort((left, right) => right.length - left.length)) {
+        const escapedName = Core.escapeRegExp(referencedName);
+        const namePattern = new RegExp(`(?<=^|[^A-Za-z0-9_])${escapedName}(?=[^A-Za-z0-9_]|$)`, "g");
+
+        for (const match of bodySourceText.matchAll(namePattern)) {
+            const start = match.index;
+            if (typeof start !== "number") {
+                continue;
+            }
+
+            const end = start + referencedName.length;
+            if (stringLiteralRanges.some((range) => start >= range.start && end <= range.end)) {
+                continue;
+            }
+
+            referenceOccurrences.push({
+                name: referencedName,
+                start,
+                end
+            });
+        }
+    }
+
+    return referenceOccurrences.toSorted((left, right) => left.start - right.start);
+}
+
 function collectMacroReferenceNames(tokens: ReadonlyArray<unknown>): Set<string> {
     const normalizedBody = normalizeMacroBody(tokens).trim();
     if (normalizedBody.length === 0) {
@@ -146,21 +230,134 @@ function collectMacroReferenceNames(tokens: ReadonlyArray<unknown>): Set<string>
     }
 }
 
-function collectMacroDependencyNamesByMacro(
-    macros: Record<string, MacroIdentifierEntry>,
-    projectRoot: string
-): Map<string, Set<string>> {
-    const dependencyNamesByMacro = new Map<string, Set<string>>();
+function readLocationIndex(location: unknown): number | null {
+    if (typeof location === "number") {
+        return location;
+    }
+
+    if (!Core.isObjectLike(location)) {
+        return null;
+    }
+
+    const typedLocation = location as { index?: unknown };
+    return typeof typedLocation.index === "number" ? typedLocation.index : null;
+}
+
+function readMacroBodyStartIndex(statement: {
+    keywordRange?: unknown;
+    name?: unknown;
+    start?: unknown;
+}): number | null {
+    const macroNameNode = Core.isIdentifierNode(statement.name) ? (statement.name as { end?: unknown }) : null;
+    const macroNameEnd = readLocationIndex(macroNameNode?.end);
+    if (typeof macroNameEnd === "number") {
+        return macroNameEnd + 1;
+    }
+
+    const keywordRange = Core.isObjectLike(statement.keywordRange)
+        ? (statement.keywordRange as { end?: unknown })
+        : null;
+    if (typeof keywordRange?.end === "number") {
+        return keywordRange.end;
+    }
+
+    return readLocationIndex(statement.start);
+}
+
+function collectMacroDeclarationReferenceRecordsFromFile(
+    filePath: string,
+    sourceText: string
+): Array<MacroDeclarationReferenceRecord> {
+    let ast: Record<string, unknown>;
+
+    try {
+        ast = Parser.GMLParser.parse(sourceText, {
+            getComments: false,
+            getLocations: true,
+            simplifyLocations: false
+        }) as Record<string, unknown>;
+    } catch {
+        return [];
+    }
+
+    const records: Array<MacroDeclarationReferenceRecord> = [];
+
+    for (const statement of Core.asArray(ast.body)) {
+        if (!Core.isObjectLike(statement)) {
+            continue;
+        }
+
+        const macroStatement = statement as {
+            end?: unknown;
+            keywordRange?: unknown;
+            name?: unknown;
+            start?: unknown;
+            tokens?: unknown;
+            type?: string;
+        };
+        if (macroStatement.type !== "MacroDeclaration") {
+            continue;
+        }
+
+        const macroNameNode = macroStatement.name;
+        const typedMacroNameNode = Core.isIdentifierNode(macroNameNode) ? (macroNameNode as { name?: unknown }) : null;
+        const macroName =
+            typedMacroNameNode && Core.isNonEmptyString(typedMacroNameNode.name) ? typedMacroNameNode.name : null;
+        if (!macroName) {
+            continue;
+        }
+
+        const bodyStart = readMacroBodyStartIndex(macroStatement);
+        const statementEnd = readLocationIndex(macroStatement.end);
+        const bodyEnd = typeof statementEnd === "number" ? statementEnd + 1 : sourceText.length;
+        if (typeof bodyStart !== "number" || bodyEnd <= bodyStart) {
+            records.push({
+                macroName,
+                path: filePath,
+                references: []
+            });
+            continue;
+        }
+
+        const bodySourceText = sourceText.slice(bodyStart, bodyEnd);
+        const referencedNames = collectMacroReferenceNames(Core.asArray(macroStatement.tokens));
+        const references = collectMacroReferenceOccurrencesFromSource(bodySourceText, referencedNames).map(
+            (occurrence) => ({
+                name: occurrence.name,
+                start: bodyStart + occurrence.start,
+                end: bodyStart + occurrence.end
+            })
+        );
+
+        records.push({
+            macroName,
+            path: filePath,
+            references
+        });
+    }
+
+    return records;
+}
+
+/**
+ * Parse macro declaration files and return exact identifier occurrences from each
+ * macro body so callers can update cross-file references embedded in `#macro`
+ * expansions.
+ */
+export function listMacroDeclarationReferenceRecords(
+    context: Pick<MacroDependencyContext, "macros" | "projectRoot">
+): Array<MacroDeclarationReferenceRecord> {
+    const records: Array<MacroDeclarationReferenceRecord> = [];
     const parsedMacroFiles = new Set<string>();
 
-    for (const entry of Object.values(macros)) {
+    for (const entry of Object.values(context.macros)) {
         const declarationFilePath = readMacroDeclarationFilePath(entry);
         if (!declarationFilePath || parsedMacroFiles.has(declarationFilePath)) {
             continue;
         }
 
         parsedMacroFiles.add(declarationFilePath);
-        const absoluteFilePath = path.resolve(projectRoot, declarationFilePath);
+        const absoluteFilePath = path.resolve(context.projectRoot, declarationFilePath);
         if (!fs.existsSync(absoluteFilePath)) {
             continue;
         }
@@ -172,42 +369,26 @@ function collectMacroDependencyNamesByMacro(
             continue;
         }
 
-        let ast: Record<string, unknown>;
-        try {
-            ast = Parser.GMLParser.parse(sourceText, {
-                getComments: false,
-                getLocations: false
-            }) as Record<string, unknown>;
-        } catch {
-            continue;
+        records.push(...collectMacroDeclarationReferenceRecordsFromFile(declarationFilePath, sourceText));
+    }
+
+    return records;
+}
+
+function collectMacroDependencyNamesByMacro(
+    macros: Record<string, MacroIdentifierEntry>,
+    projectRoot: string
+): Map<string, Set<string>> {
+    const dependencyNamesByMacro = new Map<string, Set<string>>();
+
+    for (const record of listMacroDeclarationReferenceRecords({ macros, projectRoot })) {
+        const dependencyNames = dependencyNamesByMacro.get(record.macroName) ?? new Set<string>();
+
+        for (const reference of record.references) {
+            dependencyNames.add(reference.name);
         }
 
-        const body = Core.asArray(ast.body);
-        for (const statement of body) {
-            if (!Core.isObjectLike(statement)) {
-                continue;
-            }
-
-            const macroStatement = statement as {
-                type?: string;
-                name?: unknown;
-                tokens?: unknown;
-            };
-            if (macroStatement.type !== "MacroDeclaration") {
-                continue;
-            }
-
-            const macroNameNode = macroStatement.name;
-            const macroName =
-                Core.isIdentifierNode(macroNameNode) && Core.isNonEmptyString(macroNameNode.name)
-                    ? macroNameNode.name
-                    : null;
-            if (!macroName) {
-                continue;
-            }
-
-            dependencyNamesByMacro.set(macroName, collectMacroReferenceNames(Core.asArray(macroStatement.tokens)));
-        }
+        dependencyNamesByMacro.set(record.macroName, dependencyNames);
     }
 
     return dependencyNamesByMacro;

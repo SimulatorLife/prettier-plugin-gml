@@ -8,7 +8,8 @@ const PROJECT_METADATA_PARSE_ERROR = "ProjectMetadataParseError";
 const PROJECT_METADATA_SCHEMA_VALIDATION_ERROR = "ProjectMetadataSchemaValidationError";
 
 const RESOURCE_TYPE_TO_SCHEMA_NAME = Object.freeze({
-    GMProject: "project",
+    // "GMProject: project" is deliberately omitted because @bscotch/yy's 'project' schema
+    // drops unknown resources leading to data loss in valid project files.
     GMObject: "objects",
     GMScript: "scripts",
     GMRoom: "rooms",
@@ -37,7 +38,10 @@ function mapResourceTypeToSchemaName(resourceType: unknown): ProjectMetadataSche
 function mapResourcePathToSchemaName(sourcePath: string): ProjectMetadataSchemaName | null {
     const normalizedPath = Core.toPosixPath(sourcePath);
     if (normalizedPath.toLowerCase().endsWith(".yyp")) {
-        return "project";
+        // Prevent inferring the "project" schema for GameMaker .yyp manifests.
+        // The @bscotch/yy library's project schema validation silently filters out
+        // unrecognized array entries, leading to data loss for valid projects.
+        return null;
     }
 
     if (!normalizedPath.toLowerCase().endsWith(".yy")) {
@@ -351,18 +355,48 @@ function ensureResourceTypeBeforeResourcePathInSerializedOutput(
     return copy.join(eol);
 }
 
+function normalizeMetadataValueForSerialization(value: unknown): unknown {
+    const objectTag = Object.prototype.toString.call(value);
+    if (objectTag === "[object Number]" || objectTag === "[object String]" || objectTag === "[object Boolean]") {
+        return value.valueOf();
+    }
+
+    if (Array.isArray(value)) {
+        return value.map((entry) => normalizeMetadataValueForSerialization(entry));
+    }
+
+    if (!Core.isObjectLike(value)) {
+        return value;
+    }
+
+    const normalizedObject: Record<string, unknown> = {};
+    for (const [key, childValue] of Object.entries(value)) {
+        normalizedObject[key] = normalizeMetadataValueForSerialization(childValue);
+    }
+
+    return normalizedObject;
+}
+
 export function stringifyProjectMetadataDocument(document: Record<string, unknown>, sourcePath = "") {
-    const normalizedDocument = ensureResourceTypeBeforeResourcePath(document);
-    const schemaName = Core.isNonEmptyString(sourcePath)
+    const normalizedDocument = ensureResourceTypeBeforeResourcePath(
+        normalizeMetadataValueForSerialization(document) as Record<string, unknown>
+    );
+    let schemaName = Core.isNonEmptyString(sourcePath)
         ? resolveProjectMetadataSchemaName(sourcePath, normalizedDocument.resourceType)
         : null;
+
+    // Avoid using @bscotch/yy's `project` schema when serializing project manifests
+    // as the schema validation strips out valid resources not covered by the schema.
+    if (schemaName === "project") {
+        schemaName = null;
+    }
 
     const rawOutput = ((): string => {
         if (schemaName) {
             try {
                 return Yy.stringify(normalizedDocument, schemaName);
-            } catch {
-                return Yy.stringify(normalizedDocument);
+            } catch (error) {
+                throw new ProjectMetadataSchemaValidationError(sourcePath, schemaName, error);
             }
         }
 

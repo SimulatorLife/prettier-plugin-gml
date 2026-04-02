@@ -455,6 +455,138 @@ void test("refactor codemod --write renames implicit instance variables across o
     }
 });
 
+void test("refactor codemod --write renames implicit instance variables across inherited child objects and dotted object references", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeProjectFile(
+            projectRoot,
+            "objects/oActorParent/oActorParent.yy",
+            `${JSON.stringify(
+                {
+                    resourceType: "GMObject",
+                    resourcePath: "objects/oActorParent/oActorParent.yy",
+                    name: "oActorParent"
+                },
+                null,
+                4
+            )}\n`
+        );
+        await writeProjectFile(
+            projectRoot,
+            "objects/oActorParent/Create_0.gml",
+            ["upDir = new Vector3(0, 0, 1);", "activePlayer = false;", ""].join("\n")
+        );
+        await registerProjectResource(projectRoot, "oActorParent", "objects/oActorParent/oActorParent.yy");
+
+        await writeProjectFile(
+            projectRoot,
+            "objects/oPlayer/oPlayer.yy",
+            `${JSON.stringify(
+                {
+                    resourceType: "GMObject",
+                    resourcePath: "objects/oPlayer/oPlayer.yy",
+                    name: "oPlayer",
+                    parentObjectId: {
+                        name: "oActorParent",
+                        path: "objects/oActorParent/oActorParent.yy"
+                    }
+                },
+                null,
+                4
+            )}\n`
+        );
+        await writeProjectFile(
+            projectRoot,
+            "objects/oPlayer/Create_0.gml",
+            [
+                "event_inherited();",
+                "basis = { up: upDir };",
+                "if (!activePlayer) {",
+                "    show_debug_message(upDir);",
+                "}",
+                "show_debug_message(oCamera.camMat);",
+                "show_debug_message(oCamera.camXfrom);",
+                ""
+            ].join("\n")
+        );
+        await registerProjectResource(projectRoot, "oPlayer", "objects/oPlayer/oPlayer.yy");
+
+        await writeProjectFile(
+            projectRoot,
+            "objects/oCamera/oCamera.yy",
+            `${JSON.stringify(
+                {
+                    resourceType: "GMObject",
+                    resourcePath: "objects/oCamera/oCamera.yy",
+                    name: "oCamera"
+                },
+                null,
+                4
+            )}\n`
+        );
+        await writeProjectFile(
+            projectRoot,
+            "objects/oCamera/Create_0.gml",
+            [
+                "camMat = matrix_build_identity();",
+                "camXfrom = x;",
+                "follow_id = oPlayer;",
+                "show_debug_message(follow_id.upDir);",
+                "show_debug_message(follow_id.activePlayer);",
+                ""
+            ].join("\n")
+        );
+        await registerProjectResource(projectRoot, "oCamera", "objects/oCamera/oCamera.yy");
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+
+        const parentSource = await readFile(path.join(projectRoot, "objects/oActorParent/Create_0.gml"), "utf8");
+        const playerSource = await readFile(path.join(projectRoot, "objects/oPlayer/Create_0.gml"), "utf8");
+        const cameraSource = await readFile(path.join(projectRoot, "objects/oCamera/Create_0.gml"), "utf8");
+
+        assert.match(parentSource, /up_dir = new Vector3\(0, 0, 1\);/);
+        assert.match(parentSource, /active_player = false;/);
+        assert.match(playerSource, /basis = \{ up: up_dir \};/);
+        assert.match(playerSource, /if \(!active_player\) \{/);
+        assert.match(playerSource, /show_debug_message\(up_dir\);/);
+        assert.match(playerSource, /show_debug_message\(oCamera\.cam_mat\);/);
+        assert.match(playerSource, /show_debug_message\(oCamera\.cam_xfrom\);/);
+        assert.match(cameraSource, /cam_mat = matrix_build_identity\(\);/);
+        assert.match(cameraSource, /cam_xfrom = x;/);
+        assert.match(cameraSource, /show_debug_message\(follow_id\.up_dir\);/);
+        assert.match(cameraSource, /show_debug_message\(follow_id\.active_player\);/);
+        assert.doesNotMatch(playerSource, /\bupDir\b/);
+        assert.doesNotMatch(playerSource, /\bactivePlayer\b/);
+        assert.doesNotMatch(playerSource, /\.camMat\b/);
+        assert.doesNotMatch(playerSource, /\.camXfrom\b/);
+        assert.doesNotMatch(cameraSource, /\.upDir\b/);
+        assert.doesNotMatch(cameraSource, /\.activePlayer\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write preserves valid enum member accesses when locals share the same name", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
@@ -580,6 +712,123 @@ void test("refactor codemod --write renames cross-file enum references and repar
     }
 });
 
+void test("refactor codemod --write preserves enum members when same-name implicit instance-variable renames are applied", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    enum: {
+                        prefix: "e",
+                        caseStyle: "camel"
+                    },
+                    enumMember: {
+                        caseStyle: "upper_snake"
+                    },
+                    variable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(projectRoot, "cm_misc", ["enum CM {", "    R,", "    NUM", "}", ""].join("\n"));
+        await writeObjectResource(projectRoot, "oActorParent", {
+            "Create_0.gml": ["R = 1;", "show_debug_message(R);", ""].join("\n")
+        });
+        await writeObjectResource(projectRoot, "oPlayer", {
+            "Draw_73.gml": [
+                "var collider = array_create(CM.NUM, 0);",
+                "draw_text(0, 0, string(collider[CM.R]));",
+                ""
+            ].join("\n")
+        });
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const instanceSource = await readFile(path.join(projectRoot, "objects/oActorParent/Create_0.gml"), "utf8");
+        const drawSource = await readFile(path.join(projectRoot, "objects/oPlayer/Draw_73.gml"), "utf8");
+
+        assert.match(instanceSource, /^r = 1;/m);
+        assert.match(instanceSource, /show_debug_message\(r\);/);
+        assert.match(drawSource, /var collider = array_create\(eCm\.NUM, 0\);/);
+        assert.match(drawSource, /string\(collider\[eCm\.R\]\)/);
+        assert.doesNotMatch(drawSource, /eCm\.r\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write renames object resources together with object event references", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    objectResourceName: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeObjectResource(projectRoot, "oCamera", {
+            "Create_0.gml": ['show_debug_message("camera ready");', ""].join("\n")
+        });
+        await writeObjectResource(projectRoot, "oSystem", {
+            "Other_2.gml": ["instance_create_depth(0, 0, 0, oCamera);", ""].join("\n")
+        });
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+
+        await assert.doesNotReject(access(path.join(projectRoot, "objects/o_camera/o_camera.yy")));
+        await assert.rejects(access(path.join(projectRoot, "objects/oCamera/oCamera.yy")));
+        await assert.doesNotReject(access(path.join(projectRoot, "objects/o_system/o_system.yy")));
+        await assert.rejects(access(path.join(projectRoot, "objects/oSystem/oSystem.yy")));
+
+        const projectSource = await readFile(path.join(projectRoot, "MyGame.yyp"), "utf8");
+        const resourceSource = await readFile(path.join(projectRoot, "objects/o_camera/o_camera.yy"), "utf8");
+        const systemResourceSource = await readFile(path.join(projectRoot, "objects/o_system/o_system.yy"), "utf8");
+        const systemSource = await readFile(path.join(projectRoot, "objects/o_system/Other_2.gml"), "utf8");
+
+        assert.match(projectSource, /"name"\s*:\s*"o_camera"/);
+        assert.match(projectSource, /"path"\s*:\s*"objects\/o_camera\/o_camera\.yy"/);
+        assert.match(projectSource, /"name"\s*:\s*"o_system"/);
+        assert.match(projectSource, /"path"\s*:\s*"objects\/o_system\/o_system\.yy"/);
+        assert.doesNotMatch(projectSource, /\boCamera\b/);
+        assert.doesNotMatch(projectSource, /\boSystem\b/);
+        assert.match(resourceSource, /"name"\s*:\s*"o_camera"/);
+        assert.match(resourceSource, /"resourcePath"\s*:\s*"objects\/o_camera\/o_camera\.yy"/);
+        assert.match(systemResourceSource, /"name"\s*:\s*"o_system"/);
+        assert.match(systemResourceSource, /"resourcePath"\s*:\s*"objects\/o_system\/o_system\.yy"/);
+        assert.match(systemSource, /instance_create_depth\(0, 0, 0, o_camera\);/);
+        assert.doesNotMatch(systemSource, /\boCamera\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write renames cross-file enum member references without splitting digit tokens", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
@@ -635,6 +884,91 @@ void test("refactor codemod --write renames cross-file enum member references wi
         assert.doesNotMatch(enumSource, /\bDPAD_8_DIR\b/);
         assert.doesNotMatch(consumerSource, /\bDPAD_4_DIR\b/);
         assert.doesNotMatch(consumerSource, /\bDPAD_8_DIR\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write renames enum references embedded in macro declaration bodies", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    enum: {
+                        prefix: "e",
+                        caseStyle: "camel"
+                    },
+                    enumMember: {
+                        caseStyle: "upper_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "input_defs",
+            [
+                "enum INPUT_SOURCE_MODE {",
+                "    HOTSWAP,",
+                "    MULTIDEVICE",
+                "}",
+                "",
+                "enum INPUT_GYRO {",
+                "    AXIS_PITCH,",
+                "    AXIS_YAW",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_config",
+            [
+                "#macro INPUT_STARTING_SOURCE_MODE  INPUT_SOURCE_MODE.HOTSWAP",
+                "#macro INPUT_GYRO_DEFAULT_AXIS_X  INPUT_GYRO.AXIS_YAW",
+                "",
+                "function input_config() {",
+                "    return [INPUT_STARTING_SOURCE_MODE, INPUT_GYRO_DEFAULT_AXIS_X];",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_player",
+            [
+                "function input_player() {",
+                "    var source_mode = INPUT_STARTING_SOURCE_MODE;",
+                "    var gyro_axis = INPUT_GYRO_DEFAULT_AXIS_X;",
+                "    return [source_mode, gyro_axis];",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const enumSource = await readFile(path.join(projectRoot, "scripts/input_defs/input_defs.gml"), "utf8");
+        const configSource = await readFile(path.join(projectRoot, "scripts/input_config/input_config.gml"), "utf8");
+
+        assert.match(enumSource, /enum eInputSourceMode \{/);
+        assert.match(enumSource, /enum eInputGyro \{/);
+        assert.match(configSource, /#macro INPUT_STARTING_SOURCE_MODE {2}eInputSourceMode\.HOTSWAP/);
+        assert.match(configSource, /#macro INPUT_GYRO_DEFAULT_AXIS_X {2}eInputGyro\.AXIS_YAW/);
+        assert.doesNotMatch(configSource, /\bINPUT_SOURCE_MODE\.HOTSWAP\b/);
+        assert.doesNotMatch(configSource, /\bINPUT_GYRO\.AXIS_YAW\b/);
 
         await assertProjectGmlFilesParse(projectRoot);
     } finally {
@@ -942,6 +1276,80 @@ void test("refactor codemod --write updates constructor inheritance references w
     }
 });
 
+void test("refactor codemod --write updates constructor runtime type checks for coupled single-callable scripts", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    constructorFunction: {
+                        caseStyle: "pascal"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "__input_class_binding",
+            "function __input_class_binding() constructor {}\n"
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_binding_empty",
+            ["function input_binding_empty() {", "    return new __input_class_binding();", "}", ""].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "input_value_is_binding",
+            [
+                "function input_value_is_binding(_value) {",
+                "    return is_instanceof(_value, __input_class_binding);",
+                "}",
+                "",
+                "function input_value_is_binding_legacy(_value) {",
+                '    return instanceof(_value) == "__input_class_binding";',
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        await access(path.join(projectRoot, "scripts", "__InputClassBinding", "__InputClassBinding.gml"));
+        const constructorSource = await readFile(
+            path.join(projectRoot, "scripts", "__InputClassBinding", "__InputClassBinding.gml"),
+            "utf8"
+        );
+        const emptyBindingSource = await readFile(
+            path.join(projectRoot, "scripts", "input_binding_empty", "input_binding_empty.gml"),
+            "utf8"
+        );
+        const bindingChecksSource = await readFile(
+            path.join(projectRoot, "scripts", "input_value_is_binding", "input_value_is_binding.gml"),
+            "utf8"
+        );
+
+        assert.match(constructorSource, /function __InputClassBinding\(\) constructor \{\}/);
+        assert.match(emptyBindingSource, /return new __InputClassBinding\(\);/);
+        assert.match(bindingChecksSource, /is_instanceof\(_value, __InputClassBinding\);/);
+        assert.match(bindingChecksSource, /instanceof\(_value\) == "__InputClassBinding";/);
+        assert.doesNotMatch(bindingChecksSource, /\b__input_class_binding\b/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod --write does not rename plain functions in mixed multi-callable scripts when only struct declarations are configured", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
@@ -1053,6 +1461,80 @@ void test("refactor codemod --write renames unique constructor static member cal
         assert.match(vectorSource, /static sub = function\(val\) \{/);
         assert.match(movementSource, /return pos\.sub\(prev_pos\);/);
         assert.doesNotMatch(movementSource, /pos\.Sub\(prev_pos\)/);
+
+        await assertProjectGmlFilesParse(projectRoot);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
+void test("refactor codemod --write renames unique constructor static member bare calls inside constructors and with blocks", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            namingConventionPolicy: {
+                rules: {
+                    staticVariable: {
+                        caseStyle: "camel"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "generator_state",
+            [
+                "function generator_state() {",
+                "    static _struct = new GeneratorState();",
+                "    return _struct;",
+                "}",
+                "",
+                "function GeneratorState() constructor {",
+                "    Reset();",
+                "",
+                "    static Reset = function() {",
+                "        return 1;",
+                "    };",
+                "}",
+                ""
+            ].join("\n")
+        );
+        await writeScriptResource(
+            projectRoot,
+            "initialize",
+            [
+                "function initialize() {",
+                "    static _generator_state = generator_state();",
+                "    with (_generator_state) {",
+                "        Reset();",
+                "    }",
+                "}",
+                ""
+            ].join("\n")
+        );
+
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--write"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        const stateSource = await readFile(
+            path.join(projectRoot, "scripts/generator_state/generator_state.gml"),
+            "utf8"
+        );
+        const initializeSource = await readFile(path.join(projectRoot, "scripts/initialize/initialize.gml"), "utf8");
+
+        assert.match(stateSource, /static reset = function\(\) \{/);
+        assert.match(stateSource, /\n {4}reset\(\);\n/u);
+        assert.doesNotMatch(stateSource, /\n {4}Reset\(\);\n/u);
+        assert.match(initializeSource, /with \(_generatorState\) \{\n {8}reset\(\);\n {4}\}/u);
+        assert.doesNotMatch(initializeSource, /\bReset\(\);/);
 
         await assertProjectGmlFilesParse(projectRoot);
     } finally {
