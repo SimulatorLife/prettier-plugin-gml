@@ -2,6 +2,10 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
+function isPathInsideSelection(absoluteTargetPath: string, absoluteSelectionPath: string): boolean {
+    return absoluteTargetPath === absoluteSelectionPath || Core.isPathInside(absoluteTargetPath, absoluteSelectionPath);
+}
+
 /**
  * Resolve a user-provided project path to an absolute path.
  * Relative paths are interpreted as being rooted at `projectRoot`.
@@ -12,6 +16,39 @@ import { Core } from "@gmloop/core";
  */
 export function resolveProjectPath(projectRoot: string, inputPath: string): string {
     return path.isAbsolute(inputPath) ? inputPath : path.resolve(projectRoot, inputPath);
+}
+
+/**
+ * Compile allow/deny path lists into a reusable matcher for repeated candidate checks.
+ *
+ * @param projectRoot - Root path used to resolve relative entries.
+ * @param allowedPaths - Optional allow list.
+ * @param deniedPaths - Optional deny list.
+ * @returns Predicate that reports whether a candidate path is selected.
+ */
+export function createPathSelectionMatcher(
+    projectRoot: string,
+    allowedPaths: ReadonlyArray<string>,
+    deniedPaths: ReadonlyArray<string>
+): (targetPath: string) => boolean {
+    const absoluteAllowedPaths = allowedPaths.map((selectionPath) => resolveProjectPath(projectRoot, selectionPath));
+    const absoluteDeniedPaths = deniedPaths.map((selectionPath) => resolveProjectPath(projectRoot, selectionPath));
+
+    return (targetPath: string): boolean => {
+        const absoluteTargetPath = resolveProjectPath(projectRoot, targetPath);
+        const isAllowed =
+            absoluteAllowedPaths.length === 0 ||
+            absoluteAllowedPaths.some((absoluteSelectionPath) =>
+                isPathInsideSelection(absoluteTargetPath, absoluteSelectionPath)
+            );
+        if (!isAllowed) {
+            return false;
+        }
+
+        return !absoluteDeniedPaths.some((absoluteSelectionPath) =>
+            isPathInsideSelection(absoluteTargetPath, absoluteSelectionPath)
+        );
+    };
 }
 
 /**
@@ -34,19 +71,5 @@ export function isPathSelectedByLists(
     allowedPaths: ReadonlyArray<string>,
     deniedPaths: ReadonlyArray<string>
 ): boolean {
-    const absoluteTargetPath = resolveProjectPath(projectRoot, targetPath);
-    const isInsidePathSelection = (selectionPath: string): boolean => {
-        const absoluteSelectionPath = resolveProjectPath(projectRoot, selectionPath);
-        return (
-            absoluteTargetPath === absoluteSelectionPath || Core.isPathInside(absoluteTargetPath, absoluteSelectionPath)
-        );
-    };
-
-    const isAllowed =
-        allowedPaths.length === 0 || allowedPaths.some((selectionPath) => isInsidePathSelection(selectionPath));
-    if (!isAllowed) {
-        return false;
-    }
-
-    return !deniedPaths.some((selectionPath) => isInsidePathSelection(selectionPath));
+    return createPathSelectionMatcher(projectRoot, allowedPaths, deniedPaths)(targetPath);
 }

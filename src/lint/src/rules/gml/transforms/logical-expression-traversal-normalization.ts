@@ -750,15 +750,11 @@ function nodesAreEqual(a: any, b: any): boolean {
  */
 function replaceNode(target: any, source: any) {
     // Clear existing keys
-    for (const key in target) {
-        if (Object.hasOwn(target, key)) {
-            delete target[key];
-        }
+    for (const key of Object.keys(target)) {
+        delete target[key];
     }
     // Copy new keys
-    for (const key in source) {
-        if (Object.hasOwn(source, key)) {
-            target[key] = source[key];
-        }
+    for (const key of Object.keys(source)) {
+        target[key] = source[key];
     }
 }

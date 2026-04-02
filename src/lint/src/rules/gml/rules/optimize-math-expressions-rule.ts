@@ -1,7 +1,7 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import { printExpression, readNodeText } from "../../../language/index.js";
+import { printExpression, readNodeText } from "../print-expression.js";
 import {
     applySourceTextEdits,
     cloneAstNodeWithoutTraversalLinks,

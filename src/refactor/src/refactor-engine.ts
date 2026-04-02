@@ -74,6 +74,8 @@ import {
     WorkspaceEdit
 } from "./workspace-edit.js";
 
+const RENAME_VALIDATION_CACHE_MAX_SIZE = 4096;
+
 function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
     const deduplicatedByStart = new Map<string, SymbolOccurrence>();
 
@@ -100,6 +102,65 @@ function semanticSupportsBatchWorkspaceOverlay(
     return Core.hasMethods(semantic, ["clearWorkspaceOverlay", "stageWorkspaceEdit"]);
 }
 
+function dropRedundantTextEditsForMetadataRewrites(workspace: WorkspaceEdit): WorkspaceEdit {
+    const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
+    if (metadataEdits.length === 0) {
+        return workspace;
+    }
+
+    const metadataPaths = new Set(metadataEdits.map((metadataEdit) => metadataEdit.path));
+    const hasRedundantTextEdits = workspace.edits.some((edit) => metadataPaths.has(edit.path));
+    if (!hasRedundantTextEdits) {
+        return workspace;
+    }
+
+    const normalizedWorkspace = new WorkspaceEdit();
+
+    for (const edit of workspace.edits) {
+        if (metadataPaths.has(edit.path)) {
+            continue;
+        }
+
+        normalizedWorkspace.addEdit(edit.path, edit.start, edit.end, edit.newText);
+    }
+
+    for (const metadataEdit of metadataEdits) {
+        normalizedWorkspace.addMetadataEdit(metadataEdit.path, metadataEdit.content);
+    }
+
+    for (const fileRename of fileRenames) {
+        normalizedWorkspace.addFileRename(fileRename.oldPath, fileRename.newPath);
+    }
+
+    return normalizedWorkspace;
+}
+
+function applyGroupedTextEditsToContent(
+    originalContent: string,
+    edits: ReadonlyArray<Pick<TextEdit, "end" | "newText" | "start">>
+): string {
+    if (edits.length === 0) {
+        return originalContent;
+    }
+
+    const fragments = Array.from<string>({
+        length: edits.length * 2 + 1
+    });
+    let cursor = originalContent.length;
+    let fragmentIndex = fragments.length - 1;
+
+    for (const edit of edits) {
+        fragments[fragmentIndex] = originalContent.slice(edit.end, cursor);
+        fragmentIndex -= 1;
+        fragments[fragmentIndex] = edit.newText;
+        fragmentIndex -= 1;
+        cursor = edit.start;
+    }
+
+    fragments[fragmentIndex] = originalContent.slice(0, cursor);
+    return fragments.join("");
+}
+
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
@@ -123,7 +184,9 @@ export class RefactorEngine {
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
         this.projectAnalysisProvider = projectAnalysisProvider ?? DEFAULT_PROJECT_ANALYSIS_PROVIDER;
-        this.renameValidationCache = new RenameValidationCache();
+        this.renameValidationCache = new RenameValidationCache({
+            maxSize: RENAME_VALIDATION_CACHE_MAX_SIZE
+        });
         this.semanticCache = new SemanticQueryCache(semantic, {
             maxSize: 1000,
             ttlMs: 300_000,
@@ -148,7 +211,11 @@ export class RefactorEngine {
      * Validate symbol exists in the semantic index.
      */
     validateSymbolExists(symbolId: string): Promise<boolean> {
-        return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        if (this.semantic === null) {
+            return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        }
+
+        return this.semanticCache.hasSymbol(symbolId);
     }
 
     /**
@@ -601,7 +668,7 @@ export class RefactorEngine {
             }
         }
 
-        return workspace;
+        return dropRedundantTextEditsForMetadataRewrites(workspace);
     }
 
     /**
@@ -751,15 +818,7 @@ export class RefactorEngine {
         // that file, and optionally writing the modified content back to disk.
         await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
             const originalContent = await readFile(filePath);
-
-            // Apply edits from high to low offset (reverse order) so that earlier
-            // edits don't invalidate the offsets of later edits. When edits are
-            // sorted descending, modifying the end of the file first keeps positions
-            // at the beginning stable, eliminating the need to recalculate offsets.
-            let newContent = originalContent;
-            for (const edit of edits) {
-                newContent = newContent.slice(0, edit.start) + edit.newText + newContent.slice(edit.end);
-            }
+            const newContent = applyGroupedTextEditsToContent(originalContent, edits);
 
             results.set(filePath, includeResultContent ? newContent : "");
 
@@ -1434,16 +1493,23 @@ export class RefactorEngine {
         options?: PrepareBatchRenamePlanOptions
     ): Promise<BatchRenamePlanSummary> {
         const opts = options ?? {};
-        const { validateHotReload = false, hotReloadOptions: rawHotOptions, includeImpactAnalyses = true } = opts;
+        const {
+            validateHotReload = false,
+            hotReloadOptions: rawHotOptions,
+            includeImpactAnalyses = true,
+            batchValidation: providedBatchValidation
+        } = opts;
         const hotReloadOptions: HotReloadValidationOptions = rawHotOptions ?? {};
 
         // Validate the batch structure and individual renames up front, detecting
         // conflicts like duplicate target names or circular rename chains before
         // planning any workspace edits. This prevents wasted work when the batch
         // is malformed.
-        const batchValidation = await this.validateBatchRenameRequest(renames, {
-            includeHotReload: validateHotReload
-        });
+        const batchValidation =
+            providedBatchValidation ??
+            (await this.validateBatchRenameRequest(renames, {
+                includeHotReload: validateHotReload
+            }));
 
         // Try to plan the batch rename to capture all edits across all symbols in a
         // single merged workspace edit. If planning fails (e.g., due to conflicts),

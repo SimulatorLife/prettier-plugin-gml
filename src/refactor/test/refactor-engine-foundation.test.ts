@@ -256,6 +256,51 @@ void test("planRename creates workspace edit with occurrences", async () => {
     assert.equal(workspace.edits[1].newText, "scr_new");
 });
 
+void test("planRename drops metadata-file text edits when a full metadata rewrite is staged", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            {
+                path: "objects/oCamera/oCamera.yy",
+                start: 10,
+                end: 17,
+                scopeId: "scope:resource:oCamera"
+            },
+            {
+                path: "objects/oSystem/Other_2.gml",
+                start: 28,
+                end: 35,
+                scopeId: "scope:object:oSystem"
+            }
+        ],
+        getAdditionalSymbolEdits: () => {
+            const workspace = new WorkspaceEditFactory();
+            workspace.addMetadataEdit(
+                "objects/oCamera/oCamera.yy",
+                '{"name":"o_camera","resourcePath":"objects/o_camera/o_camera.yy"}'
+            );
+            workspace.addFileRename("objects/oCamera/oCamera.yy", "objects/oCamera/o_camera.yy");
+            workspace.addFileRename("objects/oCamera", "objects/o_camera");
+            return workspace;
+        }
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const workspace = await engine.planRename({
+        symbolId: "gml/objects/oCamera",
+        newName: "o_camera"
+    });
+
+    assert.equal(workspace.edits.length, 1);
+    assert.equal(workspace.edits[0]?.path, "objects/oSystem/Other_2.gml");
+    assert.equal(workspace.metadataEdits.length, 1);
+    assert.equal(workspace.metadataEdits[0]?.path, "objects/oCamera/oCamera.yy");
+
+    const validation = await engine.validateRename(workspace);
+    assert.equal(validation.valid, true);
+    assert.deepEqual(validation.errors, []);
+});
+
 void test("validateSymbolExists requires semantic analyzer", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(() => engine.validateSymbolExists("gml/script/foo"), {
@@ -547,6 +592,25 @@ void test("applyWorkspaceEdit applies edits correctly", async () => {
 
     assert.equal(results.size, 1);
     assert.equal(results.get("test.gml"), "new text world");
+});
+
+void test("applyWorkspaceEdit preserves edit ordering when many replacements target one file", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    const originalSource = "alpha beta gamma delta epsilon";
+
+    ws.addEdit("test.gml", 0, 5, "ALPHA");
+    ws.addEdit("test.gml", 6, 10, "BETA");
+    ws.addEdit("test.gml", 11, 16, "GAMMA");
+    ws.addEdit("test.gml", 17, 22, "DELTA");
+    ws.addEdit("test.gml", 23, 30, "EPSILON");
+
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile: async () => originalSource,
+        dryRun: true
+    });
+
+    assert.equal(results.get("test.gml"), "ALPHA BETA GAMMA DELTA EPSILON");
 });
 
 void test("applyWorkspaceEdit handles multiple files", async () => {

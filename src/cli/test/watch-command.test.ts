@@ -21,6 +21,29 @@ import {
 } from "../src/commands/watch-constants.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
+function createWatchCommandIntegrationOptions(abortSignal: AbortSignal): Parameters<typeof runWatchCommand>[1] {
+    return {
+        extensions: [".gml"],
+        polling: false,
+        pollingInterval: 1000,
+        verbose: false,
+        abortSignal,
+        hydrateRuntime: false,
+        websocketServer: false,
+        statusServer: false
+    };
+}
+
+async function removeDirectoryWithoutMaskingOriginalError(directoryPath: string): Promise<void> {
+    await rm(directoryPath, { recursive: true, force: true }).catch(() => {
+        // Ignore cleanup errors during exception unwinding. The test is
+        // already failing (see `throw error` below), and a secondary cleanup
+        // failure should not mask the original test failure. This defensive
+        // approach ensures that the underlying error propagates cleanly to
+        // the test runner even if the temporary directory cannot be removed.
+    });
+}
+
 void describe("watch command", () => {
     void it("should create a command instance with correct configuration", () => {
         const command = createWatchCommand();
@@ -167,14 +190,8 @@ void describe("watch command integration", () => {
             const abortController = new AbortController();
 
             const watchPromise = runWatchCommand(testDir, {
-                extensions: ["gml", ".yy"],
-                polling: false,
-                pollingInterval: 1000,
-                verbose: false,
-                abortSignal: abortController.signal,
-                hydrateRuntime: false,
-                websocketServer: false,
-                statusServer: false
+                ...createWatchCommandIntegrationOptions(abortController.signal),
+                extensions: ["gml", ".yy"]
             });
 
             // Give it a moment to start
@@ -188,13 +205,7 @@ void describe("watch command integration", () => {
             await rm(testDir, { recursive: true, force: true });
         } catch (error) {
             // Clean up on error
-            await rm(testDir, { recursive: true, force: true }).catch(() => {
-                // Ignore cleanup errors during exception unwinding. The test is
-                // already failing (see `throw error` below), and a secondary cleanup
-                // failure should not mask the original test failure. This defensive
-                // approach ensures that the underlying error propagates cleanly to
-                // the test runner even if the temporary directory cannot be removed.
-            });
+            await removeDirectoryWithoutMaskingOriginalError(testDir);
             throw error;
         }
     });
@@ -208,14 +219,7 @@ void describe("watch command integration", () => {
             const abortController = new AbortController();
 
             const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                pollingInterval: 1000,
-                verbose: false,
-                abortSignal: abortController.signal,
-                hydrateRuntime: false,
-                websocketServer: false,
-                statusServer: false,
+                ...createWatchCommandIntegrationOptions(abortController.signal),
                 watchFactory: undefined
             });
 
@@ -243,14 +247,7 @@ void describe("watch command integration", () => {
             // Mock transpiler to capture patches
             // Start watching
             const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                pollingInterval: 1000,
-                verbose: false,
-                abortSignal: abortController.signal,
-                hydrateRuntime: false,
-                websocketServer: false,
-                statusServer: false,
+                ...createWatchCommandIntegrationOptions(abortController.signal),
                 runtimeServerStarter: async () => ({
                     stop: async () => {},
                     host: "localhost",
@@ -281,13 +278,7 @@ void describe("watch command integration", () => {
             assert.ok(true, "Watch command handled file creation");
         } catch (error) {
             // Clean up on error
-            await rm(testDir, { recursive: true, force: true }).catch(() => {
-                // Ignore cleanup errors during exception unwinding. The test is
-                // already failing (see `throw error` below), and a secondary cleanup
-                // failure should not mask the original test failure. This defensive
-                // approach ensures that the underlying error propagates cleanly to
-                // the test runner even if the temporary directory cannot be removed.
-            });
+            await removeDirectoryWithoutMaskingOriginalError(testDir);
             throw error;
         }
     });

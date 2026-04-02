@@ -1,17 +1,16 @@
-import type { GameMakerAstNode } from "@gmloop/core";
-import * as CoreWorkspace from "@gmloop/core";
+import { Core, type GameMakerAstNode } from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import type { GmlRuleDefinition } from "./rule-definition.js";
 
-const { clamp, isObjectLike } = CoreWorkspace.Core;
+const { clamp, isObjectLike } = Core;
 
-const getNodeStartIndex: (node: unknown) => number | null = CoreWorkspace.Core.getNodeStartIndex;
-const getNodeEndIndex: (node: unknown) => number | null = CoreWorkspace.Core.getNodeEndIndex;
+const getNodeStartIndex: (node: unknown) => number | null = Core.getNodeStartIndex;
+const getNodeEndIndex: (node: unknown) => number | null = Core.getNodeEndIndex;
 const getCallExpressionIdentifierName: (callExpression: GameMakerAstNode | null | undefined) => string | null =
-    CoreWorkspace.Core.getCallExpressionIdentifierName;
+    Core.getCallExpressionIdentifierName;
 const getCallExpressionArguments: (callExpression: GameMakerAstNode | null | undefined) => readonly GameMakerAstNode[] =
-    CoreWorkspace.Core.getCallExpressionArguments;
+    Core.getCallExpressionArguments;
 
 export { getCallExpressionArguments, getCallExpressionIdentifierName, getNodeEndIndex, getNodeStartIndex };
 
@@ -94,7 +93,7 @@ export interface SourceTextEdit {
 }
 
 export function cloneAstNodeWithoutTraversalLinks<T>(node: T): T {
-    return CoreWorkspace.Core.cloneAstNode(node) as T;
+    return Core.cloneAstNode(node) as T;
 }
 
 type RuleMetaOverrides = Readonly<{

@@ -786,6 +786,13 @@ export interface PrepareRenamePlanOptions {
 
 export interface PrepareBatchRenamePlanOptions extends PrepareRenamePlanOptions {
     includeImpactAnalyses?: boolean;
+    /**
+     * Optional precomputed batch validation for the same rename set.
+     *
+     * Callers that already validated the batch can pass the result to avoid
+     * repeating identical validation work before planning.
+     */
+    batchValidation?: BatchRenameValidation;
 }
 
 export interface HotReloadValidationOptions {

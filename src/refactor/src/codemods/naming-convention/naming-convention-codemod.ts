@@ -7,16 +7,18 @@ import { DEFAULT_RESERVED_KEYWORDS } from "../../rename/index.js";
 import type {
     ApplyWorkspaceEditOptions,
     BatchRenamePlanSummary,
+    BatchRenameValidation,
     CodemodEngine,
     MacroExpansionDependency,
     NamingConventionCodemodPlan,
     NamingConventionViolation,
     RefactorProjectConfig,
-    RenameRequest
+    RenameRequest,
+    ValidationSummary
 } from "../../types.js";
-import { detectCircularRenames, detectDuplicateTargetNames } from "../../validation.js";
+import { detectCircularRenames, detectCrossRenameNameConfusion, detectDuplicateTargetNames } from "../../validation.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
-import { isPathSelectedByLists } from "./path-selection.js";
+import { createPathSelectionMatcher } from "./path-selection.js";
 
 const RESERVED_LOCAL_RENAME_CATEGORIES = new Set([
     "globalVariable",
@@ -80,6 +82,7 @@ function decrementScopedNameCount(names: Map<string, number>, normalizedName: st
 
 type TopLevelRenameSelection = {
     executableRenames: Array<RenameRequest>;
+    reusableBatchValidation: BatchRenameValidation | null;
     warnings: Array<string>;
 };
 
@@ -95,9 +98,11 @@ async function selectExecutableTopLevelRenames(
 ): Promise<TopLevelRenameSelection> {
     const warnings: Array<string> = [];
     const individuallySafeRenames: Array<RenameRequest> = [];
+    const renameValidations = new Map<string, ValidationSummary>();
 
     await Core.runSequentially(renames, async (rename) => {
         const validation = await engine.validateRenameRequest(rename);
+        renameValidations.set(rename.symbolId, validation);
         warnings.push(...validation.warnings.map((warning) => `${rename.symbolId}: ${warning}`));
 
         if (!validation.valid) {
@@ -141,8 +146,23 @@ async function selectExecutableTopLevelRenames(
         }
     }
 
+    const executableRenames = individuallySafeRenames.filter((rename) => !blockedSymbolIds.has(rename.symbolId));
+
     return {
-        executableRenames: individuallySafeRenames.filter((rename) => !blockedSymbolIds.has(rename.symbolId)),
+        executableRenames,
+        reusableBatchValidation:
+            blockedSymbolIds.size === 0 && individuallySafeRenames.length === renames.length
+                ? {
+                      valid: true,
+                      errors: [],
+                      warnings: detectCrossRenameNameConfusion(executableRenames).map(
+                          ({ symbolId, newName }) =>
+                              `Rename introduces potential confusion: '${symbolId}' renamed to '${newName}' which was an original symbol name in this batch`
+                      ),
+                      renameValidations,
+                      conflictingSets: []
+                  }
+                : null,
         warnings
     };
 }
@@ -197,6 +217,32 @@ function findDependentMacroNames(
     return dependentMacroNames.toSorted();
 }
 
+function collectNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: ReadonlyArray<string>): Array<string> {
+    const queryPaths = new Set<string>();
+
+    for (const filePath of selectedFilePaths) {
+        const normalizedFilePath = filePath.replaceAll("\\", "/");
+        const siblingResourcePath = normalizedFilePath.replace(/\.gml$/i, ".yy");
+        const ownerDirectory = path.posix.dirname(normalizedFilePath);
+        const ownerResourceName = path.posix.basename(ownerDirectory);
+        const ownerParentDirectory = path.posix.dirname(ownerDirectory);
+        const ownerResourcePath =
+            ownerParentDirectory === "." ? null : path.posix.join(ownerDirectory, `${ownerResourceName}.yy`);
+
+        queryPaths.add(normalizedFilePath);
+        queryPaths.add(path.resolve(projectRoot, normalizedFilePath));
+        queryPaths.add(siblingResourcePath);
+        queryPaths.add(path.resolve(projectRoot, siblingResourcePath));
+
+        if (ownerResourcePath !== null) {
+            queryPaths.add(ownerResourcePath);
+            queryPaths.add(path.resolve(projectRoot, ownerResourcePath));
+        }
+    }
+
+    return Array.from(queryPaths);
+}
+
 /**
  * Plan naming-policy-driven edits for the selected project paths.
  */
@@ -248,30 +294,15 @@ export async function planNamingConventionCodemod(
     const topLevelRenames: Array<{ symbolId: string; newName: string }> = [];
     const seenTopLevelRenames = new Set<string>();
     let localRenameCount = 0;
+    const isSelectedTargetPath = createPathSelectionMatcher(parameters.projectRoot, parameters.targetPaths, []);
 
-    const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) =>
-        isPathSelectedByLists(parameters.projectRoot, filePath, parameters.targetPaths, [])
-    );
+    const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) => isSelectedTargetPath(filePath));
     const queriedTargets = await semantic.listNamingConventionTargets(
         selectedFilePaths.length === 0
             ? undefined
-            : [
-                  ...new Set(
-                      selectedFilePaths.flatMap((filePath) => {
-                          const resourcePath = filePath.replace(/\.gml$/i, ".yy");
-                          return [
-                              filePath,
-                              path.resolve(parameters.projectRoot, filePath),
-                              resourcePath,
-                              path.resolve(parameters.projectRoot, resourcePath)
-                          ];
-                      })
-                  )
-              ]
+            : collectNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths)
     );
-    const selectedTargets = queriedTargets.filter((target) =>
-        isPathSelectedByLists(parameters.projectRoot, target.path, parameters.targetPaths, [])
-    );
+    const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));
     const macroDependencyNamesByFile = collectMacroDependencyNamesByFile(
         typeof semantic.listMacroExpansionDependencies === "function"
             ? await semantic.listMacroExpansionDependencies(selectedFilePaths)
@@ -374,7 +405,8 @@ export async function planNamingConventionCodemod(
     if (includeTopLevelPlan && executableTopLevelRenames.length > 0) {
         try {
             const preparedTopLevelRenamePlan = await engine.prepareBatchRenamePlan(executableTopLevelRenames, {
-                includeImpactAnalyses: false
+                includeImpactAnalyses: false,
+                batchValidation: topLevelRenameSelection.reusableBatchValidation
             });
             warnings.push(...collectBatchPlanWarnings(preparedTopLevelRenamePlan));
 

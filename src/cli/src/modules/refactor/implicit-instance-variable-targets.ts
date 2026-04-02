@@ -26,6 +26,7 @@ type BridgeNamingConventionTarget = {
 
 type ImplicitInstanceVariableCollectorParameters = {
     files: Record<string, SemanticFileRecord>;
+    knownEnumNames: Set<string>;
     knownNamesByObjectDirectory: Map<string, Set<string>>;
     projectRoot: string;
     shouldIncludePath: (candidatePath: string | null | undefined) => boolean;
@@ -80,6 +81,53 @@ function isDefinitionLikeReference(source: string, start: number, end: number): 
     return matchesIndexedAssignmentTail(tail);
 }
 
+function readDottedReferenceOwnerName(source: string, startIndex: number): string | null {
+    if (startIndex <= 0 || startIndex > source.length) {
+        return null;
+    }
+
+    let cursor = startIndex - 1;
+    while (cursor >= 0 && /\s/u.test(source[cursor] ?? "")) {
+        cursor -= 1;
+    }
+
+    if (cursor < 0 || source[cursor] !== ".") {
+        return null;
+    }
+
+    cursor -= 1;
+    while (cursor >= 0 && /\s/u.test(source[cursor] ?? "")) {
+        cursor -= 1;
+    }
+
+    const ownerEnd = cursor + 1;
+    while (cursor >= 0 && /[A-Za-z0-9_]/u.test(source[cursor] ?? "")) {
+        cursor -= 1;
+    }
+
+    const ownerName = source.slice(cursor + 1, ownerEnd);
+    return ownerName.length > 0 ? ownerName : null;
+}
+
+function isKnownEnumMemberPropertyReference(
+    reference: Record<string, unknown>,
+    source: string,
+    startIndex: number,
+    knownEnumNames: ReadonlySet<string>
+): boolean {
+    const classifications = Core.asArray(reference.classifications);
+    if (
+        !classifications.includes("property") &&
+        !classifications.includes("member") &&
+        !classifications.includes("enum-member")
+    ) {
+        return false;
+    }
+
+    const ownerName = readDottedReferenceOwnerName(source, startIndex);
+    return ownerName !== null && knownEnumNames.has(ownerName);
+}
+
 function buildCandidateOccurrence(
     filePath: string,
     reference: Record<string, unknown>,
@@ -100,10 +148,9 @@ function buildCandidateOccurrence(
     const endRecord = Core.isObjectLike(reference.end) ? (reference.end as Record<string, unknown>) : null;
     const start = typeof startRecord?.index === "number" ? startRecord.index : -1;
     const endInclusive = typeof endRecord?.index === "number" ? endRecord.index : -1;
-    // The incoming index values are already one-past-the-end (exclusive), so
-    // do not re-apply another +1 offset. This keeps the span aligned with
-    // GML parser/semantic conventions and avoids accidental token range overrun.
-    const end = endInclusive >= start ? endInclusive : -1;
+    // Project-index identifier spans use inclusive end positions. Convert them
+    // to the exclusive form expected by refactor text ranges and string slicing.
+    const end = endInclusive >= start ? endInclusive + 1 : -1;
 
     if (start < 0 || end <= start || source.slice(start, end) !== referenceName) {
         return null;
@@ -141,7 +188,7 @@ export function collectImplicitInstanceVariableTargets(
     parameters: ImplicitInstanceVariableCollectorParameters
 ): Array<BridgeNamingConventionTarget> {
     const sourceCache = new Map<string, string>();
-    const candidatesByObjectAndName = new Map<string, Array<CandidateOccurrence>>();
+    const candidatesByName = new Map<string, Array<CandidateOccurrence>>();
 
     for (const [filePath, fileRecord] of Object.entries(parameters.files)) {
         if (!isObjectEventFilePath(filePath) || !parameters.shouldIncludePath(filePath)) {
@@ -162,28 +209,31 @@ export function collectImplicitInstanceVariableTargets(
                 continue;
             }
 
+            if (isKnownEnumMemberPropertyReference(reference, source, candidate.start, parameters.knownEnumNames)) {
+                continue;
+            }
+
             const referenceName = source.slice(candidate.start, candidate.end);
             if (knownNames.has(referenceName)) {
                 continue;
             }
 
-            const key = `${objectDirectory}:${referenceName}`;
-            const group = candidatesByObjectAndName.get(key) ?? [];
+            const group = candidatesByName.get(referenceName) ?? [];
             group.push(candidate);
-            candidatesByObjectAndName.set(key, group);
+            candidatesByName.set(referenceName, group);
         }
     }
 
     const targets: Array<BridgeNamingConventionTarget> = [];
 
-    for (const [key, occurrences] of candidatesByObjectAndName.entries()) {
-        const [objectDirectory, ...nameParts] = key.split(":");
-        const name = nameParts.join(":");
+    for (const [name, occurrences] of candidatesByName.entries()) {
         const deduplicatedOccurrences = deduplicateCandidateOccurrences(occurrences);
         const definitionOccurrence = deduplicatedOccurrences.find((occurrence) => occurrence.isDefinitionLike);
         if (!definitionOccurrence) {
             continue;
         }
+
+        const objectDirectory = getObjectDirectory(definitionOccurrence.path);
 
         targets.push({
             category: "instanceVariable",
