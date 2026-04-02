@@ -10,6 +10,7 @@ import type {
     BatchRenameValidation,
     CodemodEngine,
     MacroExpansionDependency,
+    NamingCategory,
     NamingConventionCodemodPlan,
     NamingConventionViolation,
     RefactorProjectConfig,
@@ -286,6 +287,7 @@ export async function planNamingConventionCodemod(
 
     const includeTopLevelPlan = parameters.includeTopLevelPlan !== false;
     const resolvedRules = resolveNamingConventionRules(policy);
+    const requestedCategories = Object.keys(resolvedRules) as Array<NamingCategory>;
     let workspace = new WorkspaceEditClass();
     const warnings: Array<string> = [];
     const errors: Array<string> = [];
@@ -300,7 +302,8 @@ export async function planNamingConventionCodemod(
     const queriedTargets = await semantic.listNamingConventionTargets(
         selectedFilePaths.length === 0
             ? undefined
-            : collectNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths)
+            : collectNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths),
+        requestedCategories
     );
     const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));
     const macroDependencyNamesByFile = collectMacroDependencyNamesByFile(

@@ -77,6 +77,31 @@ import {
 const RENAME_VALIDATION_CACHE_MAX_SIZE = 4096;
 
 function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+    if (occurrences.length <= 1) {
+        return [...occurrences];
+    }
+
+    if (occurrences.length <= 8) {
+        const deduplicated: Array<SymbolOccurrence> = [];
+
+        for (const occurrence of occurrences) {
+            const existingOccurrence = deduplicated.find(
+                (candidate) => candidate.path === occurrence.path && candidate.start === occurrence.start
+            );
+
+            if (!existingOccurrence) {
+                deduplicated.push(occurrence);
+                continue;
+            }
+
+            if (occurrence.end > existingOccurrence.end) {
+                existingOccurrence.end = occurrence.end;
+            }
+        }
+
+        return deduplicated;
+    }
+
     const deduplicatedByStart = new Map<string, SymbolOccurrence>();
 
     for (const occurrence of occurrences) {
@@ -600,22 +625,26 @@ export class RefactorEngine {
         const { symbolId, newName } = request;
 
         const normalizedNewName = assertValidIdentifierName(newName);
+        const cachedValidation = this.renameValidationCache.peek(symbolId, newName);
+        const hasReusableValidation = cachedValidation?.valid === true;
 
         // Confirm the symbol exists in the semantic index before proceeding. This
         // prevents wasted work gathering occurrences for non-existent symbols and
         // provides a clear error message when the user mistypes a symbol name.
-        const exists = await this.validateSymbolExists(symbolId);
-        if (!exists) {
-            throw new Error(
-                `Symbol '${symbolId}' not found in semantic index. ` +
-                    `Ensure the project has been analyzed before attempting renames.`
-            );
+        if (!hasReusableValidation) {
+            const exists = await this.validateSymbolExists(symbolId);
+            if (!exists) {
+                throw new Error(
+                    `Symbol '${symbolId}' not found in semantic index. ` +
+                        `Ensure the project has been analyzed before attempting renames.`
+                );
+            }
         }
 
         // Extract the symbol's base name from its fully-qualified ID by taking the
         // last path component. For example, "gml/script/scr_foo" becomes "scr_foo",
         // which we use to search for all occurrences in the codebase.
-        const symbolName = extractSymbolName(symbolId);
+        const symbolName = cachedValidation?.symbolName ?? extractSymbolName(symbolId);
 
         if (symbolName === normalizedNewName) {
             throw new Error(`The new name '${normalizedNewName}' matches the existing identifier`);
@@ -629,17 +658,19 @@ export class RefactorEngine {
         // Detect potential conflicts (shadowing, reserved keywords, etc.) before
         // applying edits. If conflicts exist, we abort the rename to prevent
         // introducing scope errors or breaking existing code.
-        const conflicts = await detectRenameConflicts(
-            symbolName,
-            normalizedNewName,
-            occurrences,
-            this.semantic,
-            this.semantic
-        );
+        if (!hasReusableValidation) {
+            const conflicts = await detectRenameConflicts(
+                symbolName,
+                normalizedNewName,
+                occurrences,
+                this.semantic,
+                this.semantic
+            );
 
-        if (conflicts.length > 0) {
-            const messages = conflicts.map((c) => c.message).join("; ");
-            throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
+            if (conflicts.length > 0) {
+                const messages = conflicts.map((c) => c.message).join("; ");
+                throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
+            }
         }
 
         // Build a workspace edit containing text edits for every occurrence. Each
@@ -863,7 +894,10 @@ export class RefactorEngine {
      * @param {Array<{symbolId: string, newName: string}>} renames - Array of rename operations
      * @returns {Promise<WorkspaceEdit>} Combined workspace edit for all renames
      */
-    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
+    private async planValidatedBatchRename(renames: Array<RenameRequest>): Promise<{
+        validation: ValidationSummary;
+        workspace: WorkspaceEdit;
+    }> {
         Core.assertArray(renames, {
             errorMessage: "planBatchRename requires an array of renames"
         });
@@ -959,7 +993,15 @@ export class RefactorEngine {
         const validation = await this.validateRename(merged);
         throwIfValidationFailed(validation, "Batch rename validation failed");
 
-        return merged;
+        return {
+            validation,
+            workspace: merged
+        };
+    }
+
+    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
+        const preparedBatchRename = await this.planValidatedBatchRename(renames);
+        return preparedBatchRename.workspace;
     }
 
     /**
@@ -1526,8 +1568,9 @@ export class RefactorEngine {
         let planningSucceeded = false;
 
         try {
-            workspace = await this.planBatchRename(renames);
-            validation = await this.validateRename(workspace);
+            const preparedBatchRename = await this.planValidatedBatchRename(renames);
+            workspace = preparedBatchRename.workspace;
+            validation = preparedBatchRename.validation;
             planningSucceeded = true;
 
             // Perform hot reload compatibility checks if requested

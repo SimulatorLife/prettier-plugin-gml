@@ -195,6 +195,47 @@ type SemanticBridgeIndexes = {
 };
 type LocalReferenceIndex = Map<string, Array<SymbolOccurrence>>;
 
+const SCRIPT_CALLABLE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> = [
+    "constructorFunction",
+    "function",
+    "structDeclaration"
+];
+const RESOURCE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> = [
+    "animationCurveResourceName",
+    "audioResourceName",
+    "extensionResourceName",
+    "fontResourceName",
+    "noteResourceName",
+    "objectResourceName",
+    "particleSystemResourceName",
+    "pathResourceName",
+    "roomResourceName",
+    "scriptResourceName",
+    "sequenceResourceName",
+    "shaderResourceName",
+    "spriteResourceName",
+    "tilesetResourceName",
+    "timelineResourceName"
+];
+const LOCAL_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> = [
+    "argument",
+    "catchArgument",
+    "localVariable",
+    "loopIndexVariable",
+    "staticVariable"
+];
+const GLOBAL_AND_INSTANCE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> = [
+    "globalVariable",
+    "instanceVariable"
+];
+
+function includesAnyRequestedNamingCategory(
+    requestedCategories: ReadonlySet<BridgeNamingConventionCategory> | null,
+    categories: ReadonlyArray<BridgeNamingConventionCategory>
+): boolean {
+    return requestedCategories === null || categories.some((category) => requestedCategories.has(category));
+}
+
 function toExclusiveEndIndex(endIndex: number): number {
     // The semantic index stores end offsets as the final character position.
     // Refactor text edits use one-past-the-end (exclusive) indexes.
@@ -279,9 +320,14 @@ function isResourceMetadataRecord(value: unknown): value is ResourceMetadataReco
  * Semantic bridge that adapts @gmloop/semantic ProjectIndex to the refactor engine.
  */
 export class GmlSemanticBridge {
+    private readonly declarationKindsByEntry = new WeakMap<SemanticIdentifierEntry, ReadonlySet<string>>();
     private readonly localNamingCategoryResolver: ParsedLocalNamingCategoryResolver;
     private projectIndex: Record<string, unknown>;
     private projectRoot: string;
+    private readonly scriptCallableDeclarationsByEntry = new WeakMap<
+        SemanticIdentifierEntry,
+        ReadonlyArray<ScriptCallableDeclaration>
+    >();
     private readonly stagedMetadataContents = new Map<string, string>();
     private readonly stagedParsedMetadata = new Map<string, Record<string, unknown>>();
     private readonly sourceTextByPath = new Map<string, string | null>();
@@ -1526,6 +1572,35 @@ export class GmlSemanticBridge {
      * Deduplicate occurrences by path and range.
      */
     private deduplicateOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+        if (occurrences.length <= 1) {
+            return occurrences.filter(
+                (occurrence) => Core.isNonEmptyString(occurrence.path) && occurrence.end > occurrence.start
+            );
+        }
+
+        if (occurrences.length <= 8) {
+            const deduplicated: Array<SymbolOccurrence> = [];
+
+            for (const occurrence of occurrences) {
+                if (!Core.isNonEmptyString(occurrence.path) || occurrence.end <= occurrence.start) {
+                    continue;
+                }
+
+                const duplicate = deduplicated.find(
+                    (candidate) =>
+                        candidate.path === occurrence.path &&
+                        candidate.start === occurrence.start &&
+                        candidate.end === occurrence.end &&
+                        candidate.kind === occurrence.kind
+                );
+                if (!duplicate) {
+                    deduplicated.push(occurrence);
+                }
+            }
+
+            return deduplicated;
+        }
+
         const seen = new Set<string>();
         return occurrences.filter((occ) => {
             if (!Core.isNonEmptyString(occ.path) || occ.end <= occ.start) {
@@ -1601,9 +1676,13 @@ export class GmlSemanticBridge {
         return dependents;
     }
 
-    listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<BridgeNamingConventionTarget>> {
+    listNamingConventionTargets(
+        filePaths?: Array<string>,
+        categories?: ReadonlyArray<BridgeNamingConventionCategory>
+    ): MaybePromise<Array<BridgeNamingConventionTarget>> {
         const targets: Array<BridgeNamingConventionTarget> = [];
         const includedFiles = filePaths === undefined ? new Set<string>() : new Set(filePaths);
+        const requestedCategories = categories === undefined ? null : new Set(categories);
         const shouldFilterByFile = includedFiles.size > 0;
 
         const shouldIncludePath = (candidatePath: string | null | undefined): boolean => {
@@ -1618,14 +1697,40 @@ export class GmlSemanticBridge {
             targets.push(target);
         };
 
-        this.collectResourceNamingConventionTargets(shouldIncludePath, pushTarget);
-        this.collectScriptCallableNamingConventionTargets(shouldIncludePath, pushTarget);
-        this.collectExactIdentifierNamingTargets(this.identifiers.macros ?? {}, "macro", shouldIncludePath, pushTarget);
-        this.collectExactIdentifierNamingTargets(this.identifiers.enums ?? {}, "enum", shouldIncludePath, pushTarget);
-        this.collectEnumMemberNamingConventionTargets(shouldIncludePath, pushTarget);
-        this.collectGlobalAndInstanceNamingTargets(shouldIncludePath, pushTarget);
-        this.collectImplicitInstanceNamingTargets(shouldIncludePath, pushTarget);
-        this.collectLocalNamingConventionTargets(shouldIncludePath, pushTarget);
+        if (includesAnyRequestedNamingCategory(requestedCategories, RESOURCE_NAMING_CATEGORIES)) {
+            this.collectResourceNamingConventionTargets(shouldIncludePath, pushTarget);
+        }
+        if (includesAnyRequestedNamingCategory(requestedCategories, SCRIPT_CALLABLE_NAMING_CATEGORIES)) {
+            this.collectScriptCallableNamingConventionTargets(shouldIncludePath, pushTarget);
+        }
+        if (requestedCategories === null || requestedCategories.has("macro")) {
+            this.collectExactIdentifierNamingTargets(
+                this.identifiers.macros ?? {},
+                "macro",
+                shouldIncludePath,
+                pushTarget
+            );
+        }
+        if (requestedCategories === null || requestedCategories.has("enum")) {
+            this.collectExactIdentifierNamingTargets(
+                this.identifiers.enums ?? {},
+                "enum",
+                shouldIncludePath,
+                pushTarget
+            );
+        }
+        if (requestedCategories === null || requestedCategories.has("enumMember")) {
+            this.collectEnumMemberNamingConventionTargets(shouldIncludePath, pushTarget);
+        }
+        if (includesAnyRequestedNamingCategory(requestedCategories, GLOBAL_AND_INSTANCE_NAMING_CATEGORIES)) {
+            this.collectGlobalAndInstanceNamingTargets(shouldIncludePath, pushTarget);
+        }
+        if (requestedCategories === null || requestedCategories.has("instanceVariable")) {
+            this.collectImplicitInstanceNamingTargets(shouldIncludePath, pushTarget);
+        }
+        if (includesAnyRequestedNamingCategory(requestedCategories, LOCAL_NAMING_CATEGORIES)) {
+            this.collectLocalNamingConventionTargets(shouldIncludePath, pushTarget);
+        }
 
         return targets;
     }
@@ -1669,16 +1774,36 @@ export class GmlSemanticBridge {
         pushTarget: NamingTargetSink
     ): void {
         for (const entry of Object.values(this.identifiers.scripts ?? {})) {
-            for (const declaration of this.getScriptCallableDeclarations(entry)) {
-                if (
-                    !shouldIncludePath(declaration.filePath) ||
-                    this.isCoupledSingleFunctionScriptCallable(entry, declaration.name)
-                ) {
+            const callableDeclarations = this.getScriptCallableDeclarations(entry);
+            if (callableDeclarations.length === 0) {
+                continue;
+            }
+
+            const hasSingleCallableDeclaration = callableDeclarations.length === 1;
+            const resource =
+                typeof entry.resourcePath === "string" ? (this.resources?.[entry.resourcePath] ?? null) : null;
+            const isCoupledSingleCallableResource =
+                hasSingleCallableDeclaration &&
+                resource?.resourceType === "GMScript" &&
+                resource?.name === callableDeclarations[0]?.name;
+            const entryDeclarationKinds = hasSingleCallableDeclaration ? this.extractDeclarationKinds(entry) : null;
+
+            for (const declaration of callableDeclarations) {
+                if (!shouldIncludePath(declaration.filePath)) {
+                    continue;
+                }
+
+                if (isCoupledSingleCallableResource && declaration.name === resource?.name) {
                     continue;
                 }
 
                 pushTarget({
-                    category: this.getScriptCallableNamingCategory(entry, declaration),
+                    category: this.getScriptCallableNamingCategory(
+                        entry,
+                        declaration,
+                        hasSingleCallableDeclaration,
+                        entryDeclarationKinds
+                    ),
                     name: declaration.name,
                     occurrences: [],
                     path: declaration.filePath,
@@ -1807,12 +1932,13 @@ export class GmlSemanticBridge {
         const files = (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>;
 
         for (const [filePath, fileRecord] of Object.entries(files)) {
-            if (!shouldIncludePath(filePath)) {
+            const fileDeclarations = fileRecord?.declarations ?? [];
+            if (!shouldIncludePath(filePath) || fileDeclarations.length === 0) {
                 continue;
             }
 
-            const indexedReferenceOccurrences = this.getLocalReferenceOccurrences(filePath, fileRecord);
-            for (const declaration of fileRecord?.declarations ?? []) {
+            let indexedReferenceOccurrences: LocalReferenceIndex | null = null;
+            for (const declaration of fileDeclarations) {
                 if (!declaration || declaration.isBuiltIn || typeof declaration.name !== "string") {
                     continue;
                 }
@@ -1832,6 +1958,7 @@ export class GmlSemanticBridge {
                         ? "catchArgument"
                         : "argument"
                     : this.resolveLocalNamingConventionCategory(filePath, declaration);
+                indexedReferenceOccurrences ??= this.getLocalReferenceOccurrences(filePath, fileRecord);
                 const occurrences = this.collectLocalOccurrences(
                     filePath,
                     declaration,
@@ -1947,6 +2074,11 @@ export class GmlSemanticBridge {
     }
 
     private getScriptCallableDeclarations(entry: SemanticIdentifierEntry): Array<ScriptCallableDeclaration> {
+        const cachedDeclarations = this.scriptCallableDeclarationsByEntry.get(entry);
+        if (cachedDeclarations !== undefined) {
+            return cachedDeclarations as Array<ScriptCallableDeclaration>;
+        }
+
         const declarations: Array<ScriptCallableDeclaration> = [];
 
         for (const declaration of entry?.declarations ?? []) {
@@ -1961,6 +2093,7 @@ export class GmlSemanticBridge {
             declarations.push(declaration as ScriptCallableDeclaration);
         }
 
+        this.scriptCallableDeclarationsByEntry.set(entry, declarations);
         return declarations;
     }
 
@@ -2035,7 +2168,9 @@ export class GmlSemanticBridge {
 
     private getScriptCallableNamingCategory(
         entry: SemanticIdentifierEntry,
-        declaration: Record<string, unknown>
+        declaration: Record<string, unknown>,
+        hasSingleCallableDeclaration = this.hasSingleCallableDeclaration(entry),
+        entryDeclarationKinds: ReadonlySet<string> | null = null
     ): Extract<BridgeNamingConventionTarget["category"], "constructorFunction" | "structDeclaration" | "function"> {
         const declarationKinds = new Set<string>();
 
@@ -2053,11 +2188,11 @@ export class GmlSemanticBridge {
             return "structDeclaration";
         }
 
-        if (!this.hasSingleCallableDeclaration(entry)) {
+        if (!hasSingleCallableDeclaration) {
             return "function";
         }
 
-        const entryKinds = this.extractDeclarationKinds(entry);
+        const entryKinds = entryDeclarationKinds ?? this.extractDeclarationKinds(entry);
         if (entryKinds.has("constructor")) {
             return "constructorFunction";
         }
@@ -2070,6 +2205,11 @@ export class GmlSemanticBridge {
     }
 
     private extractDeclarationKinds(entry: any): Set<string> {
+        const cachedDeclarationKinds = this.declarationKindsByEntry.get(entry);
+        if (cachedDeclarationKinds !== undefined) {
+            return cachedDeclarationKinds as Set<string>;
+        }
+
         const declarationKinds = new Set<string>();
 
         for (const declaration of entry?.declarations ?? []) {
@@ -2086,6 +2226,7 @@ export class GmlSemanticBridge {
             }
         }
 
+        this.declarationKindsByEntry.set(entry, declarationKinds);
         return declarationKinds;
     }
 

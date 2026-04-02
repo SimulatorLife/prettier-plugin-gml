@@ -45,6 +45,7 @@ The refactor workspace keeps naming-convention codemod stress tests in the regul
 
 - [`src/refactor/test/naming-convention-performance.test.ts`](./test/naming-convention-performance.test.ts) exercises high-volume local rename planning and edit application.
 - [`src/cli/test/refactor-codemod-performance.test.ts`](../cli/test/refactor-codemod-performance.test.ts) exercises the indexed CLI bridge path for large top-level rename batches.
+- [`src/cli/test/refactor-naming-target-discovery-performance.test.ts`](../cli/test/refactor-naming-target-discovery-performance.test.ts) exercises naming-target discovery on mixed declaration/reference workloads so reference-only files do not rebuild local-reference indexes unnecessarily.
 - [`src/cli/test/refactor-local-naming-performance.test.ts`](../cli/test/refactor-local-naming-performance.test.ts) exercises disk-backed local-variable codemods so CI catches regressions in source-text loading, local-occurrence indexing, and member-access filtering on real files.
 - [`src/cli/test/refactor-script-resource-naming-performance.test.ts`](../cli/test/refactor-script-resource-naming-performance.test.ts) exercises script-backed function naming on large resource sets so repeated script-resource scans stay bounded.
 
