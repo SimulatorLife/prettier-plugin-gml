@@ -150,9 +150,10 @@ void test("namingConvention stress test stays within the selected-file planning 
     await executeStressRun();
 
     const listNamingTargetsCallCountAfterWarmup = listNamingTargetsCallCount;
-    const { durationMs, result } = await measureMedianDurationMs(3, executeStressRun);
+    const SAMPLE_COUNT = 5;
+    const { durationMs, result } = await measureMedianDurationMs(SAMPLE_COUNT, executeStressRun);
 
-    assert.equal(listNamingTargetsCallCount - listNamingTargetsCallCountAfterWarmup, 3);
+    assert.equal(listNamingTargetsCallCount - listNamingTargetsCallCountAfterWarmup, SAMPLE_COUNT);
     assert.equal(result.summaries.length, 1);
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, true);
