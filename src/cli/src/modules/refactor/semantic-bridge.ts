@@ -409,6 +409,10 @@ function requiresMetadataResourcePathOrderNormalization(rawContent: string): boo
     return resourceTypeIndex > resourcePathIndex;
 }
 
+function getProjectResourceOrderPath(projectRoot: string): string {
+    return `${path.basename(path.resolve(projectRoot))}.resource_order`;
+}
+
 /**
  * Semantic bridge that adapts @gmloop/semantic ProjectIndex to the refactor engine.
  */
@@ -1326,6 +1330,12 @@ export class GmlSemanticBridge {
             const stringMutations: Array<{ propertyPath: string; value: string }> = [];
 
             if (resourceEntry.path === resource.path) {
+                if (typeof parsed["%Name"] === "string" && parsed["%Name"] !== newName) {
+                    parsed["%Name"] = newName;
+                    appendProjectMetadataStringMutation(stringMutations, "%Name", newName);
+                    changed = true;
+                }
+
                 if (parsed.name !== newName) {
                     parsed.name = newName;
                     appendProjectMetadataStringMutation(stringMutations, "name", newName);
@@ -1439,6 +1449,82 @@ export class GmlSemanticBridge {
             if (edit.addMetadataObjectEdit) {
                 edit.addMetadataObjectEdit(resourceEntry.path, parsed);
             }
+        }
+
+        this.addResourceOrderMetadataEdit(edit, resource, newName, newResourcePath, latestBatchMetadataDocuments);
+    }
+
+    private addResourceOrderMetadataEdit(
+        edit: WorkspaceEdit,
+        resource: SemanticResourceRecord,
+        newName: string,
+        newResourcePath: string,
+        latestBatchMetadataDocuments: ReadonlyMap<string, Record<string, unknown>>
+    ): void {
+        const resourceOrderPath = getProjectResourceOrderPath(this.projectRoot);
+        const loadedMetadataDocument = this.loadMutableProjectMetadataDocument(
+            resourceOrderPath,
+            latestBatchMetadataDocuments
+        );
+        if (loadedMetadataDocument === null) {
+            return;
+        }
+
+        const { parsed, rawContent } = loadedMetadataDocument;
+        const resourceOrderSettings = parsed.ResourceOrderSettings;
+        if (!Array.isArray(resourceOrderSettings)) {
+            return;
+        }
+
+        let changed = false;
+        const stringMutations: Array<{ propertyPath: string; value: string }> = [];
+
+        for (const [resourceOrderIndex, resourceOrderEntry] of resourceOrderSettings.entries()) {
+            if (!Core.isObjectLike(resourceOrderEntry)) {
+                continue;
+            }
+
+            const entryPath = typeof resourceOrderEntry.path === "string" ? resourceOrderEntry.path : null;
+            if (!Core.isNonEmptyString(entryPath) || !metadataReferenceTargetsMatch(entryPath, resource.path)) {
+                continue;
+            }
+
+            if (resourceOrderEntry.name !== newName) {
+                resourceOrderEntry.name = newName;
+                appendProjectMetadataStringMutation(
+                    stringMutations,
+                    `ResourceOrderSettings.${resourceOrderIndex}.name`,
+                    newName
+                );
+                changed = true;
+            }
+
+            if (entryPath !== newResourcePath) {
+                resourceOrderEntry.path = newResourcePath;
+                appendProjectMetadataStringMutation(
+                    stringMutations,
+                    `ResourceOrderSettings.${resourceOrderIndex}.path`,
+                    newResourcePath
+                );
+                changed = true;
+            }
+        }
+
+        if (!changed) {
+            return;
+        }
+
+        const canonicalContent =
+            Semantic.applyProjectMetadataStringMutations(rawContent, stringMutations) ??
+            Semantic.stringifyProjectMetadataDocument(parsed, resourceOrderPath);
+
+        if (canonicalContent === rawContent) {
+            return;
+        }
+
+        edit.addMetadataEdit(resourceOrderPath, canonicalContent);
+        if (edit.addMetadataObjectEdit) {
+            edit.addMetadataObjectEdit(resourceOrderPath, parsed);
         }
     }
 

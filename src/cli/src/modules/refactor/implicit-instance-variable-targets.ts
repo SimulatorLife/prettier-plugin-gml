@@ -37,10 +37,6 @@ type CandidateOccurrence = SymbolOccurrence & {
     isDefinitionLike: boolean;
 };
 
-function isObjectEventFilePath(filePath: string): boolean {
-    return /^objects\/[^/]+\/[^/]+\.gml$/i.test(filePath);
-}
-
 function getObjectDirectory(filePath: string): string {
     return path.posix.dirname(filePath.replaceAll("\\", "/"));
 }
@@ -196,7 +192,7 @@ export function collectImplicitInstanceVariableTargets(
     const candidatesByName = new Map<string, Array<CandidateOccurrence>>();
 
     for (const [filePath, fileRecord] of Object.entries(parameters.files)) {
-        if (!isObjectEventFilePath(filePath) || !parameters.shouldIncludePath(filePath)) {
+        if (!parameters.shouldIncludePath(filePath)) {
             continue;
         }
 
