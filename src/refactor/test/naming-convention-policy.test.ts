@@ -66,6 +66,30 @@ void test("evaluateNamingConvention suggests case and prefix fixes", () => {
     assert.match(evaluation.message ?? "", /camel case/);
 });
 
+void test("evaluateNamingConvention capitalizes the core when camel case uses an attached prefix", () => {
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            enum: {
+                prefix: "e",
+                caseStyle: "camel"
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const underscored = Refactor.evaluateNamingConvention("INPUT_VIRTUAL_TYPE", "enum", policy, resolved);
+    assert.equal(underscored.compliant, false);
+    assert.equal(underscored.suggestedName, "eInputVirtualType");
+
+    const alreadyAttached = Refactor.evaluateNamingConvention("einputVirtualType", "enum", policy, resolved);
+    assert.equal(alreadyAttached.compliant, false);
+    assert.equal(alreadyAttached.suggestedName, "eInputVirtualType");
+
+    const compliant = Refactor.evaluateNamingConvention("eInputVirtualType", "enum", policy, resolved);
+    assert.equal(compliant.compliant, true);
+    assert.equal(compliant.suggestedName, "eInputVirtualType");
+});
+
 void test("evaluateNamingConvention blocks automatic renames when min or max length is violated", () => {
     const policy = Refactor.normalizeNamingConventionPolicy({
         rules: {
@@ -144,6 +168,17 @@ void test("formatNamingCaseStyle preserves allowed underscore affixes", () => {
     assert.equal(Refactor.formatNamingCaseStyle("__input_error", "lower_snake"), "__input_error");
     assert.equal(Refactor.formatNamingCaseStyle("_TargetShader", "lower_snake"), "_target_shader");
     assert.equal(Refactor.formatNamingCaseStyle("__Vector3", "pascal"), "__Vector3");
+});
+
+void test("formatNamingCaseStyle preserves compact digit-uppercase tokens in upper snake case", () => {
+    assert.equal(Refactor.formatNamingCaseStyle("DPAD_4DIR", "upper_snake"), "DPAD_4DIR");
+    assert.equal(Refactor.formatNamingCaseStyle("L2R", "upper_snake"), "L2R");
+    assert.equal(Refactor.formatNamingCaseStyle("L2R_DEVANAGARI", "upper_snake"), "L2R_DEVANAGARI");
+    assert.equal(Refactor.formatNamingCaseStyle("ONE_OVER_1M", "upper_snake"), "ONE_OVER_1M");
+    assert.equal(
+        Refactor.formatNamingCaseStyle("__INPUT_2D_CHECKER_STATIC_RESULT", "upper_snake"),
+        "__INPUT_2D_CHECKER_STATIC_RESULT"
+    );
 });
 
 void test("evaluateNamingConvention preserves allowed leading underscores when enforcing case style", () => {

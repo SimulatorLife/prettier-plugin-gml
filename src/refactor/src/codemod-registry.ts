@@ -271,6 +271,12 @@ export async function executeRegisteredCodemods(
         }
 
         summaries.push(result.summary);
+
+        if (request.onAfterCodemod) {
+            await request.onAfterCodemod(result.summary, {
+                readFile: request.readFile
+            });
+        }
     });
 
     return {

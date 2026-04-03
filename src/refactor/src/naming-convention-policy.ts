@@ -309,7 +309,7 @@ export function resolveNamingConventionRules(policy: NamingConventionPolicy): Re
 
 function splitIdentifierWords(value: string): Array<string> {
     const normalized = value
-        .replaceAll(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replaceAll(/([a-z])([A-Z])/g, "$1 $2")
         .replaceAll(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
         .replaceAll(/[_\-\s]+/g, " ")
         .trim();
@@ -375,6 +375,23 @@ export function formatNamingCaseStyle(value: string, caseStyle: NamingCaseStyle)
                     : words.join("_").toUpperCase();
 
     return `${underscoreAffixes.leading}${formattedCore}${underscoreAffixes.trailing}`;
+}
+
+function attachesDirectlyToIdentifierCore(affix: string): boolean {
+    return affix.length > 0 && /[A-Za-z0-9]$/u.test(affix);
+}
+
+function formatCoreNameForRule(coreName: string, rule: RuntimeResolvedNamingRule): string {
+    if (rule.caseStyle === "camel" && attachesDirectlyToIdentifierCore(rule.prefix)) {
+        return formatNamingCaseStyle(coreName, "pascal");
+    }
+
+    return formatNamingCaseStyle(coreName, rule.caseStyle);
+}
+
+function composeExpectedIdentifierName(coreName: string, rule: RuntimeResolvedNamingRule): string {
+    const formattedCoreName = rule.enforceCaseStyle ? formatCoreNameForRule(coreName, rule) : coreName;
+    return `${rule.prefix}${formattedCoreName}${rule.suffix}`;
 }
 
 function longestMatchingAffix(
@@ -509,8 +526,8 @@ export function evaluateNamingConvention(
     } else if (rule.maxChars !== null && coreName.length > rule.maxChars) {
         issueMessage = `Identifier ${JSON.stringify(currentName)} exceeds the maximum core length ${rule.maxChars}.`;
     } else if (rule.enforceCaseStyle) {
-        const expectedCoreName = formatNamingCaseStyle(coreName, rule.caseStyle);
-        if (expectedCoreName !== coreName) {
+        const expectedName = composeExpectedIdentifierName(coreName, rule);
+        if (expectedName !== currentName) {
             issueMessage = `Identifier ${JSON.stringify(currentName)} does not match ${rule.caseStyle} case.`;
         }
     }
@@ -534,8 +551,7 @@ export function evaluateNamingConvention(
         };
     }
 
-    const formattedCoreName = rule.enforceCaseStyle ? formatNamingCaseStyle(coreName, rule.caseStyle) : coreName;
-    const suggestedName = `${rule.prefix}${formattedCoreName}${rule.suffix}`;
+    const suggestedName = composeExpectedIdentifierName(coreName, rule);
 
     return {
         compliant: suggestedName === currentName,

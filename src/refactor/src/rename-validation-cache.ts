@@ -186,6 +186,33 @@ export class RenameValidationCache {
     }
 
     /**
+     * Read a fresh cached validation result without affecting hit/miss counters.
+     *
+     * This is used by internal planning paths that can safely reuse a validation
+     * computed earlier in the same refactor session without treating the lookup as
+     * a user-visible cache hit.
+     */
+    peek(symbolId: string, newName: string): CachedValidationResult | null {
+        if (!this.enabled) {
+            return null;
+        }
+
+        const key = `${symbolId}::${newName}`;
+        const cached = this.cache.get(key);
+        if (!cached) {
+            return null;
+        }
+
+        if (Date.now() - cached.timestamp >= this.ttlMs) {
+            this.cache.delete(key);
+            this.evictions++;
+            return null;
+        }
+
+        return cached.result;
+    }
+
+    /**
      * Invalidate cached validation for a specific symbol-name pair.
      *
      * @param symbolId - Symbol being renamed

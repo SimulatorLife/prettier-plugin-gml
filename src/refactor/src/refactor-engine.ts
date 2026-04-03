@@ -67,6 +67,7 @@ import {
 } from "./validation.js";
 import {
     getWorkspaceArrays,
+    getWorkspaceEditRevision,
     type GroupedTextEdits,
     isWorkspaceEditLike,
     type TextEdit,
@@ -74,7 +75,53 @@ import {
     WorkspaceEdit
 } from "./workspace-edit.js";
 
+const RENAME_VALIDATION_CACHE_MAX_SIZE = 4096;
+const validatedWorkspaceRevisions = new WeakMap<object, number>();
+
+function hasCurrentValidatedWorkspaceRevision(workspace: object): boolean {
+    const currentRevision = getWorkspaceEditRevision(workspace);
+    if (currentRevision === null) {
+        return false;
+    }
+
+    return validatedWorkspaceRevisions.get(workspace) === currentRevision;
+}
+
+function rememberValidatedWorkspaceRevision(workspace: object): void {
+    const currentRevision = getWorkspaceEditRevision(workspace);
+    if (currentRevision === null) {
+        return;
+    }
+
+    validatedWorkspaceRevisions.set(workspace, currentRevision);
+}
+
 function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+    if (occurrences.length <= 1) {
+        return [...occurrences];
+    }
+
+    if (occurrences.length <= 8) {
+        const deduplicated: Array<SymbolOccurrence> = [];
+
+        for (const occurrence of occurrences) {
+            const existingOccurrence = deduplicated.find(
+                (candidate) => candidate.path === occurrence.path && candidate.start === occurrence.start
+            );
+
+            if (!existingOccurrence) {
+                deduplicated.push(occurrence);
+                continue;
+            }
+
+            if (occurrence.end > existingOccurrence.end) {
+                existingOccurrence.end = occurrence.end;
+            }
+        }
+
+        return deduplicated;
+    }
+
     const deduplicatedByStart = new Map<string, SymbolOccurrence>();
 
     for (const occurrence of occurrences) {
@@ -100,6 +147,65 @@ function semanticSupportsBatchWorkspaceOverlay(
     return Core.hasMethods(semantic, ["clearWorkspaceOverlay", "stageWorkspaceEdit"]);
 }
 
+function dropRedundantTextEditsForMetadataRewrites(workspace: WorkspaceEdit): WorkspaceEdit {
+    const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
+    if (metadataEdits.length === 0) {
+        return workspace;
+    }
+
+    const metadataPaths = new Set(metadataEdits.map((metadataEdit) => metadataEdit.path));
+    const hasRedundantTextEdits = workspace.edits.some((edit) => metadataPaths.has(edit.path));
+    if (!hasRedundantTextEdits) {
+        return workspace;
+    }
+
+    const normalizedWorkspace = new WorkspaceEdit();
+
+    for (const edit of workspace.edits) {
+        if (metadataPaths.has(edit.path)) {
+            continue;
+        }
+
+        normalizedWorkspace.addEdit(edit.path, edit.start, edit.end, edit.newText);
+    }
+
+    for (const metadataEdit of metadataEdits) {
+        normalizedWorkspace.addMetadataEdit(metadataEdit.path, metadataEdit.content);
+    }
+
+    for (const fileRename of fileRenames) {
+        normalizedWorkspace.addFileRename(fileRename.oldPath, fileRename.newPath);
+    }
+
+    return normalizedWorkspace;
+}
+
+function applyGroupedTextEditsToContent(
+    originalContent: string,
+    edits: ReadonlyArray<Pick<TextEdit, "end" | "newText" | "start">>
+): string {
+    if (edits.length === 0) {
+        return originalContent;
+    }
+
+    const fragments = Array.from<string>({
+        length: edits.length * 2 + 1
+    });
+    let cursor = originalContent.length;
+    let fragmentIndex = fragments.length - 1;
+
+    for (const edit of edits) {
+        fragments[fragmentIndex] = originalContent.slice(edit.end, cursor);
+        fragmentIndex -= 1;
+        fragments[fragmentIndex] = edit.newText;
+        fragmentIndex -= 1;
+        cursor = edit.start;
+    }
+
+    fragments[fragmentIndex] = originalContent.slice(0, cursor);
+    return fragments.join("");
+}
+
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
@@ -123,10 +229,15 @@ export class RefactorEngine {
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
         this.projectAnalysisProvider = projectAnalysisProvider ?? DEFAULT_PROJECT_ANALYSIS_PROVIDER;
-        this.renameValidationCache = new RenameValidationCache();
+        this.renameValidationCache = new RenameValidationCache({
+            maxSize: RENAME_VALIDATION_CACHE_MAX_SIZE
+        });
         this.semanticCache = new SemanticQueryCache(semantic, {
-            maxSize: 24,
-            ttlMs: 20_000,
+            // Batch codemods can validate and then plan several thousand symbol
+            // queries in one run. Keep enough room for those session-local
+            // results so the planning phase can reuse the validation lookups.
+            maxSize: 8192,
+            ttlMs: 300_000,
             maxOccurrenceCacheEntries: 4000
         });
     }
@@ -148,7 +259,11 @@ export class RefactorEngine {
      * Validate symbol exists in the semantic index.
      */
     validateSymbolExists(symbolId: string): Promise<boolean> {
-        return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        if (this.semantic === null) {
+            return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        }
+
+        return this.semanticCache.hasSymbol(symbolId);
     }
 
     /**
@@ -530,22 +645,26 @@ export class RefactorEngine {
         const { symbolId, newName } = request;
 
         const normalizedNewName = assertValidIdentifierName(newName);
+        const cachedValidation = this.renameValidationCache.peek(symbolId, newName);
+        const hasReusableValidation = cachedValidation?.valid === true;
 
         // Confirm the symbol exists in the semantic index before proceeding. This
         // prevents wasted work gathering occurrences for non-existent symbols and
         // provides a clear error message when the user mistypes a symbol name.
-        const exists = await this.validateSymbolExists(symbolId);
-        if (!exists) {
-            throw new Error(
-                `Symbol '${symbolId}' not found in semantic index. ` +
-                    `Ensure the project has been analyzed before attempting renames.`
-            );
+        if (!hasReusableValidation) {
+            const exists = await this.validateSymbolExists(symbolId);
+            if (!exists) {
+                throw new Error(
+                    `Symbol '${symbolId}' not found in semantic index. ` +
+                        `Ensure the project has been analyzed before attempting renames.`
+                );
+            }
         }
 
         // Extract the symbol's base name from its fully-qualified ID by taking the
         // last path component. For example, "gml/script/scr_foo" becomes "scr_foo",
         // which we use to search for all occurrences in the codebase.
-        const symbolName = extractSymbolName(symbolId);
+        const symbolName = cachedValidation?.symbolName ?? extractSymbolName(symbolId);
 
         if (symbolName === normalizedNewName) {
             throw new Error(`The new name '${normalizedNewName}' matches the existing identifier`);
@@ -559,17 +678,19 @@ export class RefactorEngine {
         // Detect potential conflicts (shadowing, reserved keywords, etc.) before
         // applying edits. If conflicts exist, we abort the rename to prevent
         // introducing scope errors or breaking existing code.
-        const conflicts = await detectRenameConflicts(
-            symbolName,
-            normalizedNewName,
-            occurrences,
-            this.semantic,
-            this.semantic
-        );
+        if (!hasReusableValidation) {
+            const conflicts = await detectRenameConflicts(
+                symbolName,
+                normalizedNewName,
+                occurrences,
+                this.semantic,
+                this.semantic
+            );
 
-        if (conflicts.length > 0) {
-            const messages = conflicts.map((c) => c.message).join("; ");
-            throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
+            if (conflicts.length > 0) {
+                const messages = conflicts.map((c) => c.message).join("; ");
+                throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
+            }
         }
 
         // Build a workspace edit containing text edits for every occurrence. Each
@@ -601,7 +722,7 @@ export class RefactorEngine {
             }
         }
 
-        return workspace;
+        return dropRedundantTextEditsForMetadataRewrites(workspace);
     }
 
     /**
@@ -701,7 +822,17 @@ export class RefactorEngine {
             }
         }
 
-        return { valid: errors.length === 0, errors, warnings };
+        const validationSummary = {
+            valid: errors.length === 0,
+            errors,
+            warnings
+        };
+
+        if (validationSummary.valid) {
+            rememberValidatedWorkspaceRevision(workspace);
+        }
+
+        return validationSummary;
     }
 
     /**
@@ -738,8 +869,10 @@ export class RefactorEngine {
         // Verify the workspace edit is structurally sound and free of conflicts
         // before modifying any files. This prevents partial application of invalid
         // edits that could leave the codebase in an inconsistent state.
-        const validation = await this.validateRename(workspace);
-        throwIfValidationFailed(validation, "Cannot apply workspace edit");
+        if (!hasCurrentValidatedWorkspaceRevision(workspace)) {
+            const validation = await this.validateRename(workspace);
+            throwIfValidationFailed(validation, "Cannot apply workspace edit");
+        }
 
         // Organize edits by file so we can process each file independently. This
         // allows us to load, edit, and save one file at a time, reducing memory
@@ -751,15 +884,7 @@ export class RefactorEngine {
         // that file, and optionally writing the modified content back to disk.
         await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
             const originalContent = await readFile(filePath);
-
-            // Apply edits from high to low offset (reverse order) so that earlier
-            // edits don't invalidate the offsets of later edits. When edits are
-            // sorted descending, modifying the end of the file first keeps positions
-            // at the beginning stable, eliminating the need to recalculate offsets.
-            let newContent = originalContent;
-            for (const edit of edits) {
-                newContent = newContent.slice(0, edit.start) + edit.newText + newContent.slice(edit.end);
-            }
+            const newContent = applyGroupedTextEditsToContent(originalContent, edits);
 
             results.set(filePath, includeResultContent ? newContent : "");
 
@@ -801,7 +926,10 @@ export class RefactorEngine {
      * @param {Array<{symbolId: string, newName: string}>} renames - Array of rename operations
      * @returns {Promise<WorkspaceEdit>} Combined workspace edit for all renames
      */
-    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
+    private async planValidatedBatchRename(renames: Array<RenameRequest>): Promise<{
+        validation: ValidationSummary;
+        workspace: WorkspaceEdit;
+    }> {
         Core.assertArray(renames, {
             errorMessage: "planBatchRename requires an array of renames"
         });
@@ -876,11 +1004,12 @@ export class RefactorEngine {
                 }
 
                 if (supportsBatchWorkspaceOverlay) {
-                    await semantic.stageWorkspaceEdit(workspace);
+                    await (semantic as any).stageWorkspaceEdit(workspace);
+                    // Metadata overlays affect subsequent metadata planning, but
+                    // they do not mutate the semantic source index itself. Keep
+                    // the semantic query cache warm so large batch codemods can
+                    // reuse symbol existence and occurrence lookups.
                 }
-
-                // Keep batch processing memory bounded for large cross-project runs.
-                this.semanticCache.invalidateAll();
             });
         } finally {
             if (supportsBatchWorkspaceOverlay) {
@@ -896,7 +1025,15 @@ export class RefactorEngine {
         const validation = await this.validateRename(merged);
         throwIfValidationFailed(validation, "Batch rename validation failed");
 
-        return merged;
+        return {
+            validation,
+            workspace: merged
+        };
+    }
+
+    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
+        const preparedBatchRename = await this.planValidatedBatchRename(renames);
+        return preparedBatchRename.workspace;
     }
 
     /**
@@ -1436,16 +1573,23 @@ export class RefactorEngine {
         options?: PrepareBatchRenamePlanOptions
     ): Promise<BatchRenamePlanSummary> {
         const opts = options ?? {};
-        const { validateHotReload = false, hotReloadOptions: rawHotOptions, includeImpactAnalyses = true } = opts;
+        const {
+            validateHotReload = false,
+            hotReloadOptions: rawHotOptions,
+            includeImpactAnalyses = true,
+            batchValidation: providedBatchValidation
+        } = opts;
         const hotReloadOptions: HotReloadValidationOptions = rawHotOptions ?? {};
 
         // Validate the batch structure and individual renames up front, detecting
         // conflicts like duplicate target names or circular rename chains before
         // planning any workspace edits. This prevents wasted work when the batch
         // is malformed.
-        const batchValidation = await this.validateBatchRenameRequest(renames, {
-            includeHotReload: validateHotReload
-        });
+        const batchValidation =
+            providedBatchValidation ??
+            (await this.validateBatchRenameRequest(renames, {
+                includeHotReload: validateHotReload
+            }));
 
         // Try to plan the batch rename to capture all edits across all symbols in a
         // single merged workspace edit. If planning fails (e.g., due to conflicts),
@@ -1456,8 +1600,9 @@ export class RefactorEngine {
         let planningSucceeded = false;
 
         try {
-            workspace = await this.planBatchRename(renames);
-            validation = await this.validateRename(workspace);
+            const preparedBatchRename = await this.planValidatedBatchRename(renames);
+            workspace = preparedBatchRename.workspace;
+            validation = preparedBatchRename.validation;
             planningSucceeded = true;
 
             // Perform hot reload compatibility checks if requested

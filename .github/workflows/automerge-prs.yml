@@ -143,6 +143,10 @@ jobs:
         run: pnpm run test:ci
         continue-on-error: true
 
+      - name: Run performance regression tests (${{ matrix.target }})
+        if: ${{ matrix.target == 'head' }}
+        run: pnpm run test:performance
+
       - name: Publish test summary (${{ matrix.target }})
         if: ${{ always() }}
         uses: dorny/test-reporter@v2

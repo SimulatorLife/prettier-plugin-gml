@@ -1,10 +1,7 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import {
-    convertLegacyReturnsDescriptionLinesToMetadata,
-    promoteLeadingDocCommentTextToDescription
-} from "../../../doc-comment/index.js";
+import { gmlRuleDocCommentServices } from "../gml-rule-services.js";
 import {
     type AstNodeWithType,
     computeLineStartOffsets,
@@ -15,6 +12,9 @@ import {
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
 import type { GmlRuleDefinition } from "../rule-definition.js";
+
+const { convertLegacyReturnsDescriptionLinesToMetadata, promoteLeadingDocCommentTextToDescription } =
+    gmlRuleDocCommentServices;
 
 const { applyJsDocTagAliasReplacements } = CoreWorkspace.Core;
 

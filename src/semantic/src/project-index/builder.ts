@@ -2,8 +2,8 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
+import { loadBuiltInIdentifiers } from "../symbols/built-in-identifiers.js";
 import { createProjectIndexAbortGuard, PROJECT_INDEX_BUILD_ABORT_MESSAGE } from "./abort-guard.js";
-import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { getDefaultProjectIndexCacheMaxSize, loadProjectIndexCache, saveProjectIndexCache } from "./cache.js";
 import { clampConcurrency } from "./concurrency.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
@@ -1002,11 +1002,7 @@ function traverseAst(root, visitor) {
         }
         seen.add(node);
         visitor(node);
-        for (const key in node) {
-            if (!Object.hasOwn(node, key)) {
-                continue;
-            }
-
+        for (const key of Object.keys(node)) {
             pushNodeValueChildren(stack, node[key]);
         }
     }
@@ -1227,6 +1223,59 @@ function handleNewExpressionScriptCall({
     relationships.scriptCalls.push(callRecord);
     metrics?.counters?.increment("scriptCalls.discovered");
 }
+function handleConstructorParentScriptCall({
+    node,
+    builtInNames,
+    fileRecord,
+    scopeRecord,
+    relationships,
+    scriptNameToScopeId,
+    scriptNameToResourcePath,
+    metrics
+}) {
+    if (node?.type !== "ConstructorParentClause" || typeof node.id !== "string") {
+        return;
+    }
+
+    const calleeName = node.id;
+    if (!calleeName || builtInNames.has(calleeName)) {
+        return;
+    }
+
+    const targetScopeId = scriptNameToScopeId.get(calleeName) ?? null;
+    const targetResourcePath = targetScopeId ? (scriptNameToResourcePath.get(calleeName) ?? null) : null;
+    const parentStart = Core.cloneLocation(node.idLocation?.start ?? null);
+    const parentEnd = Core.cloneLocation(node.idLocation?.end ?? null);
+    if (parentStart === null || parentEnd === null) {
+        return;
+    }
+    parentEnd.index -= 1;
+    if (typeof parentEnd.column === "number") {
+        parentEnd.column -= 1;
+    }
+
+    const callRecord = {
+        kind: "script",
+        from: {
+            filePath: fileRecord.filePath,
+            scopeId: scopeRecord.id
+        },
+        target: {
+            name: calleeName,
+            scopeId: targetScopeId,
+            resourcePath: targetResourcePath
+        },
+        isResolved: Boolean(targetScopeId),
+        location: {
+            start: parentStart,
+            end: parentEnd
+        }
+    };
+    fileRecord.scriptCalls.push(callRecord);
+    scopeRecord.scriptCalls.push(callRecord);
+    relationships.scriptCalls.push(callRecord);
+    metrics?.counters?.increment("scriptCalls.discovered");
+}
 function handleObjectEventAssignmentNode({
     node,
     scopeDescriptor,
@@ -1317,6 +1366,16 @@ function analyseGmlAst({
             metrics
         });
         handleNewExpressionScriptCall({
+            node,
+            builtInNames,
+            fileRecord,
+            scopeRecord,
+            relationships,
+            scriptNameToScopeId,
+            scriptNameToResourcePath,
+            metrics
+        });
+        handleConstructorParentScriptCall({
             node,
             builtInNames,
             fileRecord,

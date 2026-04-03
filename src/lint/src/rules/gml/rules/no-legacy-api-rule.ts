@@ -1,7 +1,7 @@
-import * as CoreWorkspace from "@gmloop/core";
+import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import { getDeprecatedIdentifierCatalogEntry } from "../../../services/deprecated-identifiers/index.js";
+import { gmlRuleDeprecatedIdentifierServices } from "../gml-rule-services.js";
 import {
     createMeta,
     getNodeEndIndex,
@@ -11,7 +11,7 @@ import {
 } from "../rule-base-helpers.js";
 import type { GmlRuleDefinition } from "../rule-definition.js";
 
-const { Core } = CoreWorkspace;
+const { getDeprecatedIdentifierCatalogEntry } = gmlRuleDeprecatedIdentifierServices;
 
 type AstNodeWithType = Readonly<{ type: string }>;
 type DeprecatedCatalogEntry = NonNullable<ReturnType<typeof getDeprecatedIdentifierCatalogEntry>>;

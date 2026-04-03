@@ -22,11 +22,17 @@ import {
     type SymbolResolver
 } from "./types.js";
 
+type MaybePromise<T> = Promise<T> | T;
+
 /**
  * Internal sentinel value to represent global (unscoped) symbol occurrences.
  * Used to group occurrences without a scopeId for batch validation.
  */
 const GLOBAL_SCOPE_KEY = "__global__";
+
+function isPromiseLike<T>(value: MaybePromise<T>): value is Promise<T> {
+    return typeof (value as { then?: unknown })?.then === "function";
+}
 
 /**
  * Groups symbol occurrences by a derived key.
@@ -64,16 +70,13 @@ function groupOccurrencesByKey(
  * @returns Map of scope keys to sets of file paths
  */
 function groupOccurrencesByScope(occurrences: Array<SymbolOccurrence>): Map<string, Set<string>> {
-    const groupedByScope = groupOccurrencesByKey(occurrences, (occurrence) => occurrence.scopeId ?? GLOBAL_SCOPE_KEY);
-
     const scopeToPaths = new Map<string, Set<string>>();
 
-    for (const [scopeKey, groupedOccurrences] of groupedByScope) {
-        const paths = new Set<string>();
-        for (const occurrence of groupedOccurrences) {
-            if (occurrence.path) {
-                paths.add(occurrence.path);
-            }
+    for (const occurrence of occurrences) {
+        const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
+        const paths = scopeToPaths.get(scopeKey) ?? new Set<string>();
+        if (occurrence.path) {
+            paths.add(occurrence.path);
         }
 
         scopeToPaths.set(scopeKey, paths);
@@ -114,6 +117,20 @@ function addShadowConflicts(
     }
 }
 
+function pushShadowConflictIfNeeded(
+    conflicts: Array<ConflictEntry>,
+    oldName: string,
+    newName: string,
+    paths: Set<string>,
+    existing: { name: string } | null
+): void {
+    if (!existing || existing.name === oldName) {
+        return;
+    }
+
+    addShadowConflicts(conflicts, oldName, newName, paths);
+}
+
 /**
  * Checks for shadowing conflicts across all scopes.
  * @param oldName - Original symbol name
@@ -122,35 +139,42 @@ function addShadowConflicts(
  * @param resolver - Symbol resolver for scope-aware lookups
  * @returns Array of shadow conflicts found
  */
-async function checkShadowingConflicts(
+function checkShadowingConflicts(
     oldName: string,
     normalizedNewName: string,
     occurrences: Array<SymbolOccurrence>,
     resolver: Partial<SymbolResolver>
-): Promise<Array<ConflictEntry>> {
+): MaybePromise<Array<ConflictEntry>> {
     const conflicts: Array<ConflictEntry> = [];
     const scopeToPaths = groupOccurrencesByScope(occurrences);
-    const scopeEntries = [...scopeToPaths.entries()];
-    const lookupResults = await Promise.all(
-        scopeEntries.map(async ([scopeKey, paths]) => {
-            const existing = await resolver.lookup(
-                normalizedNewName,
-                scopeKey === GLOBAL_SCOPE_KEY ? undefined : scopeKey
-            );
-            return { existing, paths };
-        })
-    );
+    const pendingLookups: Array<Promise<{ existing: { name: string } | null; paths: Set<string> }>> = [];
 
-    for (const { existing, paths } of lookupResults) {
-        // Guard clause: skip if no conflict exists
-        if (!existing || existing.name === oldName) {
+    for (const [scopeKey, paths] of scopeToPaths) {
+        const existing = resolver.lookup(normalizedNewName, scopeKey === GLOBAL_SCOPE_KEY ? undefined : scopeKey);
+        if (isPromiseLike(existing)) {
+            pendingLookups.push(
+                Promise.resolve(existing).then((resolvedExisting) => ({
+                    existing: resolvedExisting,
+                    paths
+                }))
+            );
             continue;
         }
 
-        addShadowConflicts(conflicts, oldName, normalizedNewName, paths);
+        pushShadowConflictIfNeeded(conflicts, oldName, normalizedNewName, paths, existing);
     }
 
-    return conflicts;
+    if (pendingLookups.length === 0) {
+        return conflicts;
+    }
+
+    return Promise.all(pendingLookups).then((lookupResults) => {
+        for (const { existing, paths } of lookupResults) {
+            pushShadowConflictIfNeeded(conflicts, oldName, normalizedNewName, paths, existing);
+        }
+
+        return conflicts;
+    });
 }
 
 /**
@@ -158,15 +182,24 @@ async function checkShadowingConflicts(
  * @param keywordProvider - Provider for semantic reserved keywords (null if not available)
  * @returns Set of all reserved keywords (lowercase)
  */
-async function buildReservedKeywordSet(
+function buildReservedKeywordSet(
     keywordProvider: Partial<KeywordProvider> | null
-): Promise<ReadonlySet<string> | Set<string>> {
+): MaybePromise<ReadonlySet<string> | Set<string>> {
     if (!Core.hasMethods(keywordProvider, "getReservedKeywords")) {
         return DEFAULT_RESERVED_KEYWORDS;
     }
 
-    const semanticReserved = (await keywordProvider.getReservedKeywords()) ?? [];
-    return new Set([...DEFAULT_RESERVED_KEYWORDS, ...semanticReserved.map((keyword) => keyword.toLowerCase())]);
+    const semanticReserved = keywordProvider.getReservedKeywords() ?? [];
+    if (!isPromiseLike(semanticReserved)) {
+        return new Set([...DEFAULT_RESERVED_KEYWORDS, ...semanticReserved.map((keyword) => keyword.toLowerCase())]);
+    }
+
+    return Promise.resolve(semanticReserved).then((resolvedKeywords) => {
+        return new Set([
+            ...DEFAULT_RESERVED_KEYWORDS,
+            ...(resolvedKeywords ?? []).map((keyword) => keyword.toLowerCase())
+        ]);
+    });
 }
 
 /**
@@ -202,13 +235,14 @@ export async function detectRenameConflicts(
 
     // Check for shadowing conflicts if resolver supports scope-aware lookups
     if (Core.hasMethods(resolver, "lookup")) {
-        const shadowConflicts = await checkShadowingConflicts(oldName, normalizedNewName, occurrences, resolver);
-        conflicts.push(...shadowConflicts);
+        const shadowConflicts = checkShadowingConflicts(oldName, normalizedNewName, occurrences, resolver);
+        conflicts.push(...(isPromiseLike(shadowConflicts) ? await shadowConflicts : shadowConflicts));
     }
 
     // Check if new name conflicts with reserved keywords
-    const reservedKeywords = await buildReservedKeywordSet(keywordProvider);
-    if (reservedKeywords.has(normalizedNewName.toLowerCase())) {
+    const reservedKeywords = buildReservedKeywordSet(keywordProvider);
+    const resolvedReservedKeywords = isPromiseLike(reservedKeywords) ? await reservedKeywords : reservedKeywords;
+    if (resolvedReservedKeywords.has(normalizedNewName.toLowerCase())) {
         conflicts.push({
             type: ConflictType.RESERVED,
             message: `'${normalizedNewName}' is a reserved keyword and cannot be used as an identifier`
@@ -465,19 +499,12 @@ export async function validateCrossFileConsistency(
     }
 
     // Group occurrences by file to analyze file-level impact
-    const fileOccurrences = groupOccurrencesByKey(occurrences, (occurrence) => occurrence.path ?? null);
-    const fileEntries = [...fileOccurrences.entries()];
-    const fileSymbolResults = await Promise.all(
-        fileEntries.map(async ([filePath, fileOccs]) => ({
-            filePath,
-            fileOccs,
-            fileSymbols: await fileProvider.getFileSymbols(filePath)
-        }))
-    );
-
-    // For each file with occurrences, check if there are other symbols that
-    // might conflict with the new name after the rename
-    for (const { filePath, fileOccs, fileSymbols } of fileSymbolResults) {
+    const fileOccurrenceCounts = new Map<string, number>();
+    const appendFileConsistencyConflicts = (
+        filePath: string,
+        occurrenceCount: number,
+        fileSymbols: Array<{ id: string }>
+    ) => {
         // Check if the file already defines a symbol with the new name
         const conflictingSymbol = fileSymbols.find((sym) => {
             const symName = extractSymbolName(sym.id);
@@ -494,14 +521,39 @@ export async function validateCrossFileConsistency(
 
         // Warn if the file has many occurrences, as this increases the risk
         // of missing a reference during the rename operation
-        if (fileOccs.length > 20) {
+        if (occurrenceCount > 20) {
             errors.push({
                 type: ConflictType.LARGE_RENAME,
-                message: `File '${filePath}' contains ${fileOccs.length} occurrences - verify all references are updated`,
+                message: `File '${filePath}' contains ${occurrenceCount} occurrences - verify all references are updated`,
                 severity: "warning",
                 path: filePath
             });
         }
+    };
+
+    for (const occurrence of occurrences) {
+        if (occurrence.path) {
+            Core.incrementMapValue(fileOccurrenceCounts, occurrence.path);
+        }
+    }
+
+    const pendingFileSymbolLookups: Array<Promise<void>> = [];
+    for (const [filePath, occurrenceCount] of fileOccurrenceCounts) {
+        const fileSymbols = fileProvider.getFileSymbols(filePath);
+        if (isPromiseLike(fileSymbols)) {
+            pendingFileSymbolLookups.push(
+                Promise.resolve(fileSymbols).then((resolvedFileSymbols) =>
+                    appendFileConsistencyConflicts(filePath, occurrenceCount, resolvedFileSymbols ?? [])
+                )
+            );
+            continue;
+        }
+
+        appendFileConsistencyConflicts(filePath, occurrenceCount, fileSymbols ?? []);
+    }
+
+    if (pendingFileSymbolLookups.length > 0) {
+        await Promise.all(pendingFileSymbolLookups);
     }
 
     return errors;
@@ -551,7 +603,7 @@ export function detectDuplicateSourceSymbolIds(
     const counts = new Map<string, number>();
     for (const rename of renames) {
         if (rename && typeof rename === "object" && typeof rename.symbolId === "string") {
-            counts.set(rename.symbolId, (counts.get(rename.symbolId) ?? 0) + 1);
+            Core.incrementMapValue(counts, rename.symbolId);
         }
     }
 
