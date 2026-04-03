@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import path from "node:path";
 
 import { Core } from "@gmloop/core";
+import { WORKSPACE_EDIT_REVISION_TOKEN } from "@gmloop/refactor";
 import { Semantic } from "@gmloop/semantic";
 
 import { listConstructorRuntimeTypeReferenceRecords } from "./constructor-runtime-type-references.js";
@@ -157,6 +158,7 @@ type WorkspaceEdit = {
     metadataEdits: Array<{ content: string; path: string }>;
     metadataObjects?: Array<{ document: Record<string, unknown>; path: string }>;
     groupByFile: () => BridgeGroupedTextEdits;
+    [WORKSPACE_EDIT_REVISION_TOKEN]: () => number;
 };
 
 type BridgeTextEdit = {
@@ -305,6 +307,8 @@ function resolveOccurrenceEndIndex(endIndex: unknown): number | null {
 }
 
 function createWorkspaceEdit(): WorkspaceEdit {
+    let revision = 0;
+
     const workspace = {
         edits: [] as Array<{ end: number; newText: string; path: string; start: number }>,
         fileRenames: [] as Array<{ newPath: string; oldPath: string }>,
@@ -312,15 +316,19 @@ function createWorkspaceEdit(): WorkspaceEdit {
         metadataObjects: [] as Array<{ document: Record<string, unknown>; path: string }>,
         addEdit(filePath: string, start: number, end: number, newText: string) {
             workspace.edits.push({ path: filePath, start, end, newText });
+            revision += 1;
         },
         addFileRename(oldPath: string, newPath: string) {
             workspace.fileRenames.push({ oldPath, newPath });
+            revision += 1;
         },
         addMetadataEdit(filePath: string, content: string) {
             workspace.metadataEdits.push({ path: filePath, content });
+            revision += 1;
         },
         addMetadataObjectEdit(filePath: string, document: Record<string, unknown>) {
             workspace.metadataObjects.push({ path: filePath, document });
+            revision += 1;
         },
         groupByFile() {
             const grouped: BridgeGroupedTextEdits = new Map();
@@ -342,6 +350,9 @@ function createWorkspaceEdit(): WorkspaceEdit {
             }
 
             return grouped;
+        },
+        [WORKSPACE_EDIT_REVISION_TOKEN]() {
+            return revision;
         }
     };
 

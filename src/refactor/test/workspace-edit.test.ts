@@ -11,6 +11,7 @@ import {
     getWorkspaceEditTelemetry,
     isWorkspaceEditLike,
     validateFileRenameOperations,
+    WORKSPACE_EDIT_REVISION_TOKEN,
     WorkspaceEdit
 } from "../src/workspace-edit.js";
 
@@ -238,4 +239,47 @@ void test("validateFileRenameOperations rejects empty and unchanged paths", () =
     assert.ok(errors.some((error) => error.includes("source path must be a non-empty string")));
     assert.ok(errors.some((error) => error.includes("destination path must be a non-empty string")));
     assert.ok(errors.some((error) => error.includes("must change the path")));
+});
+
+void test("getWorkspaceEditRevision returns null for objects that do not implement WORKSPACE_EDIT_REVISION_TOKEN", () => {
+    assert.equal(getWorkspaceEditRevision({}), null);
+    assert.equal(getWorkspaceEditRevision({ edits: [], addEdit() {}, groupByFile() {} }), null);
+});
+
+void test("getWorkspaceEditRevision reads revision from any object implementing WORKSPACE_EDIT_REVISION_TOKEN", () => {
+    // A minimal substitutable workspace implementation that exposes revision via
+    // the well-known symbol, without extending WorkspaceEdit.
+    let internalRevision = 0;
+
+    const substituteWorkspace = {
+        edits: [] as Array<{ path: string; start: number; end: number; newText: string }>,
+        addEdit(path: string, start: number, end: number, newText: string) {
+            this.edits.push({ path, start, end, newText });
+            internalRevision += 1;
+        },
+        groupByFile() {
+            return new Map();
+        },
+        [WORKSPACE_EDIT_REVISION_TOKEN]() {
+            return internalRevision;
+        }
+    };
+
+    assert.equal(getWorkspaceEditRevision(substituteWorkspace), 0);
+
+    substituteWorkspace.addEdit("scripts/example.gml", 0, 5, "hello");
+    assert.equal(getWorkspaceEditRevision(substituteWorkspace), 1);
+
+    substituteWorkspace.addEdit("scripts/other.gml", 3, 7, "world");
+    assert.equal(getWorkspaceEditRevision(substituteWorkspace), 2);
+});
+
+void test("WORKSPACE_EDIT_REVISION_TOKEN on WorkspaceEdit returns the same value as getWorkspaceEditRevision", () => {
+    const workspace = new WorkspaceEdit();
+
+    assert.equal(workspace[WORKSPACE_EDIT_REVISION_TOKEN](), getWorkspaceEditRevision(workspace));
+
+    workspace.addEdit("scripts/a.gml", 0, 4, "test");
+
+    assert.equal(workspace[WORKSPACE_EDIT_REVISION_TOKEN](), getWorkspaceEditRevision(workspace));
 });
