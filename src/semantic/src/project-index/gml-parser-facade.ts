@@ -34,8 +34,6 @@ let parserNamespace: ParserNamespace | null = null;
 const defaultProjectIndexParser: ProjectIndexParser = (sourceText: string, context = {}) =>
     parseProjectIndexSource(sourceText, context);
 
-const PARSER_FACADE_OPTION_KEYS = ["identifierCaseProjectIndexParserFacade", "gmlParserFacade", "parserFacade"];
-
 export function setProjectIndexParserNamespace(parser: ParserNamespace): void {
     parserNamespace = parser;
 }
@@ -109,14 +107,12 @@ export function getProjectIndexParserOverride(options) {
         return null;
     }
 
-    for (const key of PARSER_FACADE_OPTION_KEYS) {
-        const facade = options[key];
-        if (typeof facade?.parse === "function") {
-            return {
-                facade,
-                parse: facade.parse.bind(facade)
-            };
-        }
+    const facade = options.gmlParserFacade;
+    if (typeof facade?.parse === "function") {
+        return {
+            facade,
+            parse: facade.parse.bind(facade)
+        };
     }
 
     const parse = options.parseGml;
