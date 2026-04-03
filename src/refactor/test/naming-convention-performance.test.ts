@@ -139,8 +139,8 @@ function buildNamingConventionCodemodExecutor(
     sourceTexts: Map<string, string>,
     projectRoot: string
 ): () => Promise<ConfiguredCodemodRunResult> {
-    return async () =>
-        await engine.executeConfiguredCodemods({
+    return () =>
+        engine.executeConfiguredCodemods({
             projectRoot,
             targetPaths: [projectRoot],
             gmlFilePaths,
