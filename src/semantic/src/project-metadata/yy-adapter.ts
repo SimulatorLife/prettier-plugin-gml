@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import { Yy } from "@bscotch/yy";
 import { Core } from "@gmloop/core";
@@ -7,7 +8,8 @@ const PROJECT_METADATA_PARSE_ERROR = "ProjectMetadataParseError";
 const PROJECT_METADATA_SCHEMA_VALIDATION_ERROR = "ProjectMetadataSchemaValidationError";
 
 const RESOURCE_TYPE_TO_SCHEMA_NAME = Object.freeze({
-    GMProject: "project",
+    // "GMProject: project" is deliberately omitted because @bscotch/yy's 'project' schema
+    // drops unknown resources leading to data loss in valid project files.
     GMObject: "objects",
     GMScript: "scripts",
     GMRoom: "rooms",
@@ -36,7 +38,10 @@ function mapResourceTypeToSchemaName(resourceType: unknown): ProjectMetadataSche
 function mapResourcePathToSchemaName(sourcePath: string): ProjectMetadataSchemaName | null {
     const normalizedPath = Core.toPosixPath(sourcePath);
     if (normalizedPath.toLowerCase().endsWith(".yyp")) {
-        return "project";
+        // Prevent inferring the "project" schema for GameMaker .yyp manifests.
+        // The @bscotch/yy library's project schema validation silently filters out
+        // unrecognized array entries, leading to data loss for valid projects.
+        return null;
     }
 
     if (!normalizedPath.toLowerCase().endsWith(".yy")) {
@@ -257,20 +262,148 @@ export function parseProjectMetadataDocumentForMutation(rawContents: string, sou
 /**
  * Stringify a metadata payload using Stitch's yy serializer.
  */
-export function stringifyProjectMetadataDocument(document: Record<string, unknown>, sourcePath = "") {
-    const schemaName = Core.isNonEmptyString(sourcePath)
-        ? resolveProjectMetadataSchemaName(sourcePath, document.resourceType)
-        : null;
+function ensureResourceTypeBeforeResourcePath(document: Record<string, unknown>): Record<string, unknown> {
+    if (!Core.isObjectLike(document)) {
+        return document;
+    }
 
-    if (schemaName) {
-        try {
-            return Yy.stringify(document, schemaName);
-        } catch {
-            return Yy.stringify(document);
+    const hasResourceType = Object.hasOwn(document, "resourceType");
+    const hasResourcePath = Object.hasOwn(document, "resourcePath");
+
+    if (!hasResourceType || !hasResourcePath) {
+        return document;
+    }
+
+    const keys = Object.keys(document);
+    const resourceTypeIndex = keys.indexOf("resourceType");
+    const resourcePathIndex = keys.indexOf("resourcePath");
+
+    if (resourceTypeIndex === -1 || resourcePathIndex === -1 || resourceTypeIndex < resourcePathIndex) {
+        return document;
+    }
+
+    const ordered: Record<string, unknown> = {};
+    for (const key of keys) {
+        if (key === "resourcePath") {
+            continue;
+        }
+
+        ordered[key] = document[key];
+
+        if (key === "resourceType") {
+            ordered.resourcePath = document.resourcePath;
         }
     }
 
-    return Yy.stringify(document);
+    return ordered;
+}
+
+function ensureResourceTypeBeforeResourcePathInSerializedOutput(
+    output: string,
+    document: Record<string, unknown>
+): string {
+    if (!Core.isObjectLike(document) || !Core.isNonEmptyString(document.resourceType)) {
+        return output;
+    }
+
+    const hasResourcePath = Object.hasOwn(document, "resourcePath");
+    if (!hasResourcePath) {
+        return output;
+    }
+
+    const eol = output.includes("\r\n") ? "\r\n" : "\n";
+    const lines = output.split(/\r?\n/);
+
+    let resourcePathLineIndex = -1;
+    let resourceTypeLineIndex = -1;
+
+    for (const [index, line] of lines.entries()) {
+        const indent = line.search(/\S|$/);
+        const trimmed = line.trimStart();
+
+        if (indent !== 2) {
+            continue; // only consider top-level property lines in serialized output
+        }
+
+        if (trimmed.startsWith('"resourcePath"')) {
+            resourcePathLineIndex = index;
+        }
+
+        if (trimmed.startsWith('"resourceType"')) {
+            resourceTypeLineIndex = index;
+        }
+
+        if (resourcePathLineIndex !== -1 && resourceTypeLineIndex !== -1) {
+            break;
+        }
+    }
+
+    if (resourcePathLineIndex === -1 || resourceTypeLineIndex === -1) {
+        return output;
+    }
+
+    if (resourceTypeLineIndex < resourcePathLineIndex) {
+        return output;
+    }
+
+    const copy = [...lines];
+    [copy[resourcePathLineIndex], copy[resourceTypeLineIndex]] = [
+        copy[resourceTypeLineIndex],
+        copy[resourcePathLineIndex]
+    ];
+
+    return copy.join(eol);
+}
+
+function normalizeMetadataValueForSerialization(value: unknown): unknown {
+    const objectTag = Object.prototype.toString.call(value);
+    if (objectTag === "[object Number]" || objectTag === "[object String]" || objectTag === "[object Boolean]") {
+        return value.valueOf();
+    }
+
+    if (Array.isArray(value)) {
+        return value.map((entry) => normalizeMetadataValueForSerialization(entry));
+    }
+
+    if (!Core.isObjectLike(value)) {
+        return value;
+    }
+
+    const normalizedObject: Record<string, unknown> = {};
+    for (const [key, childValue] of Object.entries(value)) {
+        normalizedObject[key] = normalizeMetadataValueForSerialization(childValue);
+    }
+
+    return normalizedObject;
+}
+
+export function stringifyProjectMetadataDocument(document: Record<string, unknown>, sourcePath = "") {
+    const normalizedDocument = ensureResourceTypeBeforeResourcePath(
+        normalizeMetadataValueForSerialization(document) as Record<string, unknown>
+    );
+    let schemaName = Core.isNonEmptyString(sourcePath)
+        ? resolveProjectMetadataSchemaName(sourcePath, normalizedDocument.resourceType)
+        : null;
+
+    // Avoid using @bscotch/yy's `project` schema when serializing project manifests
+    // as the schema validation strips out valid resources not covered by the schema.
+    if (schemaName === "project") {
+        schemaName = null;
+    }
+
+    const rawOutput = ((): string => {
+        if (schemaName) {
+            try {
+                return Yy.stringify(normalizedDocument, schemaName);
+            } catch (error) {
+                throw new ProjectMetadataSchemaValidationError(sourcePath, schemaName, error);
+            }
+        }
+
+        return Yy.stringify(normalizedDocument);
+    })();
+
+    return ensureResourceTypeBeforeResourcePathInSerializedOutput(rawOutput, normalizedDocument);
 }
 
 /**
@@ -333,14 +466,29 @@ export function readProjectMetadataDocumentForMutationFromFile(sourcePath: strin
  * short-circuits because no file content changed.
  */
 export function writeProjectMetadataDocumentToFile(sourcePath: string, document: Record<string, unknown>): boolean {
-    const schemaName = resolveProjectMetadataSchemaName(sourcePath, document.resourceType);
-    try {
-        return Yy.writeSync(sourcePath, document, schemaName ?? undefined);
-    } catch {
-        fs.writeFileSync(sourcePath, stringifyProjectMetadataDocument(document, sourcePath), "utf8");
-    }
+    const normalizedDocument = ensureResourceTypeBeforeResourcePath(document);
+    const contents = stringifyProjectMetadataDocument(normalizedDocument, sourcePath);
 
-    return true;
+    try {
+        if (fs.existsSync(sourcePath)) {
+            const existing = fs.readFileSync(sourcePath, "utf8");
+            if (existing === contents) {
+                return false;
+            }
+        }
+
+        fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+        fs.writeFileSync(sourcePath, contents, "utf8");
+        return true;
+    } catch (error) {
+        // Fallback to @bscotch/yy write path if manual file write fails
+        const schemaName = resolveProjectMetadataSchemaName(sourcePath, normalizedDocument.resourceType);
+        try {
+            return Yy.writeSync(sourcePath, normalizedDocument, schemaName ?? undefined);
+        } catch {
+            throw error;
+        }
+    }
 }
 
 function resolveProjectMetadataPathTarget(
@@ -400,6 +548,400 @@ function resolveProjectMetadataPathTarget(
     }
 
     return null;
+}
+
+type ProjectMetadataValueTextRange = {
+    end: number;
+    start: number;
+};
+
+function skipProjectMetadataWhitespace(rawContents: string, startIndex: number): number {
+    let index = startIndex;
+    while (index < rawContents.length && /\s/u.test(rawContents[index] ?? "")) {
+        index += 1;
+    }
+
+    return index;
+}
+
+function parseProjectMetadataStringLiteral(
+    rawContents: string,
+    startIndex: number
+): { end: number; value: string } | null {
+    if (rawContents[startIndex] !== '"') {
+        return null;
+    }
+
+    let index = startIndex + 1;
+    let value = "";
+
+    while (index < rawContents.length) {
+        const character = rawContents[index];
+        if (character === '"') {
+            return {
+                end: index + 1,
+                value
+            };
+        }
+
+        if (character === "\\") {
+            const escapedCharacter = rawContents[index + 1];
+            if (escapedCharacter === undefined) {
+                return null;
+            }
+
+            if (
+                escapedCharacter === '"' ||
+                escapedCharacter === "\\" ||
+                escapedCharacter === "/" ||
+                escapedCharacter === "b" ||
+                escapedCharacter === "f" ||
+                escapedCharacter === "n" ||
+                escapedCharacter === "r" ||
+                escapedCharacter === "t"
+            ) {
+                value += JSON.parse(`"${character}${escapedCharacter}"`) as string;
+                index += 2;
+                continue;
+            }
+
+            if (escapedCharacter === "u") {
+                const unicodeEscape = rawContents.slice(index + 2, index + 6);
+                if (!/^[\da-fA-F]{4}$/u.test(unicodeEscape)) {
+                    return null;
+                }
+
+                value += String.fromCodePoint(Number.parseInt(unicodeEscape, 16));
+                index += 6;
+                continue;
+            }
+
+            return null;
+        }
+
+        value += character;
+        index += 1;
+    }
+
+    return null;
+}
+
+function skipProjectMetadataNumberLiteral(rawContents: string, startIndex: number): number | null {
+    const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/u.exec(rawContents.slice(startIndex));
+    if (!match) {
+        return null;
+    }
+
+    return startIndex + match[0].length;
+}
+
+function skipProjectMetadataValue(rawContents: string, startIndex: number): number | null {
+    const index = skipProjectMetadataWhitespace(rawContents, startIndex);
+    const character = rawContents[index];
+
+    if (character === '"') {
+        return parseProjectMetadataStringLiteral(rawContents, index)?.end ?? null;
+    }
+
+    if (character === "{") {
+        let cursor = index + 1;
+        while (true) {
+            cursor = skipProjectMetadataWhitespace(rawContents, cursor);
+            if (rawContents[cursor] === "}") {
+                return cursor + 1;
+            }
+
+            const key = parseProjectMetadataStringLiteral(rawContents, cursor);
+            if (key === null) {
+                return null;
+            }
+
+            cursor = skipProjectMetadataWhitespace(rawContents, key.end);
+            if (rawContents[cursor] !== ":") {
+                return null;
+            }
+
+            const valueEnd = skipProjectMetadataValue(rawContents, cursor + 1);
+            if (valueEnd === null) {
+                return null;
+            }
+
+            cursor = skipProjectMetadataWhitespace(rawContents, valueEnd);
+            if (rawContents[cursor] === ",") {
+                cursor += 1;
+                continue;
+            }
+
+            if (rawContents[cursor] === "}") {
+                return cursor + 1;
+            }
+
+            return null;
+        }
+    }
+
+    if (character === "[") {
+        let cursor = index + 1;
+        while (true) {
+            cursor = skipProjectMetadataWhitespace(rawContents, cursor);
+            if (rawContents[cursor] === "]") {
+                return cursor + 1;
+            }
+
+            const valueEnd = skipProjectMetadataValue(rawContents, cursor);
+            if (valueEnd === null) {
+                return null;
+            }
+
+            cursor = skipProjectMetadataWhitespace(rawContents, valueEnd);
+            if (rawContents[cursor] === ",") {
+                cursor += 1;
+                continue;
+            }
+
+            if (rawContents[cursor] === "]") {
+                return cursor + 1;
+            }
+
+            return null;
+        }
+    }
+
+    for (const literal of ["true", "false", "null"] as const) {
+        if (rawContents.startsWith(literal, index)) {
+            return index + literal.length;
+        }
+    }
+
+    return skipProjectMetadataNumberLiteral(rawContents, index);
+}
+
+function resolveProjectMetadataValueTextRangeInObject(
+    rawContents: string,
+    startIndex: number,
+    propertySegments: ReadonlyArray<string>
+): ProjectMetadataValueTextRange | null {
+    if (propertySegments.length === 0) {
+        return {
+            start: startIndex,
+            end: skipProjectMetadataValue(rawContents, startIndex) ?? startIndex
+        };
+    }
+
+    const [segment, ...remainingSegments] = propertySegments;
+    if (!Core.isNonEmptyString(segment) || /^\d+$/u.test(segment)) {
+        return null;
+    }
+
+    let cursor = startIndex + 1;
+
+    while (true) {
+        cursor = skipProjectMetadataWhitespace(rawContents, cursor);
+        if (rawContents[cursor] === "}") {
+            return null;
+        }
+
+        const key = parseProjectMetadataStringLiteral(rawContents, cursor);
+        if (key === null) {
+            return null;
+        }
+
+        cursor = skipProjectMetadataWhitespace(rawContents, key.end);
+        if (rawContents[cursor] !== ":") {
+            return null;
+        }
+
+        const valueStart = skipProjectMetadataWhitespace(rawContents, cursor + 1);
+
+        if (key.value === segment) {
+            if (remainingSegments.length === 0) {
+                const valueEnd = skipProjectMetadataValue(rawContents, valueStart);
+                return valueEnd === null
+                    ? null
+                    : {
+                          start: valueStart,
+                          end: valueEnd
+                      };
+            }
+
+            return resolveProjectMetadataValueTextRange(rawContents, valueStart, remainingSegments);
+        }
+
+        const valueEnd = skipProjectMetadataValue(rawContents, valueStart);
+        if (valueEnd === null) {
+            return null;
+        }
+
+        cursor = skipProjectMetadataWhitespace(rawContents, valueEnd);
+        if (rawContents[cursor] === ",") {
+            cursor += 1;
+            continue;
+        }
+
+        if (rawContents[cursor] === "}") {
+            return null;
+        }
+
+        return null;
+    }
+}
+
+function resolveProjectMetadataValueTextRangeInArray(
+    rawContents: string,
+    startIndex: number,
+    propertySegments: ReadonlyArray<string>
+): ProjectMetadataValueTextRange | null {
+    if (propertySegments.length === 0) {
+        return {
+            start: startIndex,
+            end: skipProjectMetadataValue(rawContents, startIndex) ?? startIndex
+        };
+    }
+
+    const [segment, ...remainingSegments] = propertySegments;
+    if (!/^\d+$/u.test(segment ?? "")) {
+        return null;
+    }
+
+    const targetIndex = Number(segment);
+    let cursor = startIndex + 1;
+    let currentIndex = 0;
+
+    while (true) {
+        cursor = skipProjectMetadataWhitespace(rawContents, cursor);
+        if (rawContents[cursor] === "]") {
+            return null;
+        }
+
+        const valueStart = cursor;
+        const valueEnd = skipProjectMetadataValue(rawContents, valueStart);
+        if (valueEnd === null) {
+            return null;
+        }
+
+        if (currentIndex === targetIndex) {
+            if (remainingSegments.length === 0) {
+                return {
+                    start: valueStart,
+                    end: valueEnd
+                };
+            }
+
+            return resolveProjectMetadataValueTextRange(rawContents, valueStart, remainingSegments);
+        }
+
+        currentIndex += 1;
+        cursor = skipProjectMetadataWhitespace(rawContents, valueEnd);
+        if (rawContents[cursor] === ",") {
+            cursor += 1;
+            continue;
+        }
+
+        if (rawContents[cursor] === "]") {
+            return null;
+        }
+
+        return null;
+    }
+}
+
+function resolveProjectMetadataValueTextRange(
+    rawContents: string,
+    startIndex: number,
+    propertySegments: ReadonlyArray<string>
+): ProjectMetadataValueTextRange | null {
+    const index = skipProjectMetadataWhitespace(rawContents, startIndex);
+    const character = rawContents[index];
+
+    if (propertySegments.length === 0) {
+        const end = skipProjectMetadataValue(rawContents, index);
+        return end === null
+            ? null
+            : {
+                  start: index,
+                  end
+              };
+    }
+
+    if (character === "{") {
+        return resolveProjectMetadataValueTextRangeInObject(rawContents, index, propertySegments);
+    }
+
+    if (character === "[") {
+        return resolveProjectMetadataValueTextRangeInArray(rawContents, index, propertySegments);
+    }
+
+    return null;
+}
+
+/**
+ * Locate the byte range for a value identified by a metadata property path.
+ *
+ * The parser is intentionally minimal and preserves GameMaker's permissive
+ * trailing-comma syntax so refactor flows can patch specific string literals
+ * without reserializing the entire `.yy/.yyp` document.
+ *
+ * @param rawContents - Original metadata text.
+ * @param propertyPath - Dot-delimited property path such as `resources.0.id.path`.
+ * @returns The inclusive start / exclusive end byte range for the target value.
+ */
+export function findProjectMetadataValueTextRange(
+    rawContents: string,
+    propertyPath: string
+): ProjectMetadataValueTextRange | null {
+    if (!Core.isNonEmptyString(rawContents) || !Core.isNonEmptyString(propertyPath)) {
+        return null;
+    }
+
+    const propertySegments = Core.trimStringEntries(propertyPath.split(".")).filter((segment) => segment.length > 0);
+    if (propertySegments.length === 0) {
+        return null;
+    }
+
+    return resolveProjectMetadataValueTextRange(rawContents, 0, propertySegments);
+}
+
+/**
+ * Apply targeted string-literal mutations to a metadata document while
+ * preserving every untouched byte of the original text.
+ *
+ * Returns `null` when any requested property path cannot be located as a
+ * string literal in the current document, allowing callers to fall back to a
+ * full structured rewrite when needed.
+ *
+ * @param rawContents - Original metadata text.
+ * @param stringMutations - Property-path updates to apply.
+ * @returns Rewritten metadata text, or `null` when patching fails.
+ */
+export function applyProjectMetadataStringMutations(
+    rawContents: string,
+    stringMutations: ReadonlyArray<{ propertyPath: string; value: string }>
+): string | null {
+    if (!Array.isArray(stringMutations) || stringMutations.length === 0) {
+        return rawContents;
+    }
+
+    let nextContents = rawContents;
+
+    for (const mutation of stringMutations) {
+        if (!Core.isNonEmptyString(mutation?.propertyPath) || typeof mutation?.value !== "string") {
+            return null;
+        }
+
+        const textRange = findProjectMetadataValueTextRange(nextContents, mutation.propertyPath);
+        if (textRange === null) {
+            return null;
+        }
+
+        const existingValueLiteral = nextContents.slice(textRange.start, textRange.end);
+        if (!existingValueLiteral.startsWith('"') || !existingValueLiteral.endsWith('"')) {
+            return null;
+        }
+
+        nextContents = `${nextContents.slice(0, textRange.start)}${JSON.stringify(mutation.value)}${nextContents.slice(textRange.end)}`;
+    }
+
+    return nextContents;
 }
 
 /**

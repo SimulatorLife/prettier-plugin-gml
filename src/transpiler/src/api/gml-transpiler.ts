@@ -7,12 +7,12 @@ import {
     createSemanticOracle,
     type EmitOptions,
     ensureStatementTerminated,
-    EventContextOracle,
     type FunctionDeclarationNode,
     GmlToJsEmitter,
     type IdentifierAnalyzer,
     type ProgramNode
 } from "../emitter/index.js";
+import { EventContextOracle } from "../event-context/index.js";
 
 export interface TranspileScriptRequest {
     /**

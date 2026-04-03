@@ -23,4 +23,3 @@ export function normalizeFixtureRoots(
 
     return normalizedCandidates.filter((candidate) => pathFilter.allowsDirectory(candidate));
 }
-export { REPO_ROOT } from "../shared/workspace-paths.js";

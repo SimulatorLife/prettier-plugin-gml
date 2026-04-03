@@ -33,6 +33,40 @@ export function safeGetParentNode(path: AstPath<any>, level: number = 0): any {
 }
 
 /**
+ * Safely reads the current node value from an AstPath.
+ *
+ * This keeps printer logic from repeating `typeof path.getValue === "function"`
+ * guards whenever a path may come from partial mocks or boundary code.
+ *
+ * @param path - The Prettier AstPath object.
+ * @returns The node value, or `null` when unavailable.
+ */
+export function safeGetPathValue(path: AstPath<any>): any {
+    if (path && typeof path.getValue === "function") {
+        return path.getValue();
+    }
+
+    return null;
+}
+
+/**
+ * Safely reads the current property name from an AstPath.
+ *
+ * Some path objects in tests and fallback call sites may not expose
+ * `getName`; this helper normalizes that behavior to `null`.
+ *
+ * @param path - The Prettier AstPath object.
+ * @returns The current path property name, or `null` when unavailable.
+ */
+export function safeGetPathName(path: AstPath<any>): PropertyKey | null {
+    if (path && typeof path.getName === "function") {
+        return path.getName();
+    }
+
+    return null;
+}
+
+/**
  * Walks up the Prettier AST path and returns the first ancestor node for
  * which the given predicate returns `true`.
  *

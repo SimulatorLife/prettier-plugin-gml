@@ -133,30 +133,5 @@ export function parseSymbolIdParts(
  * Frozen to prevent accidental modification and ensure immutability.
  */
 export const DEFAULT_RESERVED_KEYWORDS: ReadonlySet<string> = Object.freeze(
-    new Set([
-        "if",
-        "else",
-        "while",
-        "for",
-        "do",
-        "switch",
-        "case",
-        "default",
-        "break",
-        "continue",
-        "return",
-        "function",
-        "var",
-        "globalvar",
-        "enum",
-        "with",
-        "repeat",
-        "until",
-        "exit",
-        "self",
-        "other",
-        "all",
-        "noone",
-        "global"
-    ])
+    Core.loadReservedIdentifierNames({ disallowedTypes: [] })
 );

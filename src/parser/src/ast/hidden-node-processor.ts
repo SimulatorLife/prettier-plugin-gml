@@ -1,4 +1,4 @@
-import { Core } from "@gmloop/core";
+import { createCommentBlockNode, createCommentLineNode, createWhitespaceNode } from "./comment-nodes.js";
 
 function createState() {
     return {
@@ -28,7 +28,7 @@ function registerComment(state, list, comment) {
 
 function processSingleLineCommentToken(token, tokenText, context) {
     const { state, comments } = context;
-    const comment = Core.createCommentLineNode({
+    const comment = createCommentLineNode({
         token,
         tokenText,
         leadingWS: state.prevWS,
@@ -39,7 +39,7 @@ function processSingleLineCommentToken(token, tokenText, context) {
 
 function processMultiLineCommentToken(token, tokenText, context) {
     const { state, comments } = context;
-    const comment = Core.createCommentBlockNode({
+    const comment = createCommentBlockNode({
         token,
         tokenText,
         leadingWS: state.prevWS,
@@ -50,7 +50,7 @@ function processMultiLineCommentToken(token, tokenText, context) {
 
 function processWhitespaceToken(token, tokenText, isNewline, context) {
     const { state, whitespaces } = context;
-    const whitespace = Core.createWhitespaceNode({
+    const whitespace = createWhitespaceNode({
         token,
         tokenText,
         isNewline

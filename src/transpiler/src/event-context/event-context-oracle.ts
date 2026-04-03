@@ -22,7 +22,7 @@ import type {
     IdentifierMetadata,
     IdentifierNode,
     SemKind
-} from "./ast.js";
+} from "../emitter/ast.js";
 
 /**
  * SemKind values that the delegate oracle has definitively classified.

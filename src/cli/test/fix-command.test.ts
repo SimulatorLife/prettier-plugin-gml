@@ -131,3 +131,18 @@ void test("fix runs codemods, lint fixes, and formatting in sequence for a proje
         await rm(projectRoot, { recursive: true, force: true });
     }
 });
+
+void test("fix surfaces missing gmloop config errors as actionable usage guidance", async () => {
+    const result = await runCliTestCommand({
+        argv: ["fix", "/tmp/does-not-exist"]
+    });
+
+    assert.equal(result.exitCode, 1);
+    assert.match(result.stderr, /Could not find gmloop config file/);
+    assert.match(
+        result.stderr,
+        /Run this command from a project directory containing gmloop\.json or pass --config <path-to-gmloop\.json>\./
+    );
+    assert.match(result.stderr, /Usage: prettier-plugin-gml fix \[options\] \[projectPath\]/);
+    assert.doesNotMatch(result.stderr, /\bat .*\/fix\.js/);
+});

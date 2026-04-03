@@ -29,5 +29,6 @@ export type {
     FixtureRunFailure,
     FixtureRunResult,
     FixtureStageMetrics,
-    FixtureStageName
+    FixtureStageName,
+    FixtureSuiteDefinition
 } from "./types.js";

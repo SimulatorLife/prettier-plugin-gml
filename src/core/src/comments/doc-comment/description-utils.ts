@@ -102,15 +102,16 @@ function formatDescriptionContinuationLine(line: string, continuationPrefix: str
     return `${continuationPrefix}${suffix}`;
 }
 
-export function collectDescriptionContinuations(docCommentDocs: MutableDocCommentLines | readonly unknown[]): string[] {
+function findDescriptionLineIndex(docCommentDocs: MutableDocCommentLines | readonly unknown[]): number {
     if (!Array.isArray(docCommentDocs)) {
-        return [];
+        return -1;
     }
 
-    const descriptionIndex = docCommentDocs.findIndex(
-        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
-    );
+    return docCommentDocs.findIndex((line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim()));
+}
 
+export function collectDescriptionContinuations(docCommentDocs: MutableDocCommentLines | readonly unknown[]): string[] {
+    const descriptionIndex = findDescriptionLineIndex(docCommentDocs);
     if (descriptionIndex === -1) {
         return [];
     }
@@ -186,10 +187,7 @@ export function applyDescriptionContinuations(
         return docCommentDocs;
     }
 
-    const descriptionIndex = docCommentDocs.findIndex(
-        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
-    );
-
+    const descriptionIndex = findDescriptionLineIndex(docCommentDocs);
     if (descriptionIndex === -1) {
         return docCommentDocs;
     }
@@ -246,14 +244,7 @@ export function applyDescriptionContinuations(
 }
 
 export function ensureDescriptionContinuations(docCommentDocs: MutableDocCommentLines) {
-    if (!Array.isArray(docCommentDocs)) {
-        return;
-    }
-
-    const descriptionIndex = docCommentDocs.findIndex(
-        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
-    );
-
+    const descriptionIndex = findDescriptionLineIndex(docCommentDocs);
     if (descriptionIndex === -1) {
         return;
     }

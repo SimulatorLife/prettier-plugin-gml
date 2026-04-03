@@ -38,6 +38,58 @@ import { evaluateUndoStackTrimPolicy } from "./undo-stack-policy.js";
 const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 const DEFAULT_MAX_UNDO_STACK_SIZE = 50;
 const DEFAULT_MAX_ERROR_HISTORY_SIZE = 100;
+const PATCH_KINDS: ReadonlyArray<PatchKind> = ["script", "event", "closure"];
+
+function getRegistryCollectionForPatchKind(
+    registry: RuntimeWrapperState["registry"],
+    kind: PatchKind
+): Record<string, RuntimeFunction> {
+    switch (kind) {
+        case "script": {
+            return registry.scripts;
+        }
+        case "event": {
+            return registry.events;
+        }
+        case "closure": {
+            return registry.closures;
+        }
+        default: {
+            throw new TypeError("Unsupported patch kind");
+        }
+    }
+}
+
+function getPatchKindDisplayName(kind: PatchKind): string {
+    switch (kind) {
+        case "script": {
+            return "Script";
+        }
+        case "event": {
+            return "Event";
+        }
+        case "closure": {
+            return "Closure";
+        }
+        default: {
+            throw new TypeError("Unsupported patch kind");
+        }
+    }
+}
+
+function hasRegistryEntry(registry: RuntimeWrapperState["registry"], kind: PatchKind, id: string): boolean {
+    const collection = getRegistryCollectionForPatchKind(registry, kind);
+    return id in collection;
+}
+
+function getRegistryEntry(
+    registry: RuntimeWrapperState["registry"],
+    kind: PatchKind,
+    id: string
+): RuntimeFunction | undefined {
+    const collection = getRegistryCollectionForPatchKind(registry, kind);
+    return collection[id];
+}
 
 function getRuntimeFallbackErrorMessage(error: unknown): string {
     if (error === null || error === undefined) {
@@ -476,9 +528,9 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
     }
 
     function getRegistrySnapshot(): RuntimeRegistrySnapshot {
-        const scripts = Object.keys(state.registry.scripts);
-        const events = Object.keys(state.registry.events);
-        const closures = Object.keys(state.registry.closures);
+        const scripts = Object.keys(getRegistryCollectionForPatchKind(state.registry, "script"));
+        const events = Object.keys(getRegistryCollectionForPatchKind(state.registry, "event"));
+        const closures = Object.keys(getRegistryCollectionForPatchKind(state.registry, "closure"));
 
         return {
             version: state.registry.version,
@@ -560,27 +612,27 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
     }
 
     function getScript(id: string): RuntimeFunction | undefined {
-        return state.registry.scripts[id];
+        return getRegistryEntry(state.registry, "script", id);
     }
 
     function getEvent(id: string): RuntimeFunction | undefined {
-        return state.registry.events[id];
+        return getRegistryEntry(state.registry, "event", id);
     }
 
     function hasScript(id: string): boolean {
-        return id in state.registry.scripts;
+        return hasRegistryEntry(state.registry, "script", id);
     }
 
     function hasEvent(id: string): boolean {
-        return id in state.registry.events;
+        return hasRegistryEntry(state.registry, "event", id);
     }
 
     function getClosure(id: string): RuntimeFunction | undefined {
-        return state.registry.closures[id];
+        return getRegistryEntry(state.registry, "closure", id);
     }
 
     function hasClosure(id: string): boolean {
-        return id in state.registry.closures;
+        return hasRegistryEntry(state.registry, "closure", id);
     }
 
     function clearRegistry(): void {
@@ -599,37 +651,18 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
     function checkRegistryHealth(): RegistryHealthCheck {
         const issues: Array<RegistryHealthIssue> = [];
-
-        for (const [id, fn] of Object.entries(state.registry.scripts)) {
-            if (typeof fn !== "function") {
-                issues.push({
-                    severity: "error",
-                    category: "function-type",
-                    message: `Script registry entry is not a function (type: ${typeof fn})`,
-                    affectedId: id
-                });
-            }
-        }
-
-        for (const [id, fn] of Object.entries(state.registry.events)) {
-            if (typeof fn !== "function") {
-                issues.push({
-                    severity: "error",
-                    category: "function-type",
-                    message: `Event registry entry is not a function (type: ${typeof fn})`,
-                    affectedId: id
-                });
-            }
-        }
-
-        for (const [id, fn] of Object.entries(state.registry.closures)) {
-            if (typeof fn !== "function") {
-                issues.push({
-                    severity: "error",
-                    category: "function-type",
-                    message: `Closure registry entry is not a function (type: ${typeof fn})`,
-                    affectedId: id
-                });
+        for (const kind of PATCH_KINDS) {
+            const displayName = getPatchKindDisplayName(kind);
+            const collection = getRegistryCollectionForPatchKind(state.registry, kind);
+            for (const [id, fn] of Object.entries(collection)) {
+                if (typeof fn !== "function") {
+                    issues.push({
+                        severity: "error",
+                        category: "function-type",
+                        message: `${displayName} registry entry is not a function (type: ${typeof fn})`,
+                        affectedId: id
+                    });
+                }
             }
         }
 
@@ -698,10 +731,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
         const averageDurationMs = durationCount > 0 ? durationSum / durationCount : null;
 
-        const currentlyApplied =
-            (kind === "script" && hasScript(id)) ||
-            (kind === "event" && hasEvent(id)) ||
-            (kind === "closure" && hasClosure(id));
+        const currentlyApplied = hasRegistryEntry(state.registry, kind, id);
 
         return {
             id,

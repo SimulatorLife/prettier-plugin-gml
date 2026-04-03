@@ -60,6 +60,14 @@ import {
 } from "../modules/transpilation/runtime-identifiers.js";
 import { extractSymbolsFromAst } from "../modules/transpilation/symbol-extraction.js";
 import { type PatchWebSocketServer, startPatchWebSocketServer } from "../modules/websocket/server.js";
+import {
+    DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT,
+    DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS,
+    DEFAULT_WATCH_DEBOUNCE_DELAY_MS,
+    DEFAULT_WATCH_MAX_CONCURRENT_DIRS,
+    DEFAULT_WATCH_MAX_PATCH_HISTORY,
+    DEFAULT_WATCH_POLLING_INTERVAL_MS
+} from "./watch-constants.js";
 
 const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode } = Core;
 
@@ -88,6 +96,8 @@ interface FileWatchingConfig {
     pollingInterval?: number;
     debounceDelay?: number;
     maxConcurrentDirs?: number;
+    transientEmptyFileReadRetryCount?: number;
+    transientEmptyFileReadRetryDelayMs?: number;
     watchFactory?: WatchFactory;
 }
 
@@ -258,6 +268,8 @@ interface RuntimeContext
     /** UTF-16 code-unit length of each file's last-transpiled source text.
      * Used as a low-cost pre-check to avoid hashing when content length changed. */
     fileContentLengths: Map<string, number>;
+    transientEmptyFileReadRetryCount: number;
+    transientEmptyFileReadRetryDelayMs: number;
 }
 
 /**
@@ -291,9 +303,6 @@ interface FileChangeOptions extends LoggingConfig {
     fileStats?: Stats | null;
     abortSignal?: AbortSignal;
 }
-
-const TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT = 4;
-const TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS = 25;
 
 /**
  * Waits before retrying a transient empty-file read and supports abort-driven teardown.
@@ -330,16 +339,18 @@ export function delayFileReadRetry(durationMs: number, abortSignal?: AbortSignal
  */
 async function readSourceFileWithTransientEmptyRetry(
     filePath: string,
+    retryCount: number,
+    retryDelayMs: number,
     abortSignal?: AbortSignal
 ): Promise<string | null> {
     const readAttempt = async (attempt: number): Promise<string> => {
         const content = await readFile(filePath, "utf8");
-        const isFinalAttempt = attempt >= TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT - 1;
+        const isFinalAttempt = attempt >= retryCount - 1;
         if (content.length > 0 || isFinalAttempt) {
             return content;
         }
 
-        const shouldRetry = await delayFileReadRetry(TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS, abortSignal);
+        const shouldRetry = await delayFileReadRetry(retryDelayMs, abortSignal);
         if (!shouldRetry) {
             return content;
         }
@@ -404,13 +415,33 @@ async function runAutoInjectHotReload(
  */
 export function createExtensionMatcher(extensions: ReadonlyArray<string>): ExtensionMatcher {
     const normalized = normalizeExtensions(extensions);
-
     const normalizedSet = new Set(normalized);
 
     return {
         extensions: normalizedSet,
-        matches: (fileName: string) => normalizedSet.has(path.extname(fileName).toLowerCase())
+        matches: (fileName: string) => {
+            const extension = resolveLowercaseExtension(fileName);
+            return extension === "" ? false : normalizedSet.has(extension);
+        }
     };
+}
+
+/**
+ * Resolves the lowercase extension for a filename/path without allocating via
+ * node:path. The behavior intentionally matches path.extname semantics:
+ * dotfiles such as ".gml" are treated as extension-less.
+ */
+function resolveLowercaseExtension(fileName: string): string {
+    const lastForwardSlashIndex = fileName.lastIndexOf("/");
+    const lastBackwardSlashIndex = fileName.lastIndexOf("\\");
+    const lastPathSeparatorIndex = Math.max(lastForwardSlashIndex, lastBackwardSlashIndex);
+    const lastDotIndex = fileName.lastIndexOf(".");
+
+    if (lastDotIndex <= lastPathSeparatorIndex + 1) {
+        return "";
+    }
+
+    return fileName.slice(lastDotIndex).toLowerCase();
 }
 
 /**
@@ -456,6 +487,21 @@ export function resolveUnknownScanConcurrency(configuredMaximum: number): number
 }
 
 /**
+ * Resolves concurrency for dependent script retranspilation.
+ *
+ * Dependent retranspilation happens on the hot-reload critical path and should
+ * remain bounded so large dependency fans do not create unbounded I/O bursts
+ * or event-loop pressure. Reuse the watch command's concurrency cap to keep
+ * throughput high while controlling latency variance.
+ *
+ * @param {number} configuredMaximum - User-configured concurrency ceiling.
+ * @returns {number} Safe retranspile concurrency value (minimum 1).
+ */
+export function resolveDependentRetranspileConcurrency(configuredMaximum: number): number {
+    return Math.max(1, Math.trunc(configuredMaximum));
+}
+
+/**
  * Creates the watch command for monitoring GML source files.
  *
  * @returns {Command} Commander command instance
@@ -473,7 +519,7 @@ export function createWatchCommand(): Command {
         .addOption(
             new Option("--polling-interval <ms>", "Polling interval in milliseconds")
                 .argParser(createMinimumValueValidator(100, "Polling interval must be at least 100ms"))
-                .default(1000)
+                .default(DEFAULT_WATCH_POLLING_INTERVAL_MS)
         )
         .addOption(new Option("--verbose", "Enable verbose logging").default(false))
         .addOption(
@@ -485,7 +531,7 @@ export function createWatchCommand(): Command {
                 "Delay in milliseconds before transpiling after file changes (0 for immediate processing)"
             )
                 .argParser(createMinimumValueValidator(0, "Debounce delay must be non-negative"))
-                .default(100)
+                .default(DEFAULT_WATCH_DEBOUNCE_DELAY_MS)
         )
         .addOption(
             new Option(
@@ -493,12 +539,30 @@ export function createWatchCommand(): Command {
                 "Maximum number of directories to scan concurrently during initial file discovery"
             )
                 .argParser(createMinimumValueValidator(1, "Max concurrent directories must be at least 1"))
-                .default(4)
+                .default(DEFAULT_WATCH_MAX_CONCURRENT_DIRS)
         )
         .addOption(
             new Option("--max-patch-history <count>", "Maximum number of patches to retain in memory")
                 .argParser(createMinimumValueValidator(1, "Max patch history must be a positive integer"))
-                .default(100)
+                .default(DEFAULT_WATCH_MAX_PATCH_HISTORY)
+        )
+        .addOption(
+            new Option(
+                "--transient-empty-file-read-retry-count <count>",
+                "Number of retry attempts when a changed file is temporarily observed as empty"
+            )
+                .argParser(
+                    createMinimumValueValidator(1, "Transient empty-file read retry count must be a positive integer")
+                )
+                .default(DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT)
+        )
+        .addOption(
+            new Option(
+                "--transient-empty-file-read-retry-delay-ms <ms>",
+                "Delay in milliseconds between transient empty-file read retry attempts"
+            )
+                .argParser(createMinimumValueValidator(0, "Transient empty-file read retry delay must be non-negative"))
+                .default(DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS)
         )
         .addOption(
             new Option("--websocket-port <port>", "WebSocket server port for streaming patches")
@@ -748,15 +812,17 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const {
         extensions = [".gml"],
         polling = false,
-        pollingInterval = 1000,
+        pollingInterval = DEFAULT_WATCH_POLLING_INTERVAL_MS,
         verbose = false,
         quiet = false,
         // Optimized for minimal hot-reload latency while still batching rapid successive edits.
         // 100ms provides immediate feedback for single-file changes while preventing redundant
         // transpilations during rapid editing (e.g., auto-save + manual save).
-        debounceDelay = 100,
-        maxConcurrentDirs = 4,
-        maxPatchHistory = 100,
+        debounceDelay = DEFAULT_WATCH_DEBOUNCE_DELAY_MS,
+        maxConcurrentDirs = DEFAULT_WATCH_MAX_CONCURRENT_DIRS,
+        maxPatchHistory = DEFAULT_WATCH_MAX_PATCH_HISTORY,
+        transientEmptyFileReadRetryCount = DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT,
+        transientEmptyFileReadRetryDelayMs = DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS,
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
         websocketServer: enableWebSocket = true,
@@ -837,7 +903,9 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         fileSnapshots: new Map(),
         fileContentHashes: new Map(),
         fileContentLengths: new Map(),
-        dependencyTracker
+        dependencyTracker,
+        transientEmptyFileReadRetryCount,
+        transientEmptyFileReadRetryDelayMs
     };
 
     let runtimeServerController: RuntimeStaticServerInstance | null = null;
@@ -1226,6 +1294,12 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     runtimeContext.scanComplete = true;
                     return null;
                 })
+                .finally(() => {
+                    // The startup cache is only needed during the initial scan. Clear any
+                    // unconsumed entries (for example from transient read errors) so large
+                    // file contents and AST objects are released promptly.
+                    clearInitialFileDataCache(fileDataCache);
+                })
                 .catch(handleWatcherError);
         } catch (error) {
             handleWatcherError(error);
@@ -1303,7 +1377,12 @@ async function handleFileChange(
         }
 
         try {
-            const content = await readSourceFileWithTransientEmptyRetry(filePath, abortSignal);
+            const content = await readSourceFileWithTransientEmptyRetry(
+                filePath,
+                runtimeContext?.transientEmptyFileReadRetryCount ?? DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT,
+                runtimeContext?.transientEmptyFileReadRetryDelayMs ?? DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS,
+                abortSignal
+            );
             if (content === null) {
                 return;
             }
@@ -1486,20 +1565,23 @@ async function retranspileDependentFiles(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    // Process dependent files concurrently to minimise hot-reload latency.
-    // Each callback has an independent try/catch so a single failure does not
-    // abort sibling retranspilations. Node.js single-threaded execution keeps
-    // dependency-tracker mutations safe without explicit locking.
-    await Core.runInParallel(dependentFiles, async (dependentFile) => {
-        try {
-            await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
-        } catch (error) {
-            const message = getErrorMessage(error, {
-                fallback: "Unknown file read error"
-            });
-            console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
-        }
-    });
+    // Process dependent files concurrently to minimise hot-reload latency while
+    // keeping fan-out bounded to avoid unbounded event-loop pressure on large
+    // dependency graphs.
+    await Core.runInParallelWithLimit(
+        dependentFiles,
+        async (dependentFile) => {
+            try {
+                await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
+            } catch (error) {
+                const message = getErrorMessage(error, {
+                    fallback: "Unknown file read error"
+                });
+                console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
+            }
+        },
+        resolveDependentRetranspileConcurrency(runtimeContext.maxConcurrentDirs)
+    );
 }
 
 function areSymbolSetsEqual(left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean {
@@ -1793,6 +1875,23 @@ export function takeInitialFileData(
     }
 
     return cached;
+}
+
+/**
+ * Clears any remaining startup file cache entries after the initial scan finishes.
+ *
+ * During startup, cached source text and AST objects are reused to avoid duplicate
+ * reads/parses. Once the initial scan completes (or fails), retaining leftover entries
+ * only increases steady-state memory usage.
+ *
+ * @param fileDataCache - Startup cache to clear.
+ */
+export function clearInitialFileDataCache(fileDataCache: Map<string, InitialFileData> | undefined): void {
+    if (!fileDataCache) {
+        return;
+    }
+
+    fileDataCache.clear();
 }
 
 /**

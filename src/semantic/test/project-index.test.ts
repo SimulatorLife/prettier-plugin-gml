@@ -2,12 +2,8 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import {
-    __loadBuiltInIdentifiersForTests as loadBuiltInIdentifiersForTests,
-    deriveCacheKey,
-    findProjectRoot,
-    PROJECT_MANIFEST_EXTENSION
-} from "../src/project-index/index.js";
+import { deriveCacheKey, findProjectRoot, PROJECT_MANIFEST_EXTENSION } from "../src/project-index/index.js";
+import { __loadBuiltInIdentifiersForTests as loadBuiltInIdentifiersForTests } from "../src/symbols/built-in-identifiers.js";
 
 function createMockFs(entries) {
     const normalizedEntries = new Map();

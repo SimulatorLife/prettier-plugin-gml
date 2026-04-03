@@ -204,6 +204,16 @@ Observed pattern:
 - Workspace edits and intermediate file-content overlays can accumulate across many files.
 - Existing rename chunking helps, but does not fully bound all retained state.
 
+#### 5.3.4 Refactor CLI Index Bootstrapping
+
+Primary seam:
+
+- `src/cli/src/commands/refactor.ts`
+
+Observed pattern:
+
+- End-to-end `refactor codemod --write` latency includes the semantic project-index build, so forcing `buildProjectIndex` down to `concurrency: { gml: 1 }` turns large codemod runs into an avoidable serial bottleneck before refactor planning even begins.
+
 ### 5.4 Option Set and Trade-Offs
 
 #### 5.4.1 Option A: Temp-File Chunking (Default Recommendation)

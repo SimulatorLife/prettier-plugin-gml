@@ -46,14 +46,14 @@ void describe("workflow path filter helpers", () => {
         assert.equal(filter.allowsPath(String.raw`${restricted}\manual.json`), false);
     });
 
-    void it("accepts alias workflow input names for allow/deny lists", () => {
-        const root = path.resolve("/tmp", "workflow-path-filter", "aliases");
+    void it("uses only canonical allowPaths/denyPaths inputs", () => {
+        const root = path.resolve("/tmp", "workflow-path-filter", "canonical");
         const allowed = path.join(root, "allowed");
         const denied = path.join(allowed, "denied");
 
         const filter = createWorkflowPathFilter({
-            includePaths: [allowed],
-            excludePaths: [denied]
+            allowPaths: [allowed],
+            denyPaths: [denied]
         });
 
         assert.ok(filter.allowsDirectory(allowed));

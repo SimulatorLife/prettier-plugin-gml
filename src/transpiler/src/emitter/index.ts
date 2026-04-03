@@ -5,7 +5,6 @@ export { tryFoldConstantExpression } from "./constant-folding.js";
 export { GmlToJsEmitter } from "./emitter.js";
 export { emitJavaScript } from "./emitter-entrypoints.js";
 export { lowerEnumDeclaration } from "./enum-lowering.js";
-export { EventContextOracle } from "./event-context-oracle.js";
 export { escapeTemplateText, isIdentifierLike, normalizeStructKeyText, stringifyStructKey } from "./js-string-utils.js";
 export { normalizeGmlNumericLiteral } from "./literal-normalization.js";
 export { collectLocalVariables } from "./local-variable-collector.js";

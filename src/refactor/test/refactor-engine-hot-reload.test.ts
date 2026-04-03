@@ -751,7 +751,7 @@ void test("checkHotReloadSafety approves instance variable renames", async () =>
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/var/obj_enemy::hp",
-        newName: "health"
+        newName: "health_points"
     });
 
     assert.equal(result.safe, true);

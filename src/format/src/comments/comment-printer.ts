@@ -977,15 +977,11 @@ function findFollowingNodeForComment(ast, comment) {
             }
         }
 
-        // Use for...in instead of Object.entries to avoid allocating intermediate
+        // Use Object.keys instead of Object.entries to avoid allocating intermediate
         // [key, value] tuple arrays on every visited node. Benchmarked at ~16% faster
-        // in AST traversals. Mirrors the optimization in collectCommentNodes
-        // (src/core/src/comments/comment-utils.ts).
-        for (const key in node) {
-            if (!Object.hasOwn(node, key)) {
-                continue;
-            }
-
+        // in AST traversals versus Object.entries. Mirrors the optimization in
+        // collectCommentNodes (src/core/src/comments/comment-utils.ts).
+        for (const key of Object.keys(node)) {
             if (key === "comments" || key === "docComments") {
                 continue;
             }

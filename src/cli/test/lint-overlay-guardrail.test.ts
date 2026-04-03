@@ -136,6 +136,20 @@ void test("formatter normalization preserves unknown names for explicit validati
     assert.equal(__lintCommandTest__.isSupportedFormatter("custom"), false);
 });
 
+void test("eslint constructor options suppress ignored-file warnings by default", () => {
+    assert.deepEqual(__lintCommandTest__.createEslintConstructorOptions("/tmp/workspace", false, false), {
+        cwd: "/tmp/workspace",
+        fix: false,
+        warnIgnored: false
+    });
+
+    assert.deepEqual(__lintCommandTest__.createEslintConstructorOptions("/tmp/workspace", true, true), {
+        cwd: "/tmp/workspace",
+        fix: true,
+        warnIgnored: true
+    });
+});
+
 void test("explicit config validation fails on missing file", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-config-"));
     const missingPath = path.join(tempRoot, "missing.config.js");

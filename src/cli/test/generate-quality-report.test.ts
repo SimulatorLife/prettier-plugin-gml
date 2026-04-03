@@ -152,6 +152,41 @@ void test("does not treat renamed failures as regressions when totals are stable
     assert.strictEqual(regressions.length, 0);
 });
 
+void test("matches existing failures by trimmed file/name identity when keys differ", () => {
+    const baseDir = path.join(workspace, "base/reports");
+    const mergeDir = path.join(workspace, "merge/reports");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="base-suite">
+        <testcase name="stable failing test" classname="suite" file=" src/foo.test.js ">
+          <failure message="still broken" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="renamed-suite">
+        <testcase name=" stable failing test " classname="suite" file="src/foo.test.js">
+          <failure message="still broken" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/reports"], { workspace });
+    const merged = readTestResults(["merge/reports"], { workspace });
+    const regressions = detectRegressions(base, merged);
+
+    assert.strictEqual(regressions.length, 0);
+});
+
 void test("parses top-level test cases that are not nested in a suite", () => {
     const baseDir = path.join(workspace, "base/reports");
     const mergeDir = path.join(workspace, "merge/reports");

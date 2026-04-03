@@ -11,6 +11,7 @@ import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
+import { assertSupportedNodeVersion } from "../cli-core/node-version.js";
 import {
     getDirectElementChildren,
     parseManualDocument,
@@ -21,7 +22,6 @@ import { getManualRootMetadataPath, readManualText, resolveManualSourceCommitHas
 import { type ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { getDefaultVmEvalTimeoutMs, resolveVmEvalTimeout } from "../runtime-options/vm-eval-timeout.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
-import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
 const {
@@ -947,43 +947,48 @@ async function mergeDeprecatedReplacementMetadataFromManualPages(
     const manualContentsPath = path.join(manualRoot, "Manual", "contents");
     const manualBasenames = await collectManualHtmlBasenames(manualContentsPath);
     const pageCache = new Map<string, string>();
-    const relativePagePaths = new Set<string>();
-
-    for (const [identifier, entry] of identifierMap.entries()) {
-        if (!entry.deprecated || entry.replacement) {
-            continue;
+    const unresolvedDeprecatedEntries = Array.from(identifierMap.entries()).reduce<
+        Array<{
+            identifier: string;
+            type: string;
+            legacyUsage: DeprecatedLegacyUsage | undefined;
+            relativePagePath: string;
+        }>
+    >((result, [identifier, entry]) => {
+        if (!entry.deprecated || entry.replacement !== undefined) {
+            return result;
         }
 
         const relativePagePath = manualBasenames.get(identifier);
-        if (relativePagePath === undefined || relativePagePath === null) {
-            continue;
+        if (relativePagePath === null || relativePagePath === undefined) {
+            return result;
         }
 
-        relativePagePaths.add(relativePagePath);
-    }
+        result.push({
+            identifier,
+            type: entry.type,
+            legacyUsage: entry.legacyUsage,
+            relativePagePath
+        });
+        return result;
+    }, []);
 
     const loadedPageEntries = await Promise.all(
-        Array.from(relativePagePaths, async (relativePagePath) => {
-            const pageHtml = await readFile(path.join(manualContentsPath, relativePagePath), "utf8");
-            return [relativePagePath, pageHtml] as const;
-        })
+        Array.from(
+            new Set(unresolvedDeprecatedEntries.map((entry) => entry.relativePagePath)),
+            async (relativePagePath) => {
+                const pageHtml = await readFile(path.join(manualContentsPath, relativePagePath), "utf8");
+                return [relativePagePath, pageHtml] as const;
+            }
+        )
     );
 
     for (const [relativePagePath, pageHtml] of loadedPageEntries) {
         pageCache.set(relativePagePath, pageHtml);
     }
 
-    for (const [identifier, entry] of identifierMap.entries()) {
-        if (!entry.deprecated || entry.replacement) {
-            continue;
-        }
-
-        const relativePagePath = manualBasenames.get(identifier);
-        if (relativePagePath === undefined || relativePagePath === null) {
-            continue;
-        }
-
-        const pageHtml = pageCache.get(relativePagePath);
+    for (const unresolvedEntry of unresolvedDeprecatedEntries) {
+        const pageHtml = pageCache.get(unresolvedEntry.relativePagePath);
         if (pageHtml === undefined) {
             continue;
         }
@@ -993,12 +998,12 @@ async function mergeDeprecatedReplacementMetadataFromManualPages(
             continue;
         }
 
-        mergeEntry(identifierMap, identifier, {
-            type: entry.type,
+        mergeEntry(identifierMap, unresolvedEntry.identifier, {
+            type: unresolvedEntry.type,
             sources: ["manual:deprecated-page"],
             replacement: replacement.replacement,
             replacementKind: replacement.replacementKind,
-            legacyUsage: entry.legacyUsage ?? (entry.type === "function" ? "call" : "identifier")
+            legacyUsage: unresolvedEntry.legacyUsage ?? (unresolvedEntry.type === "function" ? "call" : "identifier")
         });
     }
 }

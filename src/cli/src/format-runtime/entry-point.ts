@@ -28,7 +28,19 @@ const LIST_SPLIT_PATTERN = createListSplitPattern(compactArray([",", path.delimi
 // `null`/primitive inputs instead of throwing TypeError when accessing
 // properties on non-object values.
 function normalizeOptionsBag(options) {
-    return options && typeof options === "object" ? options : {};
+    if (!options || typeof options !== "object") {
+        return {
+            env: process.env,
+            candidates: []
+        };
+    }
+
+    const normalizedOptions = options as { env?: NodeJS.ProcessEnv; candidates?: unknown };
+
+    return {
+        env: normalizedOptions.env ?? process.env,
+        candidates: toArray(normalizedOptions.candidates)
+    };
 }
 
 function expandLeadingTilde(candidate) {
@@ -109,9 +121,8 @@ function resolveCandidatePath(candidate) {
  * {@link resolveCandidatePaths} focused on sequencing rather than array
  * assembly details.
  */
-function collectCandidateInputs(options = {}) {
-    const { env, candidates } = normalizeOptionsBag(options);
-    return [...toArray(candidates), ...getEnvironmentCandidates(env), ...DEFAULT_CANDIDATE_FORMAT_PATHS];
+function collectCandidateInputs(parameters: { env: NodeJS.ProcessEnv; candidates: readonly unknown[] }) {
+    return [...parameters.candidates, ...getEnvironmentCandidates(parameters.env), ...DEFAULT_CANDIDATE_FORMAT_PATHS];
 }
 
 /**
@@ -126,8 +137,8 @@ function normalizeCandidatePaths(candidateInputs) {
     return uniqueArray(resolvedCandidates);
 }
 
-function resolveCandidatePaths(options = {}) {
-    const candidateInputs = collectCandidateInputs(options);
+function resolveCandidatePaths(parameters: { env: NodeJS.ProcessEnv; candidates: readonly unknown[] }) {
+    const candidateInputs = collectCandidateInputs(parameters);
     return normalizeCandidatePaths(candidateInputs);
 }
 
@@ -157,11 +168,8 @@ function createMissingEntryPointError(resolvedCandidates) {
 }
 
 export function resolveFormatEntryPoint(options = {}) {
-    const { env, candidates } = normalizeOptionsBag(options);
-    const resolvedCandidates = resolveCandidatePaths({
-        env: env ?? process.env,
-        candidates
-    });
+    const normalizedOptions = normalizeOptionsBag(options);
+    const resolvedCandidates = resolveCandidatePaths(normalizedOptions);
     const existingPath = findFirstExistingPath(resolvedCandidates);
 
     if (existingPath) {

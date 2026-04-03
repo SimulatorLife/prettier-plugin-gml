@@ -140,6 +140,10 @@ function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeNam
     type EnumValue = T[keyof T];
     const values = Object.values(enumObj);
     const validValues = values.join(", ");
+    const formatInvalidEnumMessage = (value: unknown, context?: string): string => {
+        const contextInfo = context ? ` (in ${context})` : "";
+        return `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`;
+    };
 
     const coreHelpers = createEnumeratedOptionHelpers(values, {
         caseSensitive: true,
@@ -154,20 +158,11 @@ function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeNam
             return coreHelpers.normalize(value) as EnumValue | null;
         },
         require: (value: unknown, context?: string): EnumValue => {
-            if (typeof value !== "string") {
-                const contextInfo = context ? ` (in ${context})` : "";
-                throw new TypeError(
-                    `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
-                );
+            const normalized = typeof value === "string" ? coreHelpers.normalize(value) : null;
+            if (normalized === null) {
+                throw new TypeError(formatInvalidEnumMessage(value, context));
             }
-            const normalized = coreHelpers.normalize(value);
-            if (normalized !== null) {
-                return normalized as EnumValue;
-            }
-            const contextInfo = context ? ` (in ${context})` : "";
-            throw new TypeError(
-                `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
-            );
+            return normalized as EnumValue;
         }
     };
 }
@@ -456,7 +451,7 @@ export interface SymbolResolver {
  * analysis, or other semantic operations.
  */
 export interface OccurrenceTracker {
-    getSymbolOccurrences(symbolName: string): MaybePromise<Array<SymbolOccurrence>>;
+    getSymbolOccurrences(symbolName: string, symbolId?: string | null): MaybePromise<Array<SymbolOccurrence>>;
     getAdditionalSymbolEdits?(symbolId: string, newName: string): MaybePromise<WorkspaceEdit | null>;
 }
 
@@ -496,7 +491,34 @@ export interface KeywordProvider {
  * renameable identifiers and resources.
  */
 export interface NamingConventionTargetProvider {
-    listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<NamingConventionTarget>>;
+    listNamingConventionTargets(
+        filePaths?: Array<string>,
+        categories?: ReadonlyArray<NamingCategory>
+    ): MaybePromise<Array<NamingConventionTarget>>;
+}
+
+/**
+ * Describes caller-scoped identifiers that a referenced macro expansion reads
+ * from a specific consumer file.
+ *
+ * Naming-convention codemods use this to avoid renaming locals or parameters
+ * that a bare macro invocation expects to find unchanged at expansion time.
+ */
+export interface MacroExpansionDependency {
+    path: string;
+    macroName: string;
+    referencedNames: Array<string>;
+}
+
+/**
+ * Semantic adapter surface for macro-expansion-aware rename planning.
+ *
+ * Provides macro-to-consumer dependency data so local renames can skip
+ * identifiers that would break preprocessor-expanded code even when the raw
+ * source still parses successfully.
+ */
+export interface MacroExpansionDependencyProvider {
+    listMacroExpansionDependencies(filePaths?: Array<string>): MaybePromise<Array<MacroExpansionDependency>>;
 }
 
 /**
@@ -508,6 +530,19 @@ export interface NamingConventionTargetProvider {
  */
 export interface EditValidator {
     validateEdits(workspace: WorkspaceEdit): MaybePromise<SemanticValidationResult>;
+}
+
+/**
+ * Allows semantic adapters to observe progressively merged workspace edits while
+ * a batch rename plan is being assembled.
+ *
+ * Implementations can use this to stage metadata rewrites or other derived state
+ * so subsequent rename plans see the already-planned batch changes rather than a
+ * stale on-disk snapshot.
+ */
+export interface BatchWorkspaceOverlay {
+    clearWorkspaceOverlay(): MaybePromise<void>;
+    stageWorkspaceEdit(workspace: WorkspaceEdit): MaybePromise<void>;
 }
 
 /**
@@ -547,7 +582,9 @@ export type PartialSemanticAnalyzer = Partial<SymbolResolver> &
     Partial<DependencyAnalyzer> &
     Partial<KeywordProvider> &
     Partial<EditValidator> &
-    Partial<NamingConventionTargetProvider>;
+    Partial<BatchWorkspaceOverlay> &
+    Partial<NamingConventionTargetProvider> &
+    Partial<MacroExpansionDependencyProvider>;
 
 export interface TranspilerBridge {
     transpileScript(request: { sourceText: string; symbolId: string }): MaybePromise<Record<string, unknown>>;
@@ -718,6 +755,12 @@ export interface ConfiguredCodemodRunRequest {
      */
     dryRunOverlayStorageBackend?: StorageBackend;
     onTelemetry?: (telemetry: CodemodExecutionTelemetry) => void;
+    onAfterCodemod?: (
+        summary: ConfiguredCodemodSummary,
+        context: {
+            readFile: WorkspaceReadFile;
+        }
+    ) => MaybePromise<void>;
 }
 
 /**
@@ -746,6 +789,13 @@ export interface PrepareRenamePlanOptions {
 
 export interface PrepareBatchRenamePlanOptions extends PrepareRenamePlanOptions {
     includeImpactAnalyses?: boolean;
+    /**
+     * Optional precomputed batch validation for the same rename set.
+     *
+     * Callers that already validated the batch can pass the result to avoid
+     * repeating identical validation work before planning.
+     */
+    batchValidation?: BatchRenameValidation;
 }
 
 export interface HotReloadValidationOptions {
@@ -940,6 +990,16 @@ export interface CodemodEngine {
     executeLoopLengthHoistingCodemod(
         request: ExecuteLoopLengthHoistingCodemodRequest
     ): Promise<ExecuteLoopLengthHoistingCodemodResult>;
+    validateRenameRequest(
+        request: RenameRequest,
+        options?: ValidateRenameRequestOptions
+    ): Promise<
+        ValidationSummary & {
+            symbolName?: string;
+            occurrenceCount?: number;
+            hotReload?: HotReloadSafetySummary;
+        }
+    >;
     prepareBatchRenamePlan(
         request: Array<RenameRequest>,
         options?: PrepareBatchRenamePlanOptions

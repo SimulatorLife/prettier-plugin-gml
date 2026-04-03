@@ -36,6 +36,7 @@ void test("resolveNamingConventionRules applies inheritance and explicit disable
     assert.deepEqual(resolved.globalVariable?.bannedPrefixes, ["_"]);
     assert.deepEqual(resolved.globalVariable?.bannedSuffixes, []);
     assert.equal(resolved.structDeclaration?.caseStyle, "pascal");
+    assert.equal(resolved.constructorFunction?.caseStyle, "pascal");
     assert.equal(resolved.enum?.caseStyle, "pascal");
     assert.equal(resolved.enumMember?.suffix, "_member");
     assert.equal(resolved.loopIndexVariable, undefined);
@@ -63,6 +64,30 @@ void test("evaluateNamingConvention suggests case and prefix fixes", () => {
     assert.equal(evaluation.compliant, false);
     assert.equal(evaluation.suggestedName, "g_playerHp");
     assert.match(evaluation.message ?? "", /camel case/);
+});
+
+void test("evaluateNamingConvention capitalizes the core when camel case uses an attached prefix", () => {
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            enum: {
+                prefix: "e",
+                caseStyle: "camel"
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const underscored = Refactor.evaluateNamingConvention("INPUT_VIRTUAL_TYPE", "enum", policy, resolved);
+    assert.equal(underscored.compliant, false);
+    assert.equal(underscored.suggestedName, "eInputVirtualType");
+
+    const alreadyAttached = Refactor.evaluateNamingConvention("einputVirtualType", "enum", policy, resolved);
+    assert.equal(alreadyAttached.compliant, false);
+    assert.equal(alreadyAttached.suggestedName, "eInputVirtualType");
+
+    const compliant = Refactor.evaluateNamingConvention("eInputVirtualType", "enum", policy, resolved);
+    assert.equal(compliant.compliant, true);
+    assert.equal(compliant.suggestedName, "eInputVirtualType");
 });
 
 void test("evaluateNamingConvention blocks automatic renames when min or max length is violated", () => {
@@ -137,6 +162,42 @@ void test("evaluateNamingConvention strips banned affixes before applying case s
     assert.equal(withBannedSuffix.compliant, false);
     assert.equal(withBannedSuffix.suggestedName, "playerHp");
     assert.match(withBannedSuffix.message ?? "", /banned suffix/);
+});
+
+void test("formatNamingCaseStyle preserves allowed underscore affixes", () => {
+    assert.equal(Refactor.formatNamingCaseStyle("__input_error", "lower_snake"), "__input_error");
+    assert.equal(Refactor.formatNamingCaseStyle("_TargetShader", "lower_snake"), "_target_shader");
+    assert.equal(Refactor.formatNamingCaseStyle("__Vector3", "pascal"), "__Vector3");
+});
+
+void test("formatNamingCaseStyle preserves compact digit-uppercase tokens in upper snake case", () => {
+    assert.equal(Refactor.formatNamingCaseStyle("DPAD_4DIR", "upper_snake"), "DPAD_4DIR");
+    assert.equal(Refactor.formatNamingCaseStyle("L2R", "upper_snake"), "L2R");
+    assert.equal(Refactor.formatNamingCaseStyle("L2R_DEVANAGARI", "upper_snake"), "L2R_DEVANAGARI");
+    assert.equal(Refactor.formatNamingCaseStyle("ONE_OVER_1M", "upper_snake"), "ONE_OVER_1M");
+    assert.equal(
+        Refactor.formatNamingCaseStyle("__INPUT_2D_CHECKER_STATIC_RESULT", "upper_snake"),
+        "__INPUT_2D_CHECKER_STATIC_RESULT"
+    );
+});
+
+void test("evaluateNamingConvention preserves allowed leading underscores when enforcing case style", () => {
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            resource: {
+                caseStyle: "lower_snake"
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const compliant = Refactor.evaluateNamingConvention("__input_error", "scriptResourceName", policy, resolved);
+    assert.equal(compliant.compliant, true);
+    assert.equal(compliant.suggestedName, "__input_error");
+
+    const needsCaseFix = Refactor.evaluateNamingConvention("_TargetShader", "shaderResourceName", policy, resolved);
+    assert.equal(needsCaseFix.compliant, false);
+    assert.equal(needsCaseFix.suggestedName, "_target_shader");
 });
 
 void test("normalizeNamingConventionPolicy rejects unsupported naming categories", () => {

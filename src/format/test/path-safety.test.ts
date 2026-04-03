@@ -3,7 +3,13 @@ import { describe, it } from "node:test";
 
 import type { AstPath } from "prettier";
 
-import { findAncestorNode, findEnclosingFunctionDeclaration, safeGetParentNode } from "../src/printer/path-utils.js";
+import {
+    findAncestorNode,
+    findEnclosingFunctionDeclaration,
+    safeGetParentNode,
+    safeGetPathName,
+    safeGetPathValue
+} from "../src/printer/path-utils.js";
 
 /**
  * Builds a mock AstPath whose getParentNode returns ancestors from the
@@ -88,6 +94,39 @@ void describe("Path null safety guards", () => {
         // Level > 0 should return null since getParentNode doesn't exist
         const result1 = safeGetParentNode(pathWithParent, 1);
         assert.strictEqual(result1, null);
+    });
+
+    void it("safeGetPathValue returns null when getValue is missing", () => {
+        const pathWithoutGetValue = {
+            getParentNode: () => null
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(safeGetPathValue(pathWithoutGetValue), null);
+    });
+
+    void it("safeGetPathValue delegates to getValue when available", () => {
+        const value = { type: "Identifier", name: "a" };
+        const path = {
+            getValue: () => value
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(safeGetPathValue(path), value);
+    });
+
+    void it("safeGetPathName returns null when getName is missing", () => {
+        const pathWithoutGetName = {
+            getValue: () => ({ type: "Identifier" })
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(safeGetPathName(pathWithoutGetName), null);
+    });
+
+    void it("safeGetPathName delegates to getName when available", () => {
+        const path = {
+            getName: () => "alternate"
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(safeGetPathName(path), "alternate");
     });
 });
 

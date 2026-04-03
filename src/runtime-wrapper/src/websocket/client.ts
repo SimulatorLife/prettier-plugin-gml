@@ -28,6 +28,7 @@ import type {
 const DEFAULT_MAX_QUEUE_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 50;
 const READINESS_POLL_INTERVAL_MS = 50;
+const noopListenerTeardown = (): void => {};
 
 const textDecoder = new TextDecoder();
 
@@ -139,6 +140,7 @@ export function createWebSocketClient({
         readinessTimer: null,
         runtimeReady: false
     };
+    let detachWebSocketListeners = noopListenerTeardown;
 
     const clearReadinessTimer = (): void => {
         if (state.readinessTimer !== null) {
@@ -261,8 +263,10 @@ export function createWebSocketClient({
             const ctor = resolveWebSocketConstructor();
             const ws = new ctor(url);
             state.ws = ws;
+            detachWebSocketListeners();
+            detachWebSocketListeners = noopListenerTeardown;
 
-            attachWebSocketEventListeners(ws, {
+            detachWebSocketListeners = attachWebSocketEventListeners(ws, {
                 state,
                 wrapper,
                 onConnect,
@@ -273,7 +277,11 @@ export function createWebSocketClient({
                 connect,
                 logger,
                 url,
-                clearReadinessTimer
+                clearReadinessTimer,
+                releaseListeners: () => {
+                    detachWebSocketListeners();
+                    detachWebSocketListeners = noopListenerTeardown;
+                }
             });
         } catch (error) {
             handleConnectionError(error, onError);
@@ -297,7 +305,27 @@ export function createWebSocketClient({
         }
 
         if (state.ws) {
-            state.ws.close();
+            const activeSocket = state.ws;
+            try {
+                activeSocket.close();
+            } finally {
+                if (state.ws === activeSocket) {
+                    detachWebSocketListeners();
+                    detachWebSocketListeners = noopListenerTeardown;
+                    state.ws = null;
+                }
+            }
+        }
+
+        if (state.isConnected) {
+            state.connectionMetrics.totalDisconnections += 1;
+            state.connectionMetrics.lastDisconnectedAt = getWallClockTime();
+            if (logger) {
+                logger.websocketDisconnected();
+            }
+            if (onDisconnect) {
+                onDisconnect();
+            }
             state.ws = null;
         }
 
@@ -373,6 +401,7 @@ type WebSocketEventListenerArgs = {
     logger?: Logger;
     url: string;
     clearReadinessTimer: () => void;
+    releaseListeners?: () => void;
 };
 
 type WebSocketMessageHandlerArgs = {
@@ -388,6 +417,7 @@ type WebSocketCloseHandlerArgs = {
     connect: () => void;
     logger?: Logger;
     clearReadinessTimer: () => void;
+    releaseListeners?: () => void;
 };
 
 type WebSocketErrorHandlerArgs = {
@@ -396,35 +426,39 @@ type WebSocketErrorHandlerArgs = {
     logger?: Logger;
 };
 
-function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSocketEventListenerArgs): void {
-    ws.addEventListener("open", createOpenHandler(args.state, args.onConnect, args.logger, args.url));
-    ws.addEventListener(
-        "message",
-        createMessageHandler({
-            wrapper: args.wrapper,
-            applyIncomingPatch: args.applyIncomingPatch,
-            onError: args.onError
-        })
-    );
-    ws.addEventListener(
-        "close",
-        createCloseHandler({
-            state: args.state,
-            onDisconnect: args.onDisconnect,
-            reconnectDelay: args.reconnectDelay,
-            connect: args.connect,
-            logger: args.logger,
-            clearReadinessTimer: args.clearReadinessTimer
-        })
-    );
-    ws.addEventListener(
-        "error",
-        createErrorHandler({
-            state: args.state,
-            onError: args.onError,
-            logger: args.logger
-        })
-    );
+function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSocketEventListenerArgs): () => void {
+    const openHandler = createOpenHandler(args.state, args.onConnect, args.logger, args.url);
+    const messageHandler = createMessageHandler({
+        wrapper: args.wrapper,
+        applyIncomingPatch: args.applyIncomingPatch,
+        onError: args.onError
+    });
+    const closeHandler = createCloseHandler({
+        state: args.state,
+        onDisconnect: args.onDisconnect,
+        reconnectDelay: args.reconnectDelay,
+        connect: args.connect,
+        logger: args.logger,
+        clearReadinessTimer: args.clearReadinessTimer,
+        releaseListeners: args.releaseListeners
+    });
+    const errorHandler = createErrorHandler({
+        state: args.state,
+        onError: args.onError,
+        logger: args.logger
+    });
+
+    ws.addEventListener("open", openHandler);
+    ws.addEventListener("message", messageHandler);
+    ws.addEventListener("close", closeHandler);
+    ws.addEventListener("error", errorHandler);
+
+    return () => {
+        ws.removeEventListener("open", openHandler);
+        ws.removeEventListener("message", messageHandler);
+        ws.removeEventListener("close", closeHandler);
+        ws.removeEventListener("error", errorHandler);
+    };
 }
 
 function createOpenHandler(
@@ -557,10 +591,12 @@ function createCloseHandler({
     reconnectDelay,
     connect,
     logger,
-    clearReadinessTimer
+    clearReadinessTimer,
+    releaseListeners
 }: WebSocketCloseHandlerArgs): () => void {
     return () => {
         const websocketState = state;
+        releaseListeners?.();
         websocketState.isConnected = false;
         websocketState.ws = null;
         websocketState.connectionMetrics.totalDisconnections += 1;

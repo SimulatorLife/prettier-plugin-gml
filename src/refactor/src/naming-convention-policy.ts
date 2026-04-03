@@ -46,9 +46,9 @@ export const NAMING_CATEGORY_PARENTS: Readonly<Record<NamingCategory, NamingCate
     loopIndexVariable: "localVariable",
     callable: null,
     function: "callable",
-    constructorFunction: "callable",
     typeName: null,
     structDeclaration: "typeName",
+    constructorFunction: "structDeclaration",
     enum: "typeName",
     member: null,
     enumMember: "member",
@@ -309,7 +309,7 @@ export function resolveNamingConventionRules(policy: NamingConventionPolicy): Re
 
 function splitIdentifierWords(value: string): Array<string> {
     const normalized = value
-        .replaceAll(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replaceAll(/([a-z])([A-Z])/g, "$1 $2")
         .replaceAll(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
         .replaceAll(/[_\-\s]+/g, " ")
         .trim();
@@ -328,36 +328,70 @@ function capitalize(word: string): string {
     return word.length === 0 ? word : `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`;
 }
 
+type IdentifierUnderscoreAffixes = {
+    core: string;
+    leading: string;
+    trailing: string;
+};
+
+function splitIdentifierUnderscoreAffixes(value: string): IdentifierUnderscoreAffixes {
+    const leading = value.match(/^_+/)?.[0] ?? "";
+    const trailing = value.match(/_+$/)?.[0] ?? "";
+    const coreStart = leading.length;
+    const coreEnd = Math.max(coreStart, value.length - trailing.length);
+
+    return {
+        leading,
+        core: value.slice(coreStart, coreEnd),
+        trailing: value.slice(coreEnd)
+    };
+}
+
 /**
  * Rewrite an identifier core into the requested naming case style.
  */
 export function formatNamingCaseStyle(value: string, caseStyle: NamingCaseStyle): string {
-    const words = splitIdentifierWords(value);
+    const underscoreAffixes = splitIdentifierUnderscoreAffixes(value);
+    const words = splitIdentifierWords(underscoreAffixes.core);
+    if (underscoreAffixes.core.length === 0) {
+        return `${underscoreAffixes.leading}${underscoreAffixes.trailing}`;
+    }
+
     if (words.length === 0) {
-        return "";
+        return `${underscoreAffixes.leading}${underscoreAffixes.core}${underscoreAffixes.trailing}`;
     }
 
-    if (caseStyle === "lower") {
-        return words.join("").toLowerCase();
+    const formattedCore =
+        caseStyle === "lower"
+            ? words.join("").toLowerCase()
+            : caseStyle === "upper"
+              ? words.join("").toUpperCase()
+              : caseStyle === "camel"
+                ? words[0] + words.slice(1).map(capitalize).join("")
+                : caseStyle === "pascal"
+                  ? words.map(capitalize).join("")
+                  : caseStyle === "lower_snake"
+                    ? words.join("_")
+                    : words.join("_").toUpperCase();
+
+    return `${underscoreAffixes.leading}${formattedCore}${underscoreAffixes.trailing}`;
+}
+
+function attachesDirectlyToIdentifierCore(affix: string): boolean {
+    return affix.length > 0 && /[A-Za-z0-9]$/u.test(affix);
+}
+
+function formatCoreNameForRule(coreName: string, rule: RuntimeResolvedNamingRule): string {
+    if (rule.caseStyle === "camel" && attachesDirectlyToIdentifierCore(rule.prefix)) {
+        return formatNamingCaseStyle(coreName, "pascal");
     }
 
-    if (caseStyle === "upper") {
-        return words.join("").toUpperCase();
-    }
+    return formatNamingCaseStyle(coreName, rule.caseStyle);
+}
 
-    if (caseStyle === "camel") {
-        return words[0] + words.slice(1).map(capitalize).join("");
-    }
-
-    if (caseStyle === "pascal") {
-        return words.map(capitalize).join("");
-    }
-
-    if (caseStyle === "lower_snake") {
-        return words.join("_");
-    }
-
-    return words.join("_").toUpperCase();
+function composeExpectedIdentifierName(coreName: string, rule: RuntimeResolvedNamingRule): string {
+    const formattedCoreName = rule.enforceCaseStyle ? formatCoreNameForRule(coreName, rule) : coreName;
+    return `${rule.prefix}${formattedCoreName}${rule.suffix}`;
 }
 
 function longestMatchingAffix(
@@ -492,8 +526,8 @@ export function evaluateNamingConvention(
     } else if (rule.maxChars !== null && coreName.length > rule.maxChars) {
         issueMessage = `Identifier ${JSON.stringify(currentName)} exceeds the maximum core length ${rule.maxChars}.`;
     } else if (rule.enforceCaseStyle) {
-        const expectedCoreName = formatNamingCaseStyle(coreName, rule.caseStyle);
-        if (expectedCoreName !== coreName) {
+        const expectedName = composeExpectedIdentifierName(coreName, rule);
+        if (expectedName !== currentName) {
             issueMessage = `Identifier ${JSON.stringify(currentName)} does not match ${rule.caseStyle} case.`;
         }
     }
@@ -517,8 +551,7 @@ export function evaluateNamingConvention(
         };
     }
 
-    const formattedCoreName = rule.enforceCaseStyle ? formatNamingCaseStyle(coreName, rule.caseStyle) : coreName;
-    const suggestedName = `${rule.prefix}${formattedCoreName}${rule.suffix}`;
+    const suggestedName = composeExpectedIdentifierName(coreName, rule);
 
     return {
         compliant: suggestedName === currentName,

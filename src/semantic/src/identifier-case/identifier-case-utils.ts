@@ -12,19 +12,6 @@ const CASE_SEGMENT_PATTERN = /[A-Z]+(?=[A-Z][a-z0-9])|[A-Z]?[a-z0-9]+|[0-9]+|[A-
 const TOKEN_PART_PATTERN = /[A-Za-z]+|[0-9]+/g;
 const NUMBER_ONLY_PATTERN = /^\d+$/;
 
-function getGlobalMatches(pattern, text) {
-    pattern.lastIndex = 0;
-
-    const matches = [];
-    let match;
-
-    while ((match = pattern.exec(text)) !== null) {
-        matches.push(match[0]);
-    }
-
-    return matches;
-}
-
 function extractReservedPrefix(identifier) {
     const match = identifier.match(RESERVED_PREFIX_PATTERN);
     if (!match) {
@@ -94,15 +81,20 @@ function tokenizeCore(core) {
 
     const tokens = [];
     for (const segment of rawSegments) {
-        const caseSegments = getGlobalMatches(CASE_SEGMENT_PATTERN, segment);
-        for (const caseSegment of caseSegments) {
-            const parts = getGlobalMatches(TOKEN_PART_PATTERN, caseSegment);
-            for (const part of parts) {
+        CASE_SEGMENT_PATTERN.lastIndex = 0;
+        let caseMatch = CASE_SEGMENT_PATTERN.exec(segment);
+        while (caseMatch !== null) {
+            TOKEN_PART_PATTERN.lastIndex = 0;
+            let partMatch = TOKEN_PART_PATTERN.exec(caseMatch[0]);
+            while (partMatch !== null) {
+                const part = partMatch[0];
                 NUMBER_ONLY_PATTERN.lastIndex = 0;
                 const isNumber = NUMBER_ONLY_PATTERN.test(part);
                 const normalized = isNumber ? part : part.toLowerCase();
                 tokens.push({ normalized, type: isNumber ? "number" : "word" });
+                partMatch = TOKEN_PART_PATTERN.exec(caseMatch[0]);
             }
+            caseMatch = CASE_SEGMENT_PATTERN.exec(segment);
         }
     }
 

@@ -1555,11 +1555,19 @@ export default class GameMakerASTBuilder {
     // Visit a parse tree produced by GameMakerLanguageParser#constructorClause.
     visitConstructorClause(ctx: ParserContext): any {
         let id: string | null = null;
+        let idLocation = null;
         let params: any[] = [];
         let hasTrailingComma = false;
 
         if (ctx.Identifier() != null) {
-            id = this.ensureToken(ctx.Identifier()).getText();
+            const identifierNode = this.ensureSingle(ctx.Identifier());
+            const identifierToken = this.ensureToken(identifierNode);
+            id = identifierToken.getText();
+            idLocation = this.createIdentifierLocation(
+                Core.isObjectLike(identifierNode) && "symbol" in identifierNode
+                    ? ((identifierNode as { symbol?: ParserToken }).symbol ?? identifierToken)
+                    : identifierToken
+            );
         }
 
         const argsCtx = this.ensureSingle(ctx.arguments?.());
@@ -1582,6 +1590,7 @@ export default class GameMakerASTBuilder {
         return this.astNode(ctx, {
             type: "ConstructorParentClause",
             id,
+            idLocation,
             params,
             hasTrailingComma
         });
