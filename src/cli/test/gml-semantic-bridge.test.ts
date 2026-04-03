@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { Refactor } from "@gmloop/refactor";
 import { Semantic } from "@gmloop/semantic";
 
+import { collectImplicitInstanceVariableTargets } from "../src/modules/refactor/implicit-instance-variable-targets.js";
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
 function findNthIndex(sourceText: string, searchText: string, occurrenceNumber: number): number {
@@ -2895,5 +2896,42 @@ void describe("GmlSemanticBridge tests", () => {
             start: { index: 10 }
         });
         assert.equal(result, true);
+    });
+    void it("collectImplicitInstanceVariableTargets handles variable instances dynamically accessed in external global script files", () => {
+        fs.mkdirSync("/tmp/scripts/conveniencefunctions", { recursive: true });
+        fs.writeFileSync("/tmp/scripts/conveniencefunctions/conveniencefunctions.gml", "var anim = playerModel = 1;");
+        const mockProjectIndex = {
+            files: {
+                "scripts/conveniencefunctions/conveniencefunctions.gml": {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "playerModel",
+                            scopeId: "scope:script:conveniencefunctions",
+                            start: { index: 10 },
+                            end: { index: 21 },
+                            declaration: null,
+                            classifications: ["property"],
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        // unused bridge
+        const targets = collectImplicitInstanceVariableTargets({
+            files: mockProjectIndex.files as any,
+            knownEnumNames: new Set<string>(),
+            knownNamesByObjectDirectory: new Map<string, Set<string>>(),
+            knownResourceNames: new Set<string>(),
+            projectRoot: "/tmp",
+            shouldIncludePath: () => true
+        });
+
+        const playerTarget = targets.find((t) => t.name === "playerModel");
+        assert.ok(playerTarget);
+        assert.equal(playerTarget?.occurrences?.[0]?.start, 10);
     });
 });
