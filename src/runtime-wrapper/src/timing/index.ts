@@ -1,1 +1,1 @@
-export { getHighResolutionTime, getWallClockTime, measureDuration } from "./timing-utils.js";
+export { getHighResolutionTime, measureDuration } from "./timing-utils.js";
