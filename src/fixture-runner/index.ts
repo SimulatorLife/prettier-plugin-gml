@@ -14,6 +14,7 @@ export type {
     FixtureProjectConfigMetadata,
     FixtureRunResult,
     FixtureStageMetrics,
-    FixtureStageName
+    FixtureStageName,
+    FixtureSuiteDefinition
 } from "./src/index.js";
 export { FixtureRunner } from "./src/index.js";
