@@ -1,7 +1,7 @@
 import { Core } from "@gmloop/core";
 
-import { createProjectIndexAbortGuard } from "./abort-guard.js";
-import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
+import { createProjectIndexAbortGuard } from "../project-index/abort-guard.js";
+import { defaultFsFacade, type ProjectIndexFsFacade } from "../project-index/fs-facade.js";
 
 const GML_IDENTIFIER_FILE_PATH = Core.GML_IDENTIFIER_METADATA_PATH;
 
