@@ -12,7 +12,7 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { ConflictSeverity } from "./conflict-severity.js";
-import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
+import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { setIdentifierCaseOption } from "./option-store.js";
@@ -118,7 +118,7 @@ function applyAssetRenamesIfEligible({ options, projectIndex, assetRenames, asse
     }
 
     const fsFacade =
-        Core.coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"]) ?? getDefaultIdentifierCaseFsFacade();
+        Core.coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"]) ?? defaultIdentifierCaseFsFacade;
     const logger = options.logger ?? null;
     const result = applyAssetRenames({
         projectIndex,
