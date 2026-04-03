@@ -182,7 +182,7 @@ function processStatementListForMemberCaching(statements: StatementList): void {
             );
         }
 
-        if (isLoopStatement(statement)) {
+        if (Core.isLoopLikeNode(statement)) {
             insertionOffset += maybeHoistInvariantLoopCondition(statement, statements, index + insertionOffset);
         }
 
@@ -267,7 +267,7 @@ function maybeHoistInvariantLoopCondition(
     statements: StatementList,
     statementIndex: number
 ): number {
-    if (!Core.isObjectLike(statement) || !isLoopStatement(statement)) {
+    if (!Core.isObjectLike(statement) || !Core.isLoopLikeNode(statement)) {
         return 0;
     }
 
@@ -619,31 +619,12 @@ function containsCallExpression(node: unknown): boolean {
 }
 
 function getLoopConditionExpression(loopNode: MutableGameMakerAstNode): MutableGameMakerAstNode | null {
-    if (!isLoopStatement(loopNode)) {
+    if (!Core.isLoopLikeNode(loopNode)) {
         return null;
     }
 
     const testNode = (loopNode as MutableAstRecord).test;
     return Core.isObjectLike(testNode) ? (testNode as MutableGameMakerAstNode) : null;
-}
-
-function isLoopStatement(node: unknown): node is MutableGameMakerAstNode {
-    if (!Core.isObjectLike(node) || typeof (node as MutableGameMakerAstNode).type !== "string") {
-        return false;
-    }
-
-    switch ((node as MutableGameMakerAstNode).type) {
-        case "ForStatement":
-        case "WhileStatement":
-        case "DoUntilStatement":
-        case "DoWhileStatement":
-        case "RepeatStatement": {
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
 }
 
 function walkNode(
