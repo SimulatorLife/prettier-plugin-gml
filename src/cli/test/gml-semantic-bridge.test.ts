@@ -2920,7 +2920,7 @@ void describe("GmlSemanticBridge tests", () => {
             }
         };
 
-        const bridge = new GmlSemanticBridge(mockProjectIndex as any, "/tmp");
+        // unused bridge
         const targets = collectImplicitInstanceVariableTargets({
             files: mockProjectIndex.files as any,
             knownEnumNames: new Set<string>(),
