@@ -2162,6 +2162,11 @@ export class GmlSemanticBridge {
                 knownEnumNames.add(entry.name);
             }
         }
+        for (const entry of Object.values(this.identifiers.macros ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownResourceNames.add(entry.name.toLowerCase());
+            }
+        }
 
         for (const entry of Object.values(this.identifiers.instanceVariables ?? {})) {
             const declarationFilePath = this.getDeclarationFilePath(entry);
@@ -2194,6 +2199,17 @@ export class GmlSemanticBridge {
     ): void {
         const scopes = (this.projectIndex.scopes ?? {}) as Record<string, SemanticScopeRecord>;
         const files = (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>;
+        const knownGlobalNames = new Set<string>();
+        for (const entry of Object.values(this.identifiers.macros ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownGlobalNames.add(entry.name);
+            }
+        }
+        for (const entry of Object.values(this.identifiers.enums ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownGlobalNames.add(entry.name);
+            }
+        }
 
         for (const [filePath, fileRecord] of Object.entries(files)) {
             const fileDeclarations = fileRecord?.declarations ?? [];
@@ -2205,6 +2221,10 @@ export class GmlSemanticBridge {
             let indexedReferenceOccurrences: LocalReferenceIndex | null = null;
             for (const declaration of fileDeclarations) {
                 if (!declaration || declaration.isBuiltIn || typeof declaration.name !== "string") {
+                    continue;
+                }
+
+                if (knownGlobalNames.has(declaration.name)) {
                     continue;
                 }
 
@@ -2616,7 +2636,10 @@ export class GmlSemanticBridge {
             return occurrences;
         }
 
-        this.collectUnresolvedConstructorStaticMemberOccurrences(declaration.name, occurrences);
+        if (!this.tryCollectUnresolvedConstructorStaticMemberOccurrences(declaration.name, occurrences)) {
+            return [];
+        }
+
         return this.deduplicateOccurrences(occurrences);
     }
 
@@ -2834,13 +2857,11 @@ export class GmlSemanticBridge {
         }
     }
 
-    private collectUnresolvedConstructorStaticMemberOccurrences(
+    private tryCollectUnresolvedConstructorStaticMemberOccurrences(
         symbolName: string,
         occurrences: Array<SymbolOccurrence>
-    ): void {
-        if ((this.getConstructorStaticMemberNameCounts().get(symbolName) ?? 0) !== 1) {
-            return;
-        }
+    ): boolean {
+        const collected: Array<SymbolOccurrence> = [];
 
         for (const unresolvedReference of this.getIndexes().unresolvedReferencesByExactName.get(symbolName) ?? []) {
             const classifications = Core.asArray(unresolvedReference.reference.classifications);
@@ -2867,7 +2888,7 @@ export class GmlSemanticBridge {
                 continue;
             }
 
-            occurrences.push({
+            collected.push({
                 path: unresolvedReference.filePath,
                 start,
                 end,
@@ -2878,6 +2899,13 @@ export class GmlSemanticBridge {
                 kind: "reference"
             });
         }
+
+        if (collected.length > 0 && (this.getConstructorStaticMemberNameCounts().get(symbolName) ?? 0) !== 1) {
+            return false;
+        }
+
+        occurrences.push(...collected);
+        return true;
     }
 
     private isConstructorStaticMemberBareCallReferenceSourceMatch(

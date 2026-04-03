@@ -2172,6 +2172,61 @@ void describe("GmlSemanticBridge tests", () => {
         }
     });
 
+    void it("listNamingConventionTargets excludes ambiguous constructor static members with unresolved references", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-static-member-ambiguous-"));
+
+        try {
+            const class1Source = [
+                "function Vector2() constructor {",
+                "    static Add = function(val) { return 2; };",
+                "}",
+                ""
+            ].join("\n");
+
+            const class2Source = [
+                "function Vector3() constructor {",
+                "    static Add = function(val) { return 3; };",
+                "}",
+                ""
+            ].join("\n");
+
+            const consumerSource = ["function update(pos) {", "    return pos.Add(1);", "}", ""].join("\n");
+
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "classes"), { recursive: true });
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "consumer"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "classes", "classes.gml"), class1Source + class2Source);
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "classes", "classes.yy"),
+                `${JSON.stringify({ name: "classes", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "consumer", "consumer.gml"), consumerSource);
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "consumer", "consumer.yy"),
+                `${JSON.stringify({ name: "consumer", resourceType: "GMScript" }, null, 2)}\n`
+            );
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const targets = await bridge.listNamingConventionTargets();
+
+            const addTargets = targets.filter(
+                (target) => target.category === "staticVariable" && target.name === "Add"
+            );
+
+            assert.strictEqual(
+                addTargets.length,
+                0,
+                "Should abort yielding static variable targets for ambiguous occurrences"
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
     void it("listMacroExpansionDependencies reports caller-scoped identifiers consumed by referenced macros", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-macro-deps-"));
 
