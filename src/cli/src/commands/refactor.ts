@@ -16,7 +16,7 @@ import { Command, Option } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
-import { formatCliError } from "../cli-core/errors.js";
+import { CliUsageError, isCliUsageError } from "../cli-core/errors.js";
 import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
 import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 import { resolveIndexedRootTargetGmlFiles } from "./refactor-target-gml-files.js";
@@ -201,7 +201,7 @@ async function validateRefactorIntent(command: CommanderCommandLike): Promise<Re
         };
     }
 
-    throw new Error(
+    throw new CliUsageError(
         "Could not infer refactor mode. Provide --old-name/--symbol-id with --new-name for renames, or run inside a project with gmloop.json to execute configured codemods."
     );
 }
@@ -511,6 +511,17 @@ export function createRefactorCommand(): Command {
             new Option("--check-hot-reload", "Validate that the refactored code is compatible with hot reload").default(
                 false
             )
+        )
+        .addHelpText(
+            "after",
+            [
+                "",
+                "Examples:",
+                "  pnpm dlx prettier-plugin-gml refactor --old-name my_script --new-name my_renamed_script path/to/project",
+                "  pnpm dlx prettier-plugin-gml refactor --symbol-id gml/script/my_func --new-name my_func_v2 --dry-run",
+                "  pnpm dlx prettier-plugin-gml refactor codemod --list",
+                "  pnpm dlx prettier-plugin-gml refactor codemod --write path/to/project"
+            ].join("\n")
         );
 
     return command;
@@ -526,15 +537,28 @@ export async function executeRefactorCommand(command: CommanderCommandLike): Pro
     await (intent.mode === "codemod" ? performConfiguredCodemods(intent.options) : performRename(intent.options));
 }
 
+/**
+ * Wrap a caught error as a {@link CliUsageError} so that the outer CLI error
+ * handler renders it without a stack trace and appends the command's usage
+ * guidance. Already-branded {@link CliUsageError} instances are re-thrown
+ * unchanged; all other errors are wrapped with the usage text attached.
+ */
 export async function runRefactorCommand(command: CommanderCommandLike): Promise<void> {
     try {
         await executeRefactorCommand(command);
     } catch (error) {
-        const message = Core.getErrorMessage(error, {
-            fallback: "Unknown refactor error"
-        });
-        const formattedError = formatCliError(new Error(`Refactor failed: ${message}`));
-        console.error(formattedError);
-        process.exit(1);
+        if (isCliUsageError(error)) {
+            // Attach the command's help text if the usage error was thrown without it
+            // (e.g. from deep inside validateRefactorIntent which has no command reference).
+            if (!error.usage) {
+                error.usage = command.helpInformation();
+            }
+
+            throw error;
+        }
+
+        const message = Core.getErrorMessage(error, { fallback: "Unknown refactor error" });
+        const usage = command.helpInformation();
+        throw new CliUsageError(`Refactor failed: ${message}`, { usage });
     }
 }
