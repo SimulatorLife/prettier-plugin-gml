@@ -1669,7 +1669,7 @@ void test("executeConfiguredCodemods requests naming targets by selected GML fil
     assert.ok(listCalls[0]?.includes("/project/scripts/example.yy"));
 });
 
-void test("executeConfiguredCodemods applies duplicate same-scope case-only local renames without false conflicts", async () => {
+void test("executeConfiguredCodemods handles duplicate case-only local variable renames", async () => {
     const sourceText = [
         "for (var i = 0; i < arm_num; i++) {",
         "    var IK = twojointik(i);",

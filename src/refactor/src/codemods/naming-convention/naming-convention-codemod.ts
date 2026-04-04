@@ -75,18 +75,30 @@ function decrementScopedNameCount(names: Map<string, number>, normalizedName: st
     names.set(normalizedName, currentCount - 1);
 }
 
+/**
+ * Build the declaration identity key used to deduplicate local declaration
+ * rows that refer to the same declaration tuple.
+ *
+ * @param target - Local naming target identity.
+ * @returns Stable `<category>:<name>` key for same-scope declaration tracking.
+ */
 function getLocalDeclarationKey(target: { category: NamingCategory; name: string }): string {
     return `${target.category}:${target.name}`;
 }
 
+/**
+ * Collect per-scope local identifier counts for conflict detection.
+ *
+ * Mutates `localScopeNames` and `localScopeDeclarations` in-place so subsequent
+ * rename planning can reason about currently-occupied normalized names while
+ * avoiding duplicate declaration rows from semantic adapters.
+ *
+ * @param selectedTargets - Candidate naming targets returned by semantic.
+ * @param localScopeNames - Destination normalized-name counters by scope.
+ * @param localScopeDeclarations - Destination declaration dedupe sets by scope.
+ */
 function collectLocalScopeNames(
-    selectedTargets: ReadonlyArray<{
-        category: NamingCategory;
-        name: string;
-        path: string;
-        scopeId: string | null;
-        symbolId: string | null;
-    }>,
+    selectedTargets: ReadonlyArray<LocalNamingConventionTarget>,
     localScopeNames: Map<string, Map<string, number>>,
     localScopeDeclarations: Map<string, Set<string>>
 ): void {
@@ -108,14 +120,19 @@ function collectLocalScopeNames(
     }
 }
 
+/**
+ * Plan and optionally apply one local naming-convention rename candidate.
+ *
+ * The helper enforces same-scope collision safety, reserved identifier checks,
+ * and macro-dependency guards before applying text edits. It caches the
+ * decision per declaration key so duplicate target rows stay consistent.
+ *
+ * @param parameters - Local rename planning context.
+ * @returns `1` when this invocation applied a new local rename decision; `0`
+ * when the target was skipped or reused an existing decision.
+ */
 function processLocalNamingConventionRename(parameters: {
-    target: {
-        category: NamingCategory;
-        name: string;
-        path: string;
-        scopeId: string | null;
-        occurrences: Array<{ path: string; start: number; end: number }>;
-    };
+    target: LocalNamingConventionTarget;
     suggestedName: string;
     workspace: WorkspaceEdit;
     warnings: Array<string>;
@@ -215,6 +232,14 @@ type MacroDependencyNamesByFile = Map<string, Map<string, Set<string>>>;
 type LocalDeclarationRenameDecision = {
     shouldApply: boolean;
     suggestedName: string;
+};
+type LocalNamingConventionTarget = {
+    category: NamingCategory;
+    name: string;
+    path: string;
+    scopeId: string | null;
+    symbolId: string | null;
+    occurrences: Array<{ path: string; start: number; end: number }>;
 };
 
 function formatTopLevelRenameSkipWarning(rename: RenameRequest, reason: string): string {
