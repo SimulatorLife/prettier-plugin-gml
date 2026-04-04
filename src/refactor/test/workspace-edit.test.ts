@@ -166,6 +166,17 @@ void test("WorkspaceEdit ignores exact duplicate text edits", () => {
     });
 });
 
+void test("WorkspaceEdit duplicate dedupe guard disables after modest edit volumes", () => {
+    const workspace = new WorkspaceEdit();
+
+    for (let index = 0; index <= 1024; index += 1) {
+        workspace.addEdit("scripts/example.gml", index, index + 1, "x");
+    }
+
+    workspace.addEdit("scripts/example.gml", 1024, 1025, "x");
+    assert.equal(workspace.edits.length, 1026);
+});
+
 void test("WorkspaceEdit revision only advances when the workspace changes", () => {
     const workspace = new WorkspaceEdit();
 
