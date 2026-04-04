@@ -107,7 +107,7 @@
     "build:ts": "pnpm --filter @gmloop/core run generate:resource-directory && pnpm run clean:ts && tsc -b",
     "build:ts:incremental": "pnpm --filter @gmloop/core run generate:resource-directory && tsc -b",
     "example:format": "cd src/format && pnpm run example",
-    "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor && chmod -R u+w vendor/3DSpider || echo \"Skipping vendor submodules\" && patch-package",
+    "postinstall": "pnpm run submodules && patch-package",
     "prepare": "husky",
     "submodules": "chmod -R u+w vendor && git submodule foreach --recursive 'git reset --hard && git clean -fd' && git submodule sync --recursive && git submodule update --init --recursive --remote && chmod -R a-w vendor && chmod -R a+X vendor && chmod -R u+w vendor/3DSpider",
     "cli": "pnpm --filter @gmloop/cli run build:types && node ./src/cli/dist/index.js",
