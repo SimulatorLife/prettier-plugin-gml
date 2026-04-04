@@ -65,9 +65,20 @@ void test("createFixCommand exposes the project fix workflow", () => {
 
     assert.equal(command.name(), "fix");
     assert.equal(command.description(), "Run project codemods, lint fixes, and formatting in sequence");
-    assert.ok(command.options.some((option) => option.long === "--project-root"));
+    assert.ok(command.options.some((option) => option.long === "--path"));
+    assert.equal(
+        command.options.some((option) => option.long === "--project"),
+        false,
+        "Should not expose legacy --project option"
+    );
+    assert.equal(
+        command.options.some((option) => option.long === "--project-root"),
+        false,
+        "Should not expose legacy --project-root option"
+    );
     assert.ok(command.options.some((option) => option.long === "--config"));
     assert.ok(command.options.some((option) => option.long === "--only"));
+    assert.ok(command.options.some((option) => option.long === "--list"));
     assert.ok(command.options.some((option) => option.long === "--verbose"));
 });
 
@@ -79,6 +90,24 @@ void test("fix --help documents the combined workflow", async () => {
     assert.equal(result.exitCode, 0);
     assert.match(result.stdout, /Run project codemods, lint fixes, and formatting in sequence/);
     assert.match(result.stdout, /pnpm dlx prettier-plugin-gml fix path\/to\/project/);
+});
+
+void test("fix --list prints command settings and exits", async () => {
+    const projectRoot = await createSyntheticProject();
+
+    try {
+        const result = await runCliTestCommand({
+            argv: ["fix", "--list"],
+            cwd: projectRoot
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.match(result.stdout, /Project root:/);
+        assert.match(result.stdout, /Config path:/);
+        assert.match(result.stdout, /Execution mode: apply changes \(always enforced by fix workflow\)/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
 });
 
 void test("fix runs codemods, lint fixes, and formatting in sequence for a project", async () => {
