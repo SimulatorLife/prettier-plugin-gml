@@ -595,7 +595,7 @@ export class GmlSemanticBridge {
             const resourceScipId = this.generateResourceScipId(resource);
             resourcesByExactName.set(resource.name, resource);
             resourcesByLowerName.set(resource.name.toLowerCase(), resource);
-            appendLookupEntry(resource.name);
+            appendLookupEntry(resource.name, undefined);
             registerResolveSymbolId(resource.name, resourceScipId);
 
             if (!Core.isNonEmptyString(resource.path)) {
