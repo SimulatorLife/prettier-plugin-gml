@@ -237,7 +237,7 @@ export function applyDescriptionContinuations(
     }
 
     if (continuations.length > 0) {
-        (docCommentDocs as any)._preserveDescriptionBreaks = true;
+        docCommentDocs._preserveDescriptionBreaks = true;
     }
 
     return docCommentDocs;
@@ -280,6 +280,6 @@ export function ensureDescriptionContinuations(docCommentDocs: MutableDocComment
     }
 
     if (foundContinuation) {
-        (docCommentDocs as any)._preserveDescriptionBreaks = true;
+        docCommentDocs._preserveDescriptionBreaks = true;
     }
 }
