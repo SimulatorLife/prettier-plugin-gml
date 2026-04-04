@@ -18,11 +18,9 @@ import {
 } from "../rule-base-helpers.js";
 import type { GmlRuleDefinition } from "../rule-definition.js";
 
-type LoopNodeType = "ForStatement" | "WhileStatement" | "RepeatStatement" | "DoUntilStatement";
-
 type LoopNode = AstNodeWithType &
     Readonly<{
-        type: LoopNodeType;
+        type: "ForStatement" | "WhileStatement" | "RepeatStatement" | "DoUntilStatement";
         body: unknown;
         update?: unknown;
     }>;
@@ -66,13 +64,6 @@ type LoopReplacementTarget = Readonly<{
     expressionStart: number;
     expressionEnd: number;
 }>;
-
-const LOOP_NODE_TYPES = new Set<LoopNodeType>([
-    "ForStatement",
-    "WhileStatement",
-    "RepeatStatement",
-    "DoUntilStatement"
-]);
 
 const PURE_FUNCTION_NAMES = new Set<string>(["abs", "dcos", "point_distance"]);
 
@@ -167,7 +158,7 @@ function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: u
 }
 
 function isLoopNode(node: unknown): node is LoopNode {
-    return isAstNodeWithType(node) && LOOP_NODE_TYPES.has(node.type as LoopNodeType);
+    return Core.isLoopLikeNode(node);
 }
 
 function isIdentifierNode(node: unknown): node is AstNodeRecord & Readonly<{ type: "Identifier"; name: string }> {
