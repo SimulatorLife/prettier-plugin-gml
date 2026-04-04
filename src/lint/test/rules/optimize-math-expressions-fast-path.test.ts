@@ -47,7 +47,7 @@ void test("optimize-math-expressions does not rewrite additive scalar products i
     const input = "result = (current_time / 3000) + ((i / currArmNum) * 6 * pi);\n";
     const result = lintWithRule("optimize-math-expressions", input, {});
 
-    assert.equal(result.output, "result = current_time * 0.0003333333333333333 + (i / currArmNum * 6 * pi);\n");
+    assert.equal(result.output, "result = current_time * 0.0003333333333333333 + i / currArmNum * 6 * pi;\n");
     assert.equal(result.output.includes("dot_product("), false);
 });
 
@@ -62,8 +62,5 @@ void test("optimize-math-expressions canonicalizes sqrt of 3-axis squared sums t
     const input = "p1_p3 = sqrt(P1toP3x * P1toP3x + P1toP3y * P1toP3y + P1toP3z * P1toP3z);\n";
     const result = lintWithRule("optimize-math-expressions", input, {});
 
-    assert.equal(
-        result.output,
-        "p1_p3 = sqrt(dot_product_3d(P1toP3x, P1toP3y, P1toP3z, P1toP3x, P1toP3y, P1toP3z));\n"
-    );
+    assert.equal(result.output, "p1_p3 = point_distance_3d(0, 0, 0, P1toP3x, P1toP3y, P1toP3z);\n");
 });

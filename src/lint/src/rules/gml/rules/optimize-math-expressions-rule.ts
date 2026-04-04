@@ -454,6 +454,10 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
         /sqrt\(\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\1\s*\+\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\2\s*\+\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\3\s*\)/g,
         "point_distance_3d(0, 0, 0, $1, $2, $3)"
     );
+    rewritten = rewritten.replaceAll(
+        /sqrt\(\s*dot_product_3d\(\s*([A-Za-z0-9_.[\]]+)\s*,\s*([A-Za-z0-9_.[\]]+)\s*,\s*([A-Za-z0-9_.[\]]+)\s*,\s*\1\s*,\s*\2\s*,\s*\3\s*\)\s*\)/g,
+        "point_distance_3d(0, 0, 0, $1, $2, $3)"
+    );
     // Collapse explicit undefined guard multiplication into the nullish-coalescing
     // shorthand.
     rewritten = rewritten.replaceAll(
