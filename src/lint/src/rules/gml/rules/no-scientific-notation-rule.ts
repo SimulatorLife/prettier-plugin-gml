@@ -46,7 +46,7 @@ function toPlainDecimalFromScientificLiteral(scientificText: string): string | n
         return null;
     }
 
-    const exponent = Number.parseInt(exponentText, 10);
+    const exponent = Number.parseInt(exponentText);
     if (!Number.isFinite(exponent)) {
         return null;
     }
