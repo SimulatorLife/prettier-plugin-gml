@@ -45,15 +45,14 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
             targetPaths: [fixture.projectRoot],
             gmlFilePaths: [...fixture.sourceTexts.keys()],
             config: {
-                namingConventionPolicy: {
-                    rules: {
-                        function: {
-                            caseStyle: "camel"
+                codemods: {
+                    namingConvention: {
+                        rules: {
+                            function: {
+                                caseStyle: "camel"
+                            }
                         }
                     }
-                },
-                codemods: {
-                    namingConvention: {}
                 }
             },
             readFile: async (filePath) => fixture.sourceTexts.get(filePath) ?? "",

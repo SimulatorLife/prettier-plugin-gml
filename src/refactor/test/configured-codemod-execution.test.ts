@@ -107,7 +107,7 @@ void test("listConfiguredCodemods reports normalized effective config and select
             },
             {
                 id: "namingConvention",
-                description: "Plan and apply naming-policy-driven renames using namingConventionPolicy.",
+                description: "Plan and apply naming-policy-driven renames.",
                 configured: false,
                 selected: false,
                 effectiveConfig: null
@@ -319,15 +319,14 @@ void test("executeConfiguredCodemods applies namingConvention local renames with
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/example.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    localVariable: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => sourceText
@@ -404,15 +403,14 @@ void test("executeConfiguredCodemods skips invalid namingConvention top-level re
         targetPaths: ["/project"],
         gmlFilePaths: [],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    function: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        function: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => sourceText
@@ -459,15 +457,14 @@ void test("executeConfiguredCodemods uses lightweight batch planning for namingC
         targetPaths: ["/project"],
         gmlFilePaths: [],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    function: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        function: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => "function bad_name() {}\n"
@@ -517,15 +514,14 @@ void test("executeConfiguredCodemods applies structDeclaration policy to constru
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/vector3/vector3.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    structDeclaration: {
-                        caseStyle: "pascal"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        structDeclaration: {
+                            caseStyle: "pascal"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => sourceText
@@ -569,15 +565,14 @@ void test("executeConfiguredCodemods preserves allowed leading underscores for r
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/__input_error/__input_error.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    resource: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => "",
@@ -632,15 +627,14 @@ void test("executeConfiguredCodemods applies namingConvention write-mode renames
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/a.gml", "scripts/b.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    function: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        function: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => "",
@@ -717,15 +711,14 @@ void test("executeConfiguredCodemods skips invalid namingConvention top-level re
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/a.gml", "scripts/b.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    function: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        function: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => "",
@@ -823,18 +816,17 @@ void test("executeConfiguredCodemods keeps mixed local and top-level namingConve
         targetPaths: ["/project"],
         gmlFilePaths: [filePath],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    localVariable: {
-                        caseStyle: "lower_snake"
-                    },
-                    globalVariable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "lower_snake"
+                        },
+                        globalVariable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => sourceText,
@@ -919,15 +911,14 @@ void test("executeConfiguredCodemods honors project-relative target paths for na
         targetPaths: ["scripts"],
         gmlFilePaths: [],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    localVariable: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async (filePath) => fileContents.get(filePath) ?? ""
@@ -1064,13 +1055,14 @@ void test("executeConfiguredCodemods applies enum + enumMember renames and prese
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/enum_test.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    enum: { caseStyle: "camel", suffix: "M" },
-                    enumMember: { caseStyle: "lower", suffix: "X" }
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        enum: { caseStyle: "camel", suffix: "M" },
+                        enumMember: { caseStyle: "lower", suffix: "X" }
+                    }
                 }
-            },
-            codemods: { namingConvention: {} }
+            }
         },
         readFile: async (path) => fileContents.get(path) ?? "",
         writeFile: async (path, content) => {
@@ -1192,12 +1184,13 @@ void test("executeConfiguredCodemods skips local variable renames that would red
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/cm_collider.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    variable: { caseStyle: "lower_snake" }
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        variable: { caseStyle: "lower_snake" }
+                    }
                 }
-            },
-            codemods: { namingConvention: {} }
+            }
         },
         readFile: async (filePath) => fileContents.get(filePath) ?? "",
         writeFile: async (filePath, content) => {
@@ -1272,16 +1265,17 @@ void test("executeConfiguredCodemods skips exclusive-prefix variable renames whe
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/group_smf.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    variable: { caseStyle: "lower_snake" },
-                    spriteResourceName: { prefix: "spr_", caseStyle: "lower_snake" }
-                },
-                exclusivePrefixes: {
-                    spr_: "spriteResourceName"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        variable: { caseStyle: "lower_snake" },
+                        spriteResourceName: { prefix: "spr_", caseStyle: "lower_snake" }
+                    },
+                    exclusivePrefixes: {
+                        spr_: "spriteResourceName"
+                    }
                 }
-            },
-            codemods: { namingConvention: {} }
+            }
         },
         readFile: async (filePath) => fileContents.get(filePath) ?? "",
         writeFile: async (filePath, content) => {
@@ -1362,12 +1356,13 @@ void test("executeConfiguredCodemods skips local renames that referenced macro e
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/cm_triangle.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    variable: { caseStyle: "lower_snake" }
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        variable: { caseStyle: "lower_snake" }
+                    }
                 }
-            },
-            codemods: { namingConvention: {} }
+            }
         },
         readFile: async (filePath) => fileContents.get(filePath) ?? "",
         writeFile: async (filePath, content) => {
@@ -1564,12 +1559,13 @@ void test("executeConfiguredCodemods skips argument renames that would collide w
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/sample_builder.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    argument: { caseStyle: "lower_snake" }
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        argument: { caseStyle: "lower_snake" }
+                    }
                 }
-            },
-            codemods: { namingConvention: {} }
+            }
         },
         readFile: async (filePath) => fileContents.get(filePath) ?? "",
         writeFile: async (filePath, content) => {
@@ -1644,15 +1640,14 @@ void test("executeConfiguredCodemods requests naming targets by selected GML fil
         targetPaths: ["/project"],
         gmlFilePaths: ["scripts/example.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    localVariable: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => sourceText
@@ -1762,15 +1757,14 @@ void test("executeConfiguredCodemods handles duplicate case-only local variable 
         targetPaths: ["/project"],
         gmlFilePaths: ["objects/obj_o_spider/Draw_0.gml"],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    localVariable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async (filePath) => fileContents.get(filePath) ?? "",
@@ -1830,15 +1824,14 @@ void test("executeConfiguredCodemods surfaces namingConvention hot reload warnin
         targetPaths: ["/project"],
         gmlFilePaths: [],
         config: {
-            namingConventionPolicy: {
-                rules: {
-                    function: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        function: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         },
         readFile: async () => "function bad_name() {}\n"

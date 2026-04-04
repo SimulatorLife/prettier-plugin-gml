@@ -20,15 +20,14 @@ type MetadataResourceFixture = {
 
 function createScriptResourceNamingConventionConfig(): RefactorProjectConfig {
     return {
-        namingConventionPolicy: {
-            rules: {
-                scriptResourceName: {
-                    caseStyle: "camel"
+        codemods: {
+            namingConvention: {
+                rules: {
+                    scriptResourceName: {
+                        caseStyle: "camel"
+                    }
                 }
             }
-        },
-        codemods: {
-            namingConvention: {}
         }
     };
 }

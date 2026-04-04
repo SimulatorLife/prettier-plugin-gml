@@ -343,7 +343,7 @@ Benefits:
 
 ### Naming Convention Enforcement (Policy Config)
 
-Naming policy lives under `refactor.namingConventionPolicy` inside the unified
+Naming policy lives under `refactor.codemods.namingConvention` inside the unified
 project-root `gmloop.json`. The `namingConvention` codemod reads that policy,
 plans top-level renames through the batch rename engine, merges those edits with
 local single-file renames into one workspace edit, and runs hot-reload
@@ -381,7 +381,7 @@ configures the `function` category.
 #### Contract
 
 - `gmloop.json` is the project config file.
-- `refactor.namingConventionPolicy` is user-authored project config.
+- `refactor.codemods.namingConvention` is user-authored project config.
 - `refactor.codemods.namingConvention` enables the codemod.
 - `rule exists => enabled` is the contract.
 - There is no `enabled` property on naming rules. If a rule is present for a category, that category is enabled. If a category is set to `false`, it is disabled even if a parent has a rule.
@@ -395,35 +395,34 @@ configures the `function` category.
         "gml/no-globalvar": "error"
     },
     "refactor": {
-        "namingConventionPolicy": {
-            "rules": {
-                "resource": {
-                    "caseStyle": "lower"
+        "codemods": {
+            "namingConvention": {
+                "rules": {
+                    "resource": {
+                        "caseStyle": "lower"
+                    },
+                    "roomResourceName": {
+                        "prefix": "rm_"
+                    },
+                    "variable": {
+                        "caseStyle": "camel"
+                    },
+                    "globalVariable": {
+                        "prefix": "g_",
+                        "caseStyle": "lower_snake"
+                    },
+                    "loopIndexVariable": false,
+                    "callable": {
+                        "caseStyle": "camel"
+                    },
+                    "macro": {
+                        "caseStyle": "upper_snake"
+                    }
                 },
-                "roomResourceName": {
-                    "prefix": "rm_"
-                },
-                "variable": {
-                    "caseStyle": "camel"
-                },
-                "globalVariable": {
-                    "prefix": "g_",
-                    "caseStyle": "lower_snake"
-                },
-                "loopIndexVariable": false,
-                "callable": {
-                    "caseStyle": "camel"
-                },
-                "macro": {
-                    "caseStyle": "upper_snake"
+                "exclusivePrefixes": {
+                    "rm_": "roomResourceName"
                 }
             },
-            "exclusivePrefixes": {
-                "rm_": "roomResourceName"
-            }
-        },
-        "codemods": {
-            "namingConvention": {},
             "loopLengthHoisting": {
                 "functionSuffixes": {
                     "array_length": "len"
@@ -1537,5 +1536,6 @@ users type new names, significantly improving performance for complex refactorin
 providing instant feedback in IDE rename dialogs.
 
 ## TODO
-* For the renaming fix, we should support an allow/deny list of prefixes, suffixes, and names that are exempt from renaming. For example, if a project's `gmploop.json` specifies that sprites must use the `spr_` prefix, the rename configuration should also allow exceptions such as sprites with the tex_ prefix so they are not flagged for renaming.
-* Alternatively, instead of requiring a specific prefix or suffix, we could support a denylist of disallowed names, prefixes, or suffixes. So, resources would only be flagged for renaming if they match an entry in the denylist. For example, if a resource is named `__apple` and the denylist includes the prefix `__`, it would be flagged for renaming, since it matches a disallowed naming pattern. In this mode, renaming would follow a default or separately defined naming rule (e.g., a standard prefix/suffix or pattern), applied only when a name violates the denylist. In this mode, a resource that matches the denylist would first check its inheritance tree and try to inherit a valid naming prefix from its parent chain. If no applicable prefix is found, it should attempt to remove the disallowed prefix, provided the result passes all safety checks. If that still fails, it should fall back to the default naming convention.
+
+- For the renaming fix, we should support an allow/deny list of prefixes, suffixes, and names that are exempt from renaming. For example, if a project's `gmploop.json` specifies that sprites must use the `spr_` prefix, the rename configuration should also allow exceptions such as sprites with the tex\_ prefix so they are not flagged for renaming.
+- Alternatively, instead of requiring a specific prefix or suffix, we could support a denylist of disallowed names, prefixes, or suffixes. So, resources would only be flagged for renaming if they match an entry in the denylist. For example, if a resource is named `__apple` and the denylist includes the prefix `__`, it would be flagged for renaming, since it matches a disallowed naming pattern. In this mode, renaming would follow a default or separately defined naming rule (e.g., a standard prefix/suffix or pattern), applied only when a name violates the denylist. In this mode, a resource that matches the denylist would first check its inheritance tree and try to inherit a valid naming prefix from its parent chain. If no applicable prefix is found, it should attempt to remove the disallowed prefix, provided the result passes all safety checks. If that still fails, it should fall back to the default naming convention.

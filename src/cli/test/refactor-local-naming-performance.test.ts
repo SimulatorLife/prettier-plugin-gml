@@ -22,15 +22,14 @@ type LocalNamingFixture = {
 
 function createLocalVariableNamingConventionConfig(): RefactorProjectConfig {
     return {
-        namingConventionPolicy: {
-            rules: {
-                localVariable: {
-                    caseStyle: "camel"
+        codemods: {
+            namingConvention: {
+                rules: {
+                    localVariable: {
+                        caseStyle: "camel"
+                    }
                 }
             }
-        },
-        codemods: {
-            namingConvention: {}
         }
     };
 }

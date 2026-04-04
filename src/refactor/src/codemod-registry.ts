@@ -1,12 +1,14 @@
 import { Core } from "@gmloop/core";
 
 import { executeNamingConventionCodemod } from "./codemods/naming-convention/index.js";
+import { normalizeNamingConventionPolicy } from "./naming-convention-policy.js";
 import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
 import type {
     CodemodEngine,
     ConfiguredCodemodRunRequest,
     ConfiguredCodemodRunResult,
     ConfiguredCodemodSummary,
+    NamingConventionPolicy,
     RefactorCodemodConfigEntry,
     RefactorCodemodConfigMap,
     RefactorCodemodId,
@@ -89,15 +91,7 @@ function normalizeNamingConventionConfig(
     if (value === false) {
         return false;
     }
-
-    const object = assertRefactorConfigPlainObject(value, context);
-    const keys = Object.keys(object);
-
-    if (keys.length > 0) {
-        throw new TypeError(`${context} does not currently accept configuration properties`);
-    }
-
-    return {};
+    return normalizeNamingConventionPolicy(value as NamingConventionPolicy | undefined, context);
 }
 
 const REGISTERED_CODEMOD_DEFINITIONS: RegisteredCodemodDefinitions = Object.freeze({
@@ -145,7 +139,7 @@ const REGISTERED_CODEMOD_DEFINITIONS: RegisteredCodemodDefinitions = Object.free
     }),
     namingConvention: Object.freeze({
         id: "namingConvention",
-        description: "Plan and apply naming-policy-driven renames using namingConventionPolicy.",
+        description: "Plan and apply naming-policy-driven renames.",
         normalizeConfig: normalizeNamingConventionConfig,
         async execute(
             engine: CodemodEngine,
@@ -155,7 +149,6 @@ const REGISTERED_CODEMOD_DEFINITIONS: RegisteredCodemodDefinitions = Object.free
             const result = await executeNamingConventionCodemod(engine, {
                 projectRoot: request.projectRoot,
                 config: {
-                    ...request.config,
                     codemods: {
                         ...request.config.codemods,
                         namingConvention: effectiveConfig

@@ -16,15 +16,14 @@ const PERFORMANCE_THRESHOLD_MS = 6000;
 void test("refactor codemod --write stays within the end-to-end CLI runtime threshold", async () => {
     const projectRoot = await createSyntheticRefactorProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    scriptResourceName: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        scriptResourceName: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });

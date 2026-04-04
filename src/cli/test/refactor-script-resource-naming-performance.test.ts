@@ -17,15 +17,14 @@ type ScriptResourceFixture = {
 
 function createFunctionNamingConventionConfig(): RefactorProjectConfig {
     return {
-        namingConventionPolicy: {
-            rules: {
-                function: {
-                    caseStyle: "camel"
+        codemods: {
+            namingConvention: {
+                rules: {
+                    function: {
+                        caseStyle: "camel"
+                    }
                 }
             }
-        },
-        codemods: {
-            namingConvention: {}
         }
     };
 }
