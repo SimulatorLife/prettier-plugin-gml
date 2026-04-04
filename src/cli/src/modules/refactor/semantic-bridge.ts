@@ -412,6 +412,50 @@ function appendProjectMetadataStringMutation(
     });
 }
 
+function updateRoomInstanceCreationOrderSelfPaths({
+    parsed,
+    oldResourcePath,
+    newResourcePath,
+    stringMutations
+}: {
+    parsed: Record<string, unknown>;
+    oldResourcePath: string;
+    newResourcePath: string;
+    stringMutations: Array<{ propertyPath: string; value: string }>;
+}): boolean {
+    const instanceCreationOrder = parsed.instanceCreationOrder;
+    if (!Array.isArray(instanceCreationOrder)) {
+        return false;
+    }
+
+    let changed = false;
+    for (const [index, orderEntry] of instanceCreationOrder.entries()) {
+        if (!Core.isObjectLike(orderEntry)) {
+            continue;
+        }
+
+        const orderEntryRecord = orderEntry as Record<string, unknown>;
+        const currentPath = Core.getNonEmptyString(orderEntryRecord.path);
+        if (!currentPath) {
+            continue;
+        }
+
+        if (!metadataReferenceTargetsMatch(currentPath, oldResourcePath)) {
+            continue;
+        }
+
+        if (currentPath === newResourcePath) {
+            continue;
+        }
+
+        orderEntryRecord.path = newResourcePath;
+        appendProjectMetadataStringMutation(stringMutations, `instanceCreationOrder.${index}.path`, newResourcePath);
+        changed = true;
+    }
+
+    return changed;
+}
+
 function requiresMetadataResourcePathOrderNormalization(rawContent: string): boolean {
     const resourceTypeIndex = rawContent.indexOf('"resourceType"');
     const resourcePathIndex = rawContent.indexOf('"resourcePath"');
@@ -1360,6 +1404,16 @@ export class GmlSemanticBridge {
                         appendProjectMetadataStringMutation(stringMutations, "resourcePath", newResourcePath);
                         changed = true;
                     }
+                }
+
+                const roomInstanceCreationOrderUpdated = updateRoomInstanceCreationOrderSelfPaths({
+                    parsed,
+                    oldResourcePath: currentResourcePath,
+                    newResourcePath,
+                    stringMutations
+                });
+                if (roomInstanceCreationOrderUpdated) {
+                    changed = true;
                 }
             }
 

@@ -1286,6 +1286,77 @@ void describe("GmlSemanticBridge tests", () => {
         assert.doesNotMatch(roomEdit.content, /:\{\}/u);
     });
 
+    void it("getAdditionalSymbolEdits updates room instanceCreationOrder self-path without mutating instance IDs", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-room-rename-"));
+        const roomOldPath = "rooms/Room1/Room1.yy";
+        try {
+            const roomAbsolute = path.join(tmpRoot, roomOldPath);
+            fs.mkdirSync(path.dirname(roomAbsolute), { recursive: true });
+
+            fs.writeFileSync(
+                roomAbsolute,
+                `{
+              "$GMRoom":"v1",
+              "%Name":"Room1",
+              "instanceCreationOrder":[
+                {"name":"inst_7056BF4E","path":"rooms/Room1/Room1.yy",},
+              ],
+              "layers":[
+                {"$GMRInstanceLayer":"","instances":[
+                    {"$GMRInstance":"v4","name":"inst_7056BF4E","objectId":{"name":"oSpider","path":"objects/oSpider/oSpider.yy",},"resourceType":"GMRInstance","resourceVersion":"2.0",},
+                  ],"resourceType":"GMRInstanceLayer","resourceVersion":"2.0",},
+              ],
+              "name":"Room1",
+              "resourceType":"GMRoom",
+              "resourceVersion":"2.0",
+            }`,
+                "utf8"
+            );
+
+            const mockProjectIndex = {
+                identifiers: {},
+                resources: {
+                    [roomOldPath]: {
+                        path: roomOldPath,
+                        name: "Room1",
+                        resourceType: "GMRoom",
+                        assetReferences: []
+                    }
+                }
+            };
+
+            const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+            const roomRenameEdits = bridge.getAdditionalSymbolEdits("gml/rooms/Room1", "rm_room1");
+            assert.ok(roomRenameEdits);
+
+            assert.deepStrictEqual(roomRenameEdits.fileRenames, [
+                {
+                    oldPath: roomOldPath,
+                    newPath: "rooms/Room1/rm_room1.yy"
+                },
+                {
+                    oldPath: "rooms/Room1",
+                    newPath: "rooms/rm_room1"
+                }
+            ]);
+
+            const roomMetadataEdit = roomRenameEdits.metadataEdits.find((entry) => entry.path === roomOldPath);
+            assert.ok(roomMetadataEdit);
+            assert.match(roomMetadataEdit.content, /"%Name":"rm_room1"/u);
+            assert.match(roomMetadataEdit.content, /"name":"rm_room1"/u);
+            assert.match(
+                roomMetadataEdit.content,
+                /"instanceCreationOrder":\[\s*\{"name":"inst_7056BF4E","path":"rooms\/rm_room1\/rm_room1\.yy",\}/u
+            );
+            assert.match(roomMetadataEdit.content, /"name":"inst_7056BF4E"/u);
+        } finally {
+            fs.rmSync(tmpRoot, {
+                recursive: true,
+                force: true
+            });
+        }
+    });
+
     void it("getAdditionalSymbolEdits skips unrelated metadata files that would only change via canonical serialization", () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-unrelated-metadata-"));
         const objectPath = "objects/oGravitySphere/oGravitySphere.yy";
