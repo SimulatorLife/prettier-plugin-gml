@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Core } from "../../src/index.js";
+import { Core, type MutableDocCommentLines } from "../../src/index.js";
 
 void test("collectDescriptionContinuationText normalizes multiline description payloads with consumed-line metadata", () => {
     const docLines = [
@@ -22,23 +22,34 @@ void test("collectDescriptionContinuationText normalizes multiline description p
 });
 
 void test("description continuation helpers reuse the same description anchor lookup", () => {
-    const docLines = ["/// @description Build the packet", "/// first line", "/// @param value"];
+    const docLines: MutableDocCommentLines = [
+        "/// @description Build the packet",
+        "/// first line",
+        "/// @param value"
+    ];
 
     assert.deepStrictEqual(Core.collectDescriptionContinuations(docLines), ["/// first line"]);
 
     const applied = Core.applyDescriptionContinuations(docLines, ["/// second line"]);
-    assert.deepStrictEqual(applied, [
+    // Content must match the expected insertion order.
+    assert.deepStrictEqual(Array.from(applied), [
         "/// @description Build the packet",
         "/// second line",
         "/// first line",
         "/// @param value"
     ]);
+    // applyDescriptionContinuations sets _preserveDescriptionBreaks to signal
+    // that the manual line breaks should be kept during later formatting.
+    assert.strictEqual(applied._preserveDescriptionBreaks, true);
 
     Core.ensureDescriptionContinuations(docLines);
-    assert.deepStrictEqual(docLines, [
+    assert.deepStrictEqual(Array.from(docLines), [
         "/// @description Build the packet",
         "/// second line",
         "/// first line",
         "/// @param value"
     ]);
+    // ensureDescriptionContinuations also sets the flag when continuations
+    // are present and have been normalised.
+    assert.strictEqual(docLines._preserveDescriptionBreaks, true);
 });
