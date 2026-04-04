@@ -792,8 +792,8 @@ function choosePreferredTestRecord(
         return incomingRecord;
     }
 
-    const existingIsCanonical = isCanonicalTestsXmlReportPath(existingRecord?.reportFilePath);
-    const incomingIsCanonical = isCanonicalTestsXmlReportPath(incomingRecord?.reportFilePath);
+    const existingIsCanonical = isCanonicalTestsXmlReportPath(existingRecord.reportFilePath);
+    const incomingIsCanonical = isCanonicalTestsXmlReportPath(incomingRecord.reportFilePath);
 
     if (existingIsCanonical && !incomingIsCanonical) {
         return existingRecord;
