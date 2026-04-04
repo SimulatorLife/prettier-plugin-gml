@@ -455,7 +455,7 @@ function stripOneAffixDirection(
         return stripAffix(coreName, exclusive[0], position);
     }
 
-    for (const banned of [...bannedAffixes].sort((a, b) => b.length - a.length)) {
+    for (const banned of bannedAffixes) {
         if (banned.length > 0 && hasAffix(coreName, banned)) {
             return stripAffix(coreName, banned, position);
         }

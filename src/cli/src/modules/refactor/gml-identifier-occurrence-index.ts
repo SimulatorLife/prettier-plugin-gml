@@ -55,7 +55,7 @@ function collectIdentifierOccurrencesFromAst(sourceText: string): Map<string, Ar
             }
 
             for (const [key, value] of Object.entries(candidate)) {
-                if (key === "start" || key === "end" || key === "type" || key === "name" || key === "value") {
+                if (key === "start" || key === "end" || key === "type" || key === "name") {
                     continue;
                 }
 
