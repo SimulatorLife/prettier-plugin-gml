@@ -2915,6 +2915,51 @@ void describe("GmlSemanticBridge tests", () => {
         );
     });
 
+    void it("collectImplicitInstanceVariableTargets excludes script-scope property references", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-implicit-script-scope-"));
+        const scriptFilePath = "scripts/conveniencefunctions/conveniencefunctions.gml";
+        const scriptSource = "var anim = playerModel = 1;";
+
+        try {
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "conveniencefunctions"), { recursive: true });
+            fs.writeFileSync(path.join(tmpRoot, scriptFilePath), scriptSource, "utf8");
+
+            const playerModelStart = scriptSource.indexOf("playerModel");
+
+            const targets = collectImplicitInstanceVariableTargets({
+                files: {
+                    [scriptFilePath]: {
+                        references: [
+                            {
+                                name: "playerModel",
+                                scopeId: "scope:script:conveniencefunctions",
+                                start: { index: playerModelStart },
+                                end: { index: playerModelStart + "playerModel".length - 1 },
+                                declaration: null,
+                                classifications: ["property"],
+                                isBuiltIn: false,
+                                isGlobalIdentifier: false
+                            }
+                        ]
+                    }
+                },
+                knownEnumNames: new Set<string>(),
+                knownNamesByObjectDirectory: new Map<string, Set<string>>(),
+                knownResourceNames: new Set<string>(),
+                projectRoot: tmpRoot,
+                shouldIncludePath: () => true
+            });
+
+            assert.equal(
+                targets.find((target) => target.name === "playerModel"),
+                undefined,
+                "script-scope property should not be collected as an implicit instance-variable target"
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { force: true, recursive: true });
+        }
+    });
+
     void it("shouldCollectUnresolvedProjectFileReferences correctly authorizes collection of instance variables", () => {
         const mockProjectIndex = {};
         const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
@@ -2952,41 +2997,70 @@ void describe("GmlSemanticBridge tests", () => {
         });
         assert.equal(result, true);
     });
-    void it("collectImplicitInstanceVariableTargets handles variable instances dynamically accessed in external global script files", () => {
-        fs.mkdirSync("/tmp/scripts/conveniencefunctions", { recursive: true });
-        fs.writeFileSync("/tmp/scripts/conveniencefunctions/conveniencefunctions.gml", "var anim = playerModel = 1;");
-        const mockProjectIndex = {
-            files: {
-                "scripts/conveniencefunctions/conveniencefunctions.gml": {
-                    declarations: [],
-                    references: [
-                        {
-                            name: "playerModel",
-                            scopeId: "scope:script:conveniencefunctions",
-                            start: { index: 10 },
-                            end: { index: 21 },
-                            declaration: null,
-                            classifications: ["property"],
-                            isBuiltIn: false,
-                            isGlobalIdentifier: false
+    void it("collectGlobalAndInstanceNamingTargets skips instance and global variables shadowing macros and enums", async () => {
+        const bridge = new GmlSemanticBridge(
+            {
+                identifiers: {
+                    macros: {
+                        "macro:INPUT_KEYBOARD": { identifierId: "macro:INPUT_KEYBOARD", name: "INPUT_KEYBOARD" },
+                        "macro:MACRO_ONLY": { identifierId: "macro:MACRO_ONLY", name: "MACRO_ONLY" }
+                    },
+                    enums: {
+                        "enum:e__InputSource": { identifierId: "enum:e__InputSource", name: "e__InputSource" }
+                    },
+                    globalVariables: {
+                        "var:INPUT_KEYBOARD": {
+                            identifierId: "var:INPUT_KEYBOARD",
+                            name: "INPUT_KEYBOARD",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        },
+                        "var:e__InputSource": {
+                            identifierId: "var:e__InputSource",
+                            name: "e__InputSource",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        },
+                        "var:validGlobal": {
+                            identifierId: "var:validGlobal",
+                            name: "validGlobal",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
                         }
-                    ]
-                }
-            }
-        };
+                    },
+                    instanceVariables: {
+                        "var:INPUT_KEYBOARD": {
+                            identifierId: "var:INPUT_KEYBOARD",
+                            name: "INPUT_KEYBOARD",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        },
+                        "var:e__InputSource": {
+                            identifierId: "var:e__InputSource",
+                            name: "e__InputSource",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        },
+                        "var:validInstance": {
+                            identifierId: "var:validInstance",
+                            name: "validInstance",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        }
+                    }
+                },
+                resources: {},
+                files: {
+                    "fake.gml": { path: "fake.gml", declarations: [] }
+                },
+                scopes: {}
+            } as any,
+            "/fake/path"
+        );
 
-        // unused bridge
-        const targets = collectImplicitInstanceVariableTargets({
-            files: mockProjectIndex.files as any,
-            knownEnumNames: new Set<string>(),
-            knownNamesByObjectDirectory: new Map<string, Set<string>>(),
-            knownResourceNames: new Set<string>(),
-            projectRoot: "/tmp",
-            shouldIncludePath: () => true
-        });
+        const targets = await bridge.listNamingConventionTargets(["fake.gml"]);
+        const globalTargets = targets.filter((t) => t.category === "globalVariable").map((t) => t.name);
+        const instanceTargets = targets.filter((t) => t.category === "instanceVariable").map((t) => t.name);
 
-        const playerTarget = targets.find((t) => t.name === "playerModel");
-        assert.ok(playerTarget);
-        assert.equal(playerTarget?.occurrences?.[0]?.start, 10);
+        assert.deepEqual(globalTargets, ["validGlobal"], "globalVariables masking a macro/enum should be excluded");
+        assert.deepEqual(
+            instanceTargets,
+            ["validInstance"],
+            "instanceVariables masking a macro/enum should be excluded"
+        );
     });
 });
