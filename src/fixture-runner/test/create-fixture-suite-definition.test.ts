@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
 
-import { type FixtureAdapter, type FixtureCaseResult, type FixtureKind,FixtureRunner } from "@gmloop/fixture-runner";
+import { type FixtureAdapter, type FixtureCaseResult, type FixtureKind, FixtureRunner } from "@gmloop/fixture-runner";
 
 const testAdapter: FixtureAdapter = Object.freeze({
     workspaceName: "fixture-runner",
