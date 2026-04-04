@@ -769,15 +769,25 @@ function recordTestCases(aggregates, testCases) {
     }
 }
 
-function isCanonicalTestsXmlReportPath(value): boolean {
-    const reportPath = toTrimmedString(value);
+type AggregatedTestRecord = TestRecordEntry & {
+    key?: string;
+    displayName?: string;
+    time?: number;
+    reportFilePath: string;
+};
+
+function isCanonicalTestsXmlReportPath(reportFilePath: string): boolean {
+    const reportPath = toTrimmedString(reportFilePath);
     if (!reportPath) {
         return false;
     }
     return path.basename(reportPath).toLowerCase() === "tests.xml";
 }
 
-function choosePreferredTestRecord(existingRecord, incomingRecord) {
+function choosePreferredTestRecord(
+    existingRecord: AggregatedTestRecord | undefined,
+    incomingRecord: AggregatedTestRecord
+): AggregatedTestRecord {
     if (!existingRecord) {
         return incomingRecord;
     }
