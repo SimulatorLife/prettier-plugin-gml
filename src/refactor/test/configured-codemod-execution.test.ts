@@ -1085,6 +1085,183 @@ void test("executeConfiguredCodemods applies enum + enumMember renames and prese
     });
 });
 
+void test("executeConfiguredCodemods applies cross-file enum + enumMember renames and preserves parse validity", async () => {
+    const definitionSourceText = [
+        "enum CM_RAY {",
+        "    MASK,",
+        "    NUM",
+        "};",
+        "",
+        "function cm_defs(ray) {",
+        "    return ray[CM_RAY.MASK] + ray[CM_RAY.NUM];",
+        "}",
+        ""
+    ].join("\n");
+    const usageSourceText = [
+        "function cm_use(ray) {",
+        "    var mask = ray[CM_RAY.MASK];",
+        "    return mask + ray[CM_RAY.NUM];",
+        "}",
+        ""
+    ].join("\n");
+    const enumDefinitionStart = definitionSourceText.indexOf("CM_RAY");
+    const enumReferenceInDefinitionStart = definitionSourceText.indexOf("CM_RAY", enumDefinitionStart + 1);
+    const enumDefinitionMaskStart = definitionSourceText.indexOf("MASK");
+    const enumDefinitionNumStart = definitionSourceText.indexOf("NUM");
+    const enumReferenceMaskInDefinitionStart = definitionSourceText.indexOf("MASK", enumDefinitionMaskStart + 1);
+    const enumReferenceNumInDefinitionStart = definitionSourceText.indexOf("NUM", enumDefinitionNumStart + 1);
+    const enumReferenceInUsageStart = usageSourceText.indexOf("CM_RAY");
+    const secondEnumReferenceInUsageStart = usageSourceText.indexOf("CM_RAY", enumReferenceInUsageStart + 1);
+    const enumReferenceMaskInUsageStart = usageSourceText.indexOf("MASK");
+    const enumReferenceNumInUsageStart = usageSourceText.indexOf("NUM");
+
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "CM_RAY",
+                category: "enum",
+                path: "scripts/cm_defs.gml",
+                scopeId: null,
+                symbolId: "gml/enum/cm_ray",
+                occurrences: []
+            },
+            {
+                name: "MASK",
+                category: "enumMember",
+                path: "scripts/cm_defs.gml",
+                scopeId: null,
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/cm_defs.gml",
+                        start: enumDefinitionMaskStart,
+                        end: enumDefinitionMaskStart + "MASK".length,
+                        kind: Refactor.OccurrenceKind.DEFINITION
+                    },
+                    {
+                        path: "scripts/cm_defs.gml",
+                        start: enumReferenceMaskInDefinitionStart,
+                        end: enumReferenceMaskInDefinitionStart + "MASK".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    },
+                    {
+                        path: "scripts/cm_use.gml",
+                        start: enumReferenceMaskInUsageStart,
+                        end: enumReferenceMaskInUsageStart + "MASK".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    }
+                ]
+            },
+            {
+                name: "NUM",
+                category: "enumMember",
+                path: "scripts/cm_defs.gml",
+                scopeId: null,
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "scripts/cm_defs.gml",
+                        start: enumDefinitionNumStart,
+                        end: enumDefinitionNumStart + "NUM".length,
+                        kind: Refactor.OccurrenceKind.DEFINITION
+                    },
+                    {
+                        path: "scripts/cm_defs.gml",
+                        start: enumReferenceNumInDefinitionStart,
+                        end: enumReferenceNumInDefinitionStart + "NUM".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    },
+                    {
+                        path: "scripts/cm_use.gml",
+                        start: enumReferenceNumInUsageStart,
+                        end: enumReferenceNumInUsageStart + "NUM".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE
+                    }
+                ]
+            }
+        ],
+        getSymbolOccurrences: async (_symbolName: string, symbolId: string | null = null) => {
+            if (symbolId !== "gml/enum/cm_ray") {
+                return [];
+            }
+
+            return [
+                {
+                    path: "scripts/cm_defs.gml",
+                    start: enumDefinitionStart,
+                    end: enumDefinitionStart + "CM_RAY".length,
+                    kind: Refactor.OccurrenceKind.DEFINITION
+                },
+                {
+                    path: "scripts/cm_defs.gml",
+                    start: enumReferenceInDefinitionStart,
+                    end: enumReferenceInDefinitionStart + "CM_RAY".length,
+                    kind: Refactor.OccurrenceKind.REFERENCE
+                },
+                {
+                    path: "scripts/cm_use.gml",
+                    start: enumReferenceInUsageStart,
+                    end: enumReferenceInUsageStart + "CM_RAY".length,
+                    kind: Refactor.OccurrenceKind.REFERENCE
+                },
+                {
+                    path: "scripts/cm_use.gml",
+                    start: secondEnumReferenceInUsageStart,
+                    end: secondEnumReferenceInUsageStart + "CM_RAY".length,
+                    kind: Refactor.OccurrenceKind.REFERENCE
+                }
+            ];
+        }
+    };
+
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const fileContents = new Map<string, string>([
+        ["scripts/cm_defs.gml", definitionSourceText],
+        ["scripts/cm_use.gml", usageSourceText]
+    ]);
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/cm_defs.gml", "scripts/cm_use.gml"],
+        config: {
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        enum: { caseStyle: "camel", prefix: "e" },
+                        enumMember: { caseStyle: "upper_snake" }
+                    }
+                }
+            }
+        },
+        readFile: async (path) => fileContents.get(path) ?? "",
+        writeFile: async (path, content) => {
+            fileContents.set(path, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.deepEqual(result.summaries[0]?.changedFiles, ["scripts/cm_defs.gml", "scripts/cm_use.gml"]);
+
+    const rewrittenDefinitionSource = fileContents.get("scripts/cm_defs.gml") ?? "";
+    const rewrittenUsageSource = fileContents.get("scripts/cm_use.gml") ?? "";
+    assert.match(rewrittenDefinitionSource, /enum eCmRay \{/);
+    assert.match(rewrittenDefinitionSource, /return ray\[eCmRay\.MASK\] \+ ray\[eCmRay\.NUM\];/);
+    assert.match(rewrittenUsageSource, /var mask = ray\[eCmRay\.MASK\];/);
+    assert.match(rewrittenUsageSource, /return mask \+ ray\[eCmRay\.NUM\];/);
+    assert.doesNotMatch(rewrittenDefinitionSource, /\bCM_RAY\b/);
+    assert.doesNotMatch(rewrittenUsageSource, /\bCM_RAY\b/);
+
+    assert.doesNotThrow(() => {
+        const definitionAst = Parser.GMLParser.parse(rewrittenDefinitionSource);
+        const usageAst = Parser.GMLParser.parse(rewrittenUsageSource);
+        assert.ok(definitionAst && definitionAst.type === "Program");
+        assert.ok(usageAst && usageAst.type === "Program");
+    });
+});
+
 void test("executeConfiguredCodemods skips local variable renames that would redeclare built-in instance variables", async () => {
     const sourceText = [
         "function cm_collider_check(collider) {",
