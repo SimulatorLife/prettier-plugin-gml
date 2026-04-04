@@ -156,6 +156,9 @@ function shouldPreferBundledDefaultsForExternalTargets(parameters: {
     const cwdAbsolute = path.resolve(parameters.cwd);
     return parameters.targets.every((target) => {
         const absoluteTarget = path.resolve(parameters.cwd, target);
+        if (absoluteTarget.includes(`${path.sep}vendor${path.sep}`)) {
+            return true;
+        }
         return !Core.isPathInside(absoluteTarget, cwdAbsolute);
     });
 }
@@ -801,7 +804,7 @@ function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLi
 }
 
 function isCanonicalGmlWiring(config: ResolvedConfigLike): boolean {
-    return config.plugins?.gml === LINT_NAMESPACE.plugin && config.language === "gml/gml";
+    return config.plugins?.gml === LINT_NAMESPACE.plugin && config.language === LINT_NAMESPACE.plugin.languages?.gml;
 }
 
 function readArrayFirstEntry(value: unknown): unknown {
