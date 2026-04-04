@@ -291,10 +291,12 @@ export function resolveNamingConventionRules(policy: NamingConventionPolicy): Re
                 runtimeRule.maxChars = entry.rule.maxChars;
             }
             if (entry.rule.bannedPrefixes !== undefined) {
-                runtimeRule.bannedPrefixes = [...entry.rule.bannedPrefixes];
+                // Sort descending by length so stripOneAffixDirection can iterate
+                // without creating a sorted copy on every identifier evaluation.
+                runtimeRule.bannedPrefixes = [...entry.rule.bannedPrefixes].sort((a, b) => b.length - a.length);
             }
             if (entry.rule.bannedSuffixes !== undefined) {
-                runtimeRule.bannedSuffixes = [...entry.rule.bannedSuffixes];
+                runtimeRule.bannedSuffixes = [...entry.rule.bannedSuffixes].sort((a, b) => b.length - a.length);
             }
         }
 
@@ -434,6 +436,9 @@ function stripAffix(value: string, affix: string, position: "prefix" | "suffix")
  *   1. The rule's required affix takes precedence.
  *   2. An exclusive affix that belongs to a different category is stripped next.
  *   3. The longest matching banned affix is stripped as a last resort.
+ *
+ * `bannedAffixes` must already be sorted by descending length (longest first) so
+ * this function can iterate them directly without allocating a sorted copy.
  */
 function stripOneAffixDirection(
     coreName: string,
@@ -443,11 +448,13 @@ function stripOneAffixDirection(
     position: "prefix" | "suffix",
     category: NamingCategory
 ): string {
-    const hasAffix = (name: string, affix: string) =>
-        position === "prefix" ? name.startsWith(affix) : name.endsWith(affix);
+    const isPrefix = position === "prefix";
 
-    if (ruleAffix.length > 0 && hasAffix(coreName, ruleAffix)) {
-        return stripAffix(coreName, ruleAffix, position);
+    if (ruleAffix.length > 0) {
+        const matches = isPrefix ? coreName.startsWith(ruleAffix) : coreName.endsWith(ruleAffix);
+        if (matches) {
+            return stripAffix(coreName, ruleAffix, position);
+        }
     }
 
     const exclusive = longestMatchingAffix(coreName, exclusiveAffixes, position);
@@ -455,9 +462,20 @@ function stripOneAffixDirection(
         return stripAffix(coreName, exclusive[0], position);
     }
 
-    for (const banned of [...bannedAffixes].sort((a, b) => b.length - a.length)) {
+<<<<<<< HEAD
+    for (const banned of bannedAffixes) {
         if (banned.length > 0 && hasAffix(coreName, banned)) {
             return stripAffix(coreName, banned, position);
+=======
+    // bannedAffixes is pre-sorted descending by length in resolveNamingConventionRules,
+    // so we can iterate without creating an intermediate sorted copy.
+    for (const banned of bannedAffixes) {
+        if (banned.length > 0) {
+            const matches = isPrefix ? coreName.startsWith(banned) : coreName.endsWith(banned);
+            if (matches) {
+                return stripAffix(coreName, banned, position);
+            }
+>>>>>>> 33846f47c (perf(refactor): eliminate hot-path bottlenecks in naming-convention codemod)
         }
     }
 
@@ -506,7 +524,14 @@ export function evaluateNamingConvention(
         };
     }
     let issueMessage: string | null = null;
+<<<<<<< HEAD
     let precomputedSuggestedName: string | null = null;
+=======
+    // When the case-style branch detects a violation it already computes the
+    // expected name, so we capture it here to avoid a second identical call to
+    // composeExpectedIdentifierName at the bottom of the function.
+    let precomputedSuggestedName: string | undefined;
+>>>>>>> 33846f47c (perf(refactor): eliminate hot-path bottlenecks in naming-convention codemod)
     const coreName = stripKnownAffixes(currentName, rule, policy, category);
     const exclusivePrefix = longestMatchingAffix(currentName, policy.exclusivePrefixes, "prefix");
     const exclusiveSuffix = longestMatchingAffix(currentName, policy.exclusiveSuffixes, "suffix");
@@ -531,6 +556,7 @@ export function evaluateNamingConvention(
         precomputedSuggestedName = composeExpectedIdentifierName(coreName, rule);
         if (precomputedSuggestedName !== currentName) {
             issueMessage = `Identifier ${JSON.stringify(currentName)} does not match ${rule.caseStyle} case.`;
+            precomputedSuggestedName = expectedName;
         }
     }
 
@@ -553,8 +579,14 @@ export function evaluateNamingConvention(
         };
     }
 
+<<<<<<< HEAD
     const suggestedName =
         precomputedSuggestedName === null ? composeExpectedIdentifierName(coreName, rule) : precomputedSuggestedName;
+=======
+    // Reuse the expected name already computed in the case-style branch when
+    // available; otherwise compute it now for other violation types.
+    const suggestedName = precomputedSuggestedName ?? composeExpectedIdentifierName(coreName, rule);
+>>>>>>> 33846f47c (perf(refactor): eliminate hot-path bottlenecks in naming-convention codemod)
 
     return {
         compliant: suggestedName === currentName,

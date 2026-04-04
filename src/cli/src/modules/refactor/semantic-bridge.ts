@@ -1586,7 +1586,6 @@ export class GmlSemanticBridge {
         for (const filePath of Object.keys(files)) {
             if (filePath.endsWith(".gml")) {
                 const hits = this.findIdentifierOccurrences(filePath, symbolName);
-                // console.log("HITS for", filePath, ":", hits);
                 for (const hit of hits) {
                     occurrences.push({
                         path: filePath,

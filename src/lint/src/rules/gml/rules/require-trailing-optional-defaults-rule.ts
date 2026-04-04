@@ -71,7 +71,7 @@ function getMemberArgumentIndex(node: any): number | null {
         return null;
     }
 
-    const parsed = Number.parseInt(String(property.value), 10);
+    const parsed = Number.parseInt(String(property.value));
     return Number.isInteger(parsed) ? parsed : null;
 }
 
@@ -90,7 +90,7 @@ function getArgumentCountGuardIndex(testNode: any): number | null {
         return null;
     }
 
-    const parsed = Number.parseInt(String(right.value), 10);
+    const parsed = Number.parseInt(String(right.value));
     return Number.isInteger(parsed) ? (testNode.operator === ">" ? parsed : null) : null;
 }
 
