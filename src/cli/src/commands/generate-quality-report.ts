@@ -974,7 +974,11 @@ function buildBaseStatusesByFileAndName(baseResults: Map<string, unknown>): Map<
     const index = new Map<string, string>();
     for (const record of baseResults.values()) {
         const r = record as TestRecordEntry;
-        if (typeof r.status !== "string" || r.status.length === 0) {
+        if (
+            r.status !== TestCaseStatus.FAILED &&
+            r.status !== TestCaseStatus.PASSED &&
+            r.status !== TestCaseStatus.SKIPPED
+        ) {
             continue;
         }
         const { fileLowerCase, name } = getNormalizedTestRecordIdentity(r);
@@ -1066,25 +1070,26 @@ function createRegressionRecord({
     // (e.g., `<undefined>` wrapper tags), causing the suite-path prefix of existing
     // tests to change. Those renamed failures must not be reported as new regressions.
     if (baseStatus === undefined) {
+        // Newly introduced tests are intentionally excluded from regression checks.
+        // Only renamed tests that map back to an existing base status are eligible.
         const { fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
-        if (fileLowerCase && name) {
-            const renamedBaseStatus = baseStatusesByFileAndName.get(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`);
-            if (renamedBaseStatus) {
-                baseStatus = renamedBaseStatus;
-                if (baseStatus === TestCaseStatus.FAILED) {
-                    return null;
-                }
-            }
+        const renamedBaseStatus =
+            fileLowerCase && name
+                ? baseStatusesByFileAndName.get(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`)
+                : undefined;
+        if (!renamedBaseStatus) {
+            return null;
+        }
+
+        baseStatus = renamedBaseStatus;
+        if (baseStatus === TestCaseStatus.FAILED) {
+            return null;
         }
         // Detect node test runner file-level crash records: synthetic testcases where
         // the name equals the file path and the file has other passing inner tests.
         // These are infrastructure artefacts produced by the test runner itself (e.g.,
         // IPC-deserialization errors) and must not be reported as code regressions.
         if (isNodeRunnerFileLevelCrash(targetRecord, targetFilesWithPassingTests)) {
-            return null;
-        }
-        // Newly introduced tests are intentionally excluded from regression checks.
-        if (baseStatus === undefined) {
             return null;
         }
     }
