@@ -212,6 +212,7 @@ const SCRIPT_CALLABLE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCat
 const RESOURCE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> = [
     "animationCurveResourceName",
     "audioResourceName",
+    "constructorFunction",
     "extensionResourceName",
     "fontResourceName",
     "noteResourceName",
@@ -223,6 +224,7 @@ const RESOURCE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> 
     "sequenceResourceName",
     "shaderResourceName",
     "spriteResourceName",
+    "structDeclaration",
     "tilesetResourceName",
     "timelineResourceName"
 ];
@@ -275,7 +277,7 @@ function createNamingTargetPathPredicate(
     );
     const selectedOwnerDirectories = new Set(
         [...normalizedIncludedPaths]
-            .filter((candidatePath) => candidatePath.endsWith(".gml"))
+            .filter((candidatePath) => candidatePath.endsWith(".gml") || candidatePath.endsWith(".yy"))
             .map((candidatePath) => path.posix.dirname(candidatePath))
     );
 
@@ -2120,17 +2122,53 @@ export class GmlSemanticBridge {
         shouldIncludePath: NamingTargetPathPredicate,
         pushTarget: NamingTargetSink
     ): void {
-        this.collectExactIdentifierNamingTargets(
-            this.identifiers.globalVariables ?? {},
-            "globalVariable",
-            shouldIncludePath,
-            pushTarget
-        );
+        const knownShadowableNames = new Set<string>();
+
+        for (const entry of Object.values(this.identifiers.enums ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownShadowableNames.add(entry.name);
+            }
+        }
+        for (const entry of Object.values(this.identifiers.macros ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownShadowableNames.add(entry.name);
+            }
+        }
+        for (const resource of Object.values(this.resources ?? {})) {
+            if (typeof resource?.name === "string") {
+                knownShadowableNames.add(resource.name);
+            }
+        }
+
+        for (const entry of Object.values(this.identifiers.globalVariables ?? {})) {
+            const declarationFilePath = this.getDeclarationFilePath(entry);
+            const entryName = typeof entry?.name === "string" ? entry.name : entry?.key;
+            if (
+                !shouldIncludePath(declarationFilePath) ||
+                typeof entryName !== "string" ||
+                knownShadowableNames.has(entryName)
+            ) {
+                continue;
+            }
+
+            pushTarget({
+                category: "globalVariable",
+                name: entryName,
+                occurrences: [],
+                path: declarationFilePath,
+                scopeId: entry.scopeId ?? null,
+                symbolId: this.generateScipId(entry, entryName)
+            });
+        }
 
         for (const entry of Object.values(this.identifiers.instanceVariables ?? {})) {
             const declarationFilePath = this.getDeclarationFilePath(entry);
             const entryName = typeof entry?.name === "string" ? entry.name : entry?.key;
-            if (!shouldIncludePath(declarationFilePath) || typeof entryName !== "string") {
+            if (
+                !shouldIncludePath(declarationFilePath) ||
+                typeof entryName !== "string" ||
+                knownShadowableNames.has(entryName)
+            ) {
                 continue;
             }
 

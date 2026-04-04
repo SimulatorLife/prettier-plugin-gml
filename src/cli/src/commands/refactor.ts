@@ -222,7 +222,11 @@ async function collectGmlFilesFromTarget(
         return;
     }
 
-    if (!stats.isFile() || path.extname(absoluteTargetPath).toLowerCase() !== ".gml") {
+    if (
+        !stats.isFile() ||
+        (path.extname(absoluteTargetPath).toLowerCase() !== ".gml" &&
+            path.extname(absoluteTargetPath).toLowerCase() !== ".yy")
+    ) {
         return;
     }
 
