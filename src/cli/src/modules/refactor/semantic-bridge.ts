@@ -773,7 +773,7 @@ export class GmlSemanticBridge {
             const resourceScipId = this.generateResourceScipId(resource);
             resourcesByExactName.set(resource.name, resource);
             resourcesByLowerName.set(resource.name.toLowerCase(), resource);
-            appendLookupEntry(resource.name);
+            appendLookupEntry(resource.name, undefined);
             registerResolveSymbolId(resource.name, resourceScipId);
 
             if (!Core.isNonEmptyString(resource.path)) {
@@ -1611,111 +1611,20 @@ export class GmlSemanticBridge {
             return this.diskIdentifierOccurrenceIndexesByFilePath.get(filePath) ?? null;
         }
 
-        return ranges;
-    }
-
-    private findStringLiteralRangesInAst(content: string): Array<{ start: number; end: number }> {
-        const ranges: Array<{ start: number; end: number }> = [];
-
         try {
-            const program = Parser.GMLParser.parse(content, { getComments: false });
-
-            const traverse = (node: unknown): void => {
-                if (!Core.isObjectLike(node)) {
-                    return;
-                }
-
-                const candidate = node as Record<string, unknown>;
-                if (candidate.type === "Literal" && typeof candidate.value === "string") {
-                    const literalValue = candidate.value;
-                    const isQuotedLiteral =
-                        (literalValue.startsWith('"') && literalValue.endsWith('"')) ||
-                        (literalValue.startsWith("'") && literalValue.endsWith("'"));
-
-                    if (isQuotedLiteral) {
-                        const start = candidate.start as number | undefined;
-                        const end = candidate.end as number | undefined;
-                        if (typeof start === "number" && typeof end === "number" && end >= start) {
-                            ranges.push({ start, end });
-                        }
-                    }
-                }
-
-                for (const [key, value] of Object.entries(candidate)) {
-                    if (key === "start" || key === "end" || key === "type" || key === "name" || key === "value") {
-                        continue;
-                    }
-
-                    if (Array.isArray(value)) {
-                        for (const child of value) {
-                            traverse(child);
-                        }
-                    } else if (Core.isObjectLike(value)) {
-                        traverse(value);
-                    }
-                }
-            };
-
-            traverse(program);
-        } catch {
-            // Fallback: regex-based string literal detection when GML parse fails.
-            return this.findStringLiteralRangesWithRegex(content);
-        }
-
-        return ranges;
-    }
-
-    /** Regex-based string literal range finder for use when AST parsing fails. */
-    private findStringLiteralRangesWithRegex(content: string): Array<{ start: number; end: number }> {
-        const ranges: Array<{ start: number; end: number }> = [];
-        const regex = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
-        let match;
-        while ((match = regex.exec(content)) !== null) {
-            ranges.push({ start: match.index, end: match.index + match[0].length - 1 });
-        }
-        return ranges;
-    }
-
-    private isWithinRanges(start: number, end: number, ranges: Array<{ start: number; end: number }>): boolean {
-        return ranges.some((range) => start >= range.start && end <= range.end);
-    }
-
-    private findIdentifierOccurrences(relativePath: string, name: string): Array<{ start: number; end: number }> {
-        const results: Array<{ start: number; end: number }> = [];
-        try {
-            const absolutePath = path.resolve(this.projectRoot, relativePath);
-            if (!fs.existsSync(absolutePath)) return results;
-
+            const absolutePath = path.resolve(this.projectRoot, filePath);
+            if (!fs.existsSync(absolutePath)) {
+                this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, null);
+                return null;
+            }
             const content = fs.readFileSync(absolutePath, "utf8");
-            const astResults = this.findIdentifierOccurrencesInAst(content, name);
-            if (astResults.length > 0) {
-                return astResults;
-            }
-
-            const stringLiteralRanges = this.findStringLiteralRangesInAst(content);
-            const escaped = Core.escapeRegExp(name);
-            // Use word boundaries or non-identifier characters to ensure we don't match substrings
-            // GML identifiers are [a-zA-Z_][a-zA-Z0-9_]*
-            const regex = new RegExp(`(?<=^|[^a-zA-Z0-9_])${escaped}(?=[^a-zA-Z0-9_]|$)`, "g");
-
-            let match;
-            while ((match = regex.exec(content)) !== null) {
-                const start = match.index;
-                const end = match.index + name.length;
-
-                if (this.isWithinRanges(start, end, stringLiteralRanges)) {
-                    continue;
-                }
-
-                results.push({
-                    start,
-                    end
-                });
-            }
+            const index = GmlIdentifierOccurrenceIndex.fromSourceText(content);
+            this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, index);
+            return index;
         } catch {
-            /* ignore */
+            this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, null);
+            return null;
         }
-        return results;
     }
 
     /**
