@@ -4,6 +4,7 @@
   "semi": true,
   "allowInlineControlFlowBlocks": true,
   "logicalOperatorsStyle": "keywords",
+  "lintRuleset": "recommended",
   "lintRules": {
     "gml/normalize-doc-comments": "error",
     "gml/prefer-hoistable-loop-accessors": "error",

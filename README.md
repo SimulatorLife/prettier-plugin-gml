@@ -207,6 +207,22 @@ export default [
 ];
 ```
 
+`gmloop.json` also supports lint preset selection for fixture/integration and
+project-config-driven lint flows via `lintRuleset`:
+
+```json
+{
+  "lintRuleset": "recommended",
+  "lintRules": {
+    "gml/no-globalvar": "error"
+  }
+}
+```
+
+Supported `lintRuleset` values are `"recommended"`, `"feather"`, and
+`"performance"`. `lintRules` remains optional and overrides rules from the
+selected ruleset when both are present.
+
 See [`docs/formatter-linter-split-plan.md`](docs/formatter-linter-split-plan.md) for pinned lint/format ownership contracts.
 
 ## Development
