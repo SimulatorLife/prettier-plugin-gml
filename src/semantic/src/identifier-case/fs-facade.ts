@@ -47,8 +47,4 @@ const defaultIdentifierCaseFsFacade = Object.freeze({
     }
 });
 
-export function getDefaultIdentifierCaseFsFacade() {
-    return defaultIdentifierCaseFsFacade;
-}
-
 export { defaultIdentifierCaseFsFacade };

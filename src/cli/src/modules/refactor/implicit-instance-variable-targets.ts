@@ -28,6 +28,7 @@ type ImplicitInstanceVariableCollectorParameters = {
     files: Record<string, SemanticFileRecord>;
     knownEnumNames: Set<string>;
     knownNamesByObjectDirectory: Map<string, Set<string>>;
+    knownResourceNames: Set<string>;
     projectRoot: string;
     shouldIncludePath: (candidatePath: string | null | undefined) => boolean;
 };
@@ -36,12 +37,24 @@ type CandidateOccurrence = SymbolOccurrence & {
     isDefinitionLike: boolean;
 };
 
-function isObjectEventFilePath(filePath: string): boolean {
-    return /^objects\/[^/]+\/[^/]+\.gml$/i.test(filePath);
-}
-
 function getObjectDirectory(filePath: string): string {
     return path.posix.dirname(filePath.replaceAll("\\", "/"));
+}
+
+function isObjectEventFilePath(filePath: string): boolean {
+    const normalizedPath = filePath.replaceAll("\\", "/");
+    const segments = normalizedPath.split("/");
+    if (segments.length < 3 || segments[0] !== "objects") {
+        return false;
+    }
+
+    const objectName = segments[1];
+    const fileName = segments.at(-1);
+    return Core.isNonEmptyString(objectName) && Core.isNonEmptyString(fileName) && fileName.endsWith(".gml");
+}
+
+function isObjectScopeId(scopeId: unknown): boolean {
+    return typeof scopeId === "string" && scopeId.startsWith("scope:object:");
 }
 
 function readProjectFile(projectRoot: string, filePath: string, cache: Map<string, string>): string | null {
@@ -181,6 +194,10 @@ function deduplicateCandidateOccurrences(occurrences: Array<CandidateOccurrence>
     return [...occurrencesByKey.values()].sort((left, right) => left.start - right.start);
 }
 
+function isKnownProjectResourceName(referenceName: string, knownResourceNames: ReadonlySet<string>): boolean {
+    return knownResourceNames.has(referenceName.toLowerCase());
+}
+
 /**
  * Collect unresolved assignment-backed object fields as implicit instance-variable naming targets.
  */
@@ -191,7 +208,7 @@ export function collectImplicitInstanceVariableTargets(
     const candidatesByName = new Map<string, Array<CandidateOccurrence>>();
 
     for (const [filePath, fileRecord] of Object.entries(parameters.files)) {
-        if (!isObjectEventFilePath(filePath) || !parameters.shouldIncludePath(filePath)) {
+        if (!parameters.shouldIncludePath(filePath) || !isObjectEventFilePath(filePath)) {
             continue;
         }
 
@@ -204,6 +221,10 @@ export function collectImplicitInstanceVariableTargets(
         const knownNames = parameters.knownNamesByObjectDirectory.get(objectDirectory) ?? new Set<string>();
 
         for (const reference of fileRecord.references ?? []) {
+            if (!isObjectScopeId(reference.scopeId)) {
+                continue;
+            }
+
             const candidate = buildCandidateOccurrence(filePath, reference, source);
             if (candidate === null) {
                 continue;
@@ -214,6 +235,10 @@ export function collectImplicitInstanceVariableTargets(
             }
 
             const referenceName = source.slice(candidate.start, candidate.end);
+            if (isKnownProjectResourceName(referenceName, parameters.knownResourceNames)) {
+                continue;
+            }
+
             if (knownNames.has(referenceName)) {
                 continue;
             }

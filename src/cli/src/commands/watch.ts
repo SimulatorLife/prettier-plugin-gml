@@ -415,13 +415,33 @@ async function runAutoInjectHotReload(
  */
 export function createExtensionMatcher(extensions: ReadonlyArray<string>): ExtensionMatcher {
     const normalized = normalizeExtensions(extensions);
-
     const normalizedSet = new Set(normalized);
 
     return {
         extensions: normalizedSet,
-        matches: (fileName: string) => normalizedSet.has(path.extname(fileName).toLowerCase())
+        matches: (fileName: string) => {
+            const extension = resolveLowercaseExtension(fileName);
+            return extension === "" ? false : normalizedSet.has(extension);
+        }
     };
+}
+
+/**
+ * Resolves the lowercase extension for a filename/path without allocating via
+ * node:path. The behavior intentionally matches path.extname semantics:
+ * dotfiles such as ".gml" are treated as extension-less.
+ */
+function resolveLowercaseExtension(fileName: string): string {
+    const lastForwardSlashIndex = fileName.lastIndexOf("/");
+    const lastBackwardSlashIndex = fileName.lastIndexOf("\\");
+    const lastPathSeparatorIndex = Math.max(lastForwardSlashIndex, lastBackwardSlashIndex);
+    const lastDotIndex = fileName.lastIndexOf(".");
+
+    if (lastDotIndex <= lastPathSeparatorIndex + 1) {
+        return "";
+    }
+
+    return fileName.slice(lastDotIndex).toLowerCase();
 }
 
 /**
@@ -1043,6 +1063,13 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     let watcher: FSWatcher | null = null;
     let resolved = false;
 
+    // Internal abort controller used to cancel in-flight file reads (including
+    // transient-empty retry timers) when the watcher shuts down. This is separate
+    // from the caller-supplied abortSignal, which may not be set in the SIGINT/SIGTERM
+    // path. Both signals are threaded to scheduleUnknownFileChanges so that retry
+    // timers created by delayFileReadRetry are cancelled promptly on shutdown.
+    const internalAbortController = new AbortController();
+
     return new Promise((resolve) => {
         let removeAbortListener = noopAbortListener;
 
@@ -1051,6 +1078,12 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                 return;
             }
             resolved = true;
+
+            // Abort any in-flight file reads before closing the watcher. This ensures
+            // that transient-empty retry timers created by delayFileReadRetry (in the
+            // unknown-scan path) are cancelled even when no external AbortSignal was
+            // provided (e.g., SIGINT/SIGTERM without an AbortController from the caller).
+            internalAbortController.abort();
 
             if (verbose && !quiet) {
                 console.log("\nStopping watcher...");
@@ -1067,9 +1100,9 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             // Cancel (not flush) all pending debounced handlers. Flushing would invoke each
             // callback immediately after the watcher has already been closed, spawning new
             // async file reads and — for transiently-empty files — new setTimeout timers via
-            // delayFileReadRetry() that have no abort-signal protection when cleanup is
-            // triggered by SIGINT/SIGTERM. Those timers outlive the cleanup phase and
-            // constitute a resource leak. Cancelling discards the pending work cleanly.
+            // delayFileReadRetry() that would outlive the cleanup phase (resource leak).
+            // Cancelling discards the pending work cleanly. The internalAbortController
+            // above provides a second layer of defense for any handler that did start.
             for (const debouncedHandler of runtimeContext.debouncedHandlers.values()) {
                 debouncedHandler.cancel();
             }
@@ -1176,7 +1209,12 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     if (!filename) {
                         const unknownKey = `${normalizedPath}::unknown`;
                         const triggerUnknown = () =>
-                            scheduleUnknownFileChanges(runtimeContext, verbose, quiet).catch((error) => {
+                            scheduleUnknownFileChanges(
+                                runtimeContext,
+                                verbose,
+                                quiet,
+                                internalAbortController.signal
+                            ).catch((error) => {
                                 const message = getErrorMessage(error, {
                                     fallback: "Unknown file processing error"
                                 });
@@ -1443,7 +1481,8 @@ async function handleFileChange(
 async function handleUnknownFileChanges(
     runtimeContext: RuntimeContext,
     verbose: boolean,
-    quiet: boolean
+    quiet: boolean,
+    abortSignal?: AbortSignal
 ): Promise<void> {
     const discoveredFilePaths = await collectWatchedFilePaths(
         runtimeContext.watchRoot,
@@ -1490,7 +1529,8 @@ async function handleUnknownFileChanges(
             verbose,
             quiet,
             runtimeContext,
-            fileStats: entry.stats
+            fileStats: entry.stats,
+            abortSignal
         });
     });
 }
@@ -1498,18 +1538,24 @@ async function handleUnknownFileChanges(
 function processQueuedUnknownFileChanges(
     runtimeContext: RuntimeContext,
     verbose: boolean,
-    quiet: boolean
+    quiet: boolean,
+    abortSignal?: AbortSignal
 ): Promise<void> {
     runtimeContext.unknownScanQueued = false;
 
-    return handleUnknownFileChanges(runtimeContext, verbose, quiet).then(() =>
+    return handleUnknownFileChanges(runtimeContext, verbose, quiet, abortSignal).then(() =>
         runtimeContext.unknownScanQueued
-            ? processQueuedUnknownFileChanges(runtimeContext, verbose, quiet)
+            ? processQueuedUnknownFileChanges(runtimeContext, verbose, quiet, abortSignal)
             : Promise.resolve()
     );
 }
 
-function scheduleUnknownFileChanges(runtimeContext: RuntimeContext, verbose: boolean, quiet: boolean): Promise<void> {
+function scheduleUnknownFileChanges(
+    runtimeContext: RuntimeContext,
+    verbose: boolean,
+    quiet: boolean,
+    abortSignal?: AbortSignal
+): Promise<void> {
     // Unknown filename events can burst during watcher start-up on some platforms.
     // Ignore them until the initial scan has completed so we avoid expensive
     // duplicate stats against the same tree while the scanner is already walking it.
@@ -1522,9 +1568,11 @@ function scheduleUnknownFileChanges(runtimeContext: RuntimeContext, verbose: boo
         return runtimeContext.unknownScanPromise;
     }
 
-    const unknownScanPromise = processQueuedUnknownFileChanges(runtimeContext, verbose, quiet).finally(() => {
-        runtimeContext.unknownScanPromise = null;
-    });
+    const unknownScanPromise = processQueuedUnknownFileChanges(runtimeContext, verbose, quiet, abortSignal).finally(
+        () => {
+            runtimeContext.unknownScanPromise = null;
+        }
+    );
 
     runtimeContext.unknownScanPromise = unknownScanPromise;
     return unknownScanPromise;

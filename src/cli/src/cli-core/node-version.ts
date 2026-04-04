@@ -1,3 +1,14 @@
+/**
+ * Node.js runtime version validation for the CLI.
+ *
+ * Asserting the Node.js version is a startup prerequisite for commands that
+ * depend on features unavailable in older runtimes. Placing this check in
+ * `cli-core/` keeps it alongside the other CLI infrastructure concerns (error
+ * types, version resolution, env overrides) rather than in the `shared/`
+ * utilities which are intended for cross-command helpers with no direct CLI
+ * framework dependency.
+ */
+
 const VERSION_REQUIREMENTS = new Map<number, { minor: number; label: string }>([
     [18, { minor: 18, label: "18.18.0" }],
     [20, { minor: 9, label: "20.9.0" }]
@@ -17,7 +28,7 @@ interface NodeEnvironment {
 }
 
 function parseVersionPart(part: string): number {
-    return Number.parseInt(part, 10);
+    return Number.parseInt(part);
 }
 
 function buildUnsupportedVersionError(label?: string): Error {
@@ -38,7 +49,6 @@ function normalizeVersionString(rawVersion: string): string {
  *
  * The runtime only interacts with an explicit version string, which keeps
  * callers from depending on the nested `process.versions` object.
- *
  */
 function readNodeVersionParts(environment: NodeEnvironment = process): {
     majorPart: string;
@@ -51,6 +61,17 @@ function readNodeVersionParts(environment: NodeEnvironment = process): {
     return { majorPart, minorPart };
 }
 
+/**
+ * Asserts that the currently running Node.js version meets the CLI's minimum
+ * version requirements. Throws if the detected version is unsupported.
+ *
+ * This check must be called early in commands that depend on Node.js features
+ * unavailable in older runtimes. Calling it at command entry-point keeps the
+ * error message actionable before any other CLI work begins.
+ *
+ * @throws {TypeError} When the Node.js version cannot be parsed from `process.version`.
+ * @throws {Error} When the detected major or minor version falls below the minimum requirement.
+ */
 export function assertSupportedNodeVersion(): void {
     const { majorPart, minorPart } = readNodeVersionParts();
     const major = parseVersionPart(majorPart);

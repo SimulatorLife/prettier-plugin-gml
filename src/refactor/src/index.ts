@@ -188,11 +188,16 @@ export type {
 export { isSymbolKind, parseSymbolKind, requireSymbolKind, SymbolKind } from "./types.js";
 export { ConflictType, isConflictType, parseConflictType, requireConflictType } from "./types.js";
 export { isOccurrenceKind, OccurrenceKind, parseOccurrenceKind, requireOccurrenceKind } from "./types.js";
+export type { CrossRenameConfusion, DuplicateSymbolIdEntry, DuplicateTargetNameEntry } from "./validation.js";
 export {
     batchValidateScopeConflicts,
     detectCircularRenames,
+    detectCrossRenameNameConfusion,
+    detectDuplicateSourceSymbolIds,
+    detectDuplicateTargetNames,
     detectRenameConflicts,
     validateCrossFileConsistency,
     validateRenameStructure
 } from "./validation.js";
-export { WorkspaceEdit } from "./workspace-edit.js";
+export type { WorkspaceRevisionProvider } from "./workspace-edit.js";
+export { WORKSPACE_EDIT_REVISION_TOKEN, WorkspaceEdit } from "./workspace-edit.js";

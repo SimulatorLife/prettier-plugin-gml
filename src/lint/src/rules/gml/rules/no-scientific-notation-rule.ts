@@ -1,8 +1,10 @@
 import type { Rule } from "eslint";
 
-import { forEachScientificNotationToken } from "../../../malformed/scientific-notation-scan.js";
+import { gmlRuleMalformedServices } from "../gml-rule-services.js";
 import { createMeta } from "../rule-base-helpers.js";
 import type { GmlRuleDefinition } from "../rule-definition.js";
+
+const { forEachScientificNotationToken } = gmlRuleMalformedServices;
 
 const EXPONENT_DIGIT_PATTERN = /^[+-]?\d+$/u;
 const MAX_FIXED_LITERAL_LENGTH = 4096;
@@ -44,7 +46,7 @@ function toPlainDecimalFromScientificLiteral(scientificText: string): string | n
         return null;
     }
 
-    const exponent = Number.parseInt(exponentText, 10);
+    const exponent = Number.parseInt(exponentText);
     if (!Number.isFinite(exponent)) {
         return null;
     }

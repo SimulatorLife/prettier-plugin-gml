@@ -38,8 +38,9 @@ _Migration rule_: Do not add new doc-comment content mutation logic in formatter
 1. `/lint` owns diagnostic reporting and local repairs. It uses a single-file `fix` model for changes that are safe within the local scope.
 2. `/refactor` owns global transactions. It handles atomic cross-file edits, metadata updates (`.yy`, `.yyp`), structural migrations, and project-wide rename planning.
 3. If a lint rule requires a change that impacts the project graph or metadata, it should report the diagnostic and point the user to a refactor command rather than attempting a multi-file autofix through ESLint.
-4. Lint must not keep dormant project-index builders, project-root registries, rename-planning helpers, or other project-aware infrastructure in its source tree; those implementations belong exclusively in `/refactor`.
+4. Lint must not contain dormant project-index builders, project-root registries, rename-planning helpers, or other project-aware infrastructure in its source tree; those implementations belong exclusively in `/refactor`.
 5. No duplicate capability logic is allowed across lint and refactor surfaces.
+6. **`globalvar` Migrations**: The lint workspace must only provide a read-only rule to report deprecated/legacy `globalvar` usage. It must **not** attempt to auto-fix this usage because rewriting `globalvar` to `global.` requires cross-file, project-aware edits to ensure correctness, which violate lint's single-file constraints. The specific task of fixing/refactoring `globalvar` to `global.` should be exclusively owned by the `refactor` workspace as a standalone codemod.
 
 ### 2.4 Refactor Tool (Codemod / Migration Transforms)
 
@@ -53,7 +54,7 @@ _Migration rule_: Do not add new doc-comment content mutation logic in formatter
 To prevent scope creep and future drift, the following are explicitly out of scope:
 
 - **Formatter does not perform**: Syntax repair, project-aware rewrites, structural refactors, semantic transformations, or promotion of plain comments into documentation comments.
-- **Lint does not perform**: Cross-file edits, metadata updates, project-wide indexing, rename safety, hoist-name generation, or whole-project edit planning.
+- **Lint does not perform**: Cross-file edits, auto-fixing `globalvar` to `global.`, metadata updates, project-wide indexing, rename safety, hoist-name generation, or whole-project edit planning.
 - **Refactor does not**: Run automatically on save.
 
 ## 3. Formatter & Linter Contracts
@@ -203,6 +204,16 @@ Observed pattern:
 
 - Workspace edits and intermediate file-content overlays can accumulate across many files.
 - Existing rename chunking helps, but does not fully bound all retained state.
+
+#### 5.3.4 Refactor CLI Index Bootstrapping
+
+Primary seam:
+
+- `src/cli/src/commands/refactor.ts`
+
+Observed pattern:
+
+- End-to-end `refactor codemod --write` latency includes the semantic project-index build, so forcing `buildProjectIndex` down to `concurrency: { gml: 1 }` turns large codemod runs into an avoidable serial bottleneck before refactor planning even begins.
 
 ### 5.4 Option Set and Trade-Offs
 

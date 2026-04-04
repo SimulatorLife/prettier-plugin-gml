@@ -10,7 +10,7 @@ import {
 } from "./test-helpers/refactor-top-level-naming-performance.js";
 
 const FUNCTION_COUNT = 2400;
-const PERFORMANCE_THRESHOLD_MS = 1000;
+const PERFORMANCE_THRESHOLD_MS = 900;
 
 type RenameValidationCacheStats = {
     evictions: number;
@@ -30,6 +30,14 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
     const fixture = createTopLevelNamingConventionFixture();
     const executeStressRun = async () => {
         const semantic = new GmlSemanticBridge(fixture.projectIndex, fixture.projectRoot);
+        let macroDependencyQueryCount = 0;
+        const originalListMacroExpansionDependencies = semantic.listMacroExpansionDependencies.bind(semantic);
+
+        semantic.listMacroExpansionDependencies = (...args) => {
+            macroDependencyQueryCount += 1;
+            return originalListMacroExpansionDependencies(...args);
+        };
+
         const engine = new Refactor.RefactorEngine({ semantic });
 
         const result = await engine.executeConfiguredCodemods({
@@ -64,6 +72,7 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
                     getSemanticCacheStats(): SemanticCacheStats;
                 }
             ).getSemanticCacheStats(),
+            macroDependencyQueryCount,
             result
         };
     };
@@ -85,6 +94,11 @@ void test("refactor codemod runtime stays within the indexed semantic bridge thr
     assert.ok(
         result.semanticCacheStats.size > 0,
         "Expected semantic cache to retain batched symbol query results during codemod planning"
+    );
+    assert.equal(
+        result.macroDependencyQueryCount,
+        0,
+        "Expected top-level naming codemods to skip macro dependency analysis when no symbol-local targets are selected"
     );
     assert.ok(
         durationMs <= PERFORMANCE_THRESHOLD_MS,

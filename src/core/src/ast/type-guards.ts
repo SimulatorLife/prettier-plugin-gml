@@ -566,6 +566,48 @@ export function isControlFlowExitStatement(node: unknown): node is MutableGameMa
 }
 
 /**
+ * Frozen Set of AST node type strings that represent traditional iteration-based
+ * loop constructs. Built once at module load so `isLoopLikeNode` can perform a
+ * single O(1) `Set.has()` lookup rather than four chained string comparisons.
+ *
+ * WithStatement is intentionally absent: although it iterates over object
+ * instances in GML, its scope-change semantics differ from pure loops and make
+ * it unsuitable for generic loop optimisations such as condition hoisting or
+ * loop-invariant code motion. Callers that also need WithStatement should add
+ * their own `|| isWithStatementNode(node)` check on top of this guard.
+ */
+const LOOP_LIKE_NODE_TYPES = new Set<string>([FOR_STATEMENT, WHILE_STATEMENT, DO_UNTIL_STATEMENT, REPEAT_STATEMENT]);
+
+/**
+ * Type guard for traditional iteration-based loop nodes.
+ *
+ * Returns `true` when the node is a ForStatement, WhileStatement,
+ * DoUntilStatement, or RepeatStatement — the four loop constructs in GML that
+ * carry a loop condition and support `break`/`continue` control flow.
+ *
+ * This helper was extracted to eliminate duplicate loop-type classification
+ * logic that independently appeared in:
+ *  - `logical-expression-optimize-logical-expressions.ts` (`isLoopStatement`)
+ *  - `prefer-loop-invariant-expressions-rule.ts` (`LOOP_NODE_TYPES` + `isLoopNode`)
+ *
+ * @example
+ * ```ts
+ * if (Core.isLoopLikeNode(node)) {
+ *   // node is guaranteed to be ForStatement | WhileStatement |
+ *   // DoUntilStatement | RepeatStatement
+ * }
+ * ```
+ */
+export function isLoopLikeNode(node: unknown): node is MutableGameMakerAstNode {
+    if (node == null || typeof node !== "object") {
+        return false;
+    }
+
+    const type = (node as { type?: unknown }).type;
+    return typeof type === "string" && LOOP_LIKE_NODE_TYPES.has(type);
+}
+
+/**
  * NOTE: Several commonly-used type guards are already defined in node-helpers.ts
  * and are re-exported from there for historical reasons and enhanced functionality:
  *
