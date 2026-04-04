@@ -1,10 +1,12 @@
 /**
  * Shared timing utilities for the runtime-wrapper workspace.
  *
- * This module provides high-resolution timing for duration measurements using performance.now()
- * while preserving Date.now() for wall-clock timestamps. The performance API provides
- * sub-millisecond precision and monotonic timestamps that are immune to system clock adjustments,
- * making it ideal for measuring patch application durations in hot-reload scenarios.
+ * This module provides high-resolution timing for duration measurements using performance.now().
+ * The performance API provides sub-millisecond precision and monotonic timestamps that are
+ * immune to system clock adjustments, making it ideal for measuring patch application
+ * durations in hot-reload scenarios.
+ *
+ * For wall-clock timestamps (absolute time recorded in metrics), call `Date.now()` directly.
  *
  * These helpers are cross-cutting within the workspace and are used by both the runtime
  * and websocket layers, so they live in a dedicated timing domain rather than being
