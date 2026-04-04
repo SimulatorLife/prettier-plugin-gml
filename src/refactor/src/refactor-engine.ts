@@ -114,6 +114,9 @@ function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Arr
                 continue;
             }
 
+            // Replace the entire entry when the incoming occurrence covers a wider span so
+            // that all fields (including `kind`) come from the dominant occurrence rather
+            // than forming a hybrid with stale metadata from the first entry seen.
             if (occurrence.end > deduplicated[existingIndex].end) {
                 deduplicated[existingIndex] = occurrence;
             }
