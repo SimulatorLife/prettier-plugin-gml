@@ -1277,15 +1277,39 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                 const replacementCacheKey = `${targetNode.type}:${sourceTextOfNode}`;
                 let replacement = replacementByCandidateText.get(replacementCacheKey);
                 if (replacement === undefined) {
-                    replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
+                    let replacementKind:
+                        | "none"
+                        | "constantNumeric"
+                        | "fastDotProduct"
+                        | "manualNormalization"
+                        | "divisionSimplification" = "none";
+
+                    if (NUMERIC_LITERAL_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+                        replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
+                        if (replacement) {
+                            replacementKind = "constantNumeric";
+                        }
+                    }
+
                     if (!replacement) {
                         replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
+                        if (replacement) {
+                            replacementKind = "fastDotProduct";
+                        }
                     }
+
                     if (!replacement && shouldAttemptManualNormalization(sourceTextOfNode)) {
                         replacement = attemptManualNormalization(sourceText, targetNode);
+                        if (replacement) {
+                            replacementKind = "manualNormalization";
+                        }
                     }
+
                     if (!replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
                         replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
+                        if (replacement) {
+                            replacementKind = "divisionSimplification";
+                        }
                     } else if (replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
                         const divisionFallbackReplacement = simplifyMathExpression(
                             sourceText,
@@ -1298,12 +1322,15 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                                 countDivisionLikeOperators(replacement)
                         ) {
                             replacement = divisionFallbackReplacement;
+                            replacementKind = "divisionSimplification";
                         }
                     }
 
                     replacement =
                         replacement && replacement !== sourceTextOfNode
-                            ? applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement)
+                            ? replacementKind === "fastDotProduct"
+                                ? replacement
+                                : applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement)
                             : null;
 
                     replacementByCandidateText.set(replacementCacheKey, replacement);
