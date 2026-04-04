@@ -2989,4 +2989,71 @@ void describe("GmlSemanticBridge tests", () => {
         assert.ok(playerTarget);
         assert.equal(playerTarget?.occurrences?.[0]?.start, 10);
     });
+
+    void it("collectGlobalAndInstanceNamingTargets skips instance and global variables shadowing macros and enums", async () => {
+        const bridge = new GmlSemanticBridge(
+            {
+                identifiers: {
+                    macros: {
+                        "macro:INPUT_KEYBOARD": { identifierId: "macro:INPUT_KEYBOARD", name: "INPUT_KEYBOARD" },
+                        "macro:MACRO_ONLY": { identifierId: "macro:MACRO_ONLY", name: "MACRO_ONLY" }
+                    },
+                    enums: {
+                        "enum:e__InputSource": { identifierId: "enum:e__InputSource", name: "e__InputSource" }
+                    },
+                    globalVariables: {
+                        "var:INPUT_KEYBOARD": {
+                            identifierId: "var:INPUT_KEYBOARD",
+                            name: "INPUT_KEYBOARD",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        },
+                        "var:e__InputSource": {
+                            identifierId: "var:e__InputSource",
+                            name: "e__InputSource",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        },
+                        "var:validGlobal": {
+                            identifierId: "var:validGlobal",
+                            name: "validGlobal",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        }
+                    },
+                    instanceVariables: {
+                        "var:INPUT_KEYBOARD": {
+                            identifierId: "var:INPUT_KEYBOARD",
+                            name: "INPUT_KEYBOARD",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        },
+                        "var:e__InputSource": {
+                            identifierId: "var:e__InputSource",
+                            name: "e__InputSource",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        },
+                        "var:validInstance": {
+                            identifierId: "var:validInstance",
+                            name: "validInstance",
+                            declarations: [{ filePath: "fake.gml", start: { index: 0 }, end: { index: 1 } }]
+                        }
+                    }
+                },
+                resources: {},
+                files: {
+                    "fake.gml": { path: "fake.gml", declarations: [] }
+                },
+                scopes: {}
+            } as any,
+            "/fake/path"
+        );
+
+        const targets = await bridge.listNamingConventionTargets(["fake.gml"]);
+        const globalTargets = targets.filter((t) => t.category === "globalVariable").map((t) => t.name);
+        const instanceTargets = targets.filter((t) => t.category === "instanceVariable").map((t) => t.name);
+
+        assert.deepEqual(globalTargets, ["validGlobal"], "globalVariables masking a macro/enum should be excluded");
+        assert.deepEqual(
+            instanceTargets,
+            ["validInstance"],
+            "instanceVariables masking a macro/enum should be excluded"
+        );
+    });
 });
