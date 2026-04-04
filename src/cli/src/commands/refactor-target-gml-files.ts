@@ -17,7 +17,10 @@ function listIndexedGmlFilePaths(projectIndex: unknown): Array<string> {
     }
 
     return Object.keys(files)
-        .filter((filePath) => path.extname(filePath).toLowerCase() === ".gml")
+        .filter((filePath) => {
+            const ext = path.extname(filePath).toLowerCase();
+            return ext === ".gml" || ext === ".yy";
+        })
         .toSorted();
 }
 

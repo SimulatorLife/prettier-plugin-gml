@@ -473,6 +473,21 @@ function stripOneAffixDirection(
         }
     }
 
+    if (isPrefix && ruleAffix.length >= 2 && ruleAffix.endsWith("_")) {
+        const coreTargetPrefix = ruleAffix.slice(0, -1);
+        const match = coreName.match(/^([a-z]+)(_|[A-Z])(.*)$/);
+
+        if (match) {
+            const prefixWord = match[1];
+            const separator = match[2];
+            const remainder = match[3];
+
+            if (prefixWord === coreTargetPrefix || prefixWord === coreTargetPrefix[0]) {
+                return separator === "_" ? remainder : separator + remainder;
+            }
+        }
+    }
+
     return coreName;
 }
 

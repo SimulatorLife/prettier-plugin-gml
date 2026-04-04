@@ -212,6 +212,7 @@ const SCRIPT_CALLABLE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCat
 const RESOURCE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> = [
     "animationCurveResourceName",
     "audioResourceName",
+    "constructorFunction",
     "extensionResourceName",
     "fontResourceName",
     "noteResourceName",
@@ -223,6 +224,7 @@ const RESOURCE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> 
     "sequenceResourceName",
     "shaderResourceName",
     "spriteResourceName",
+    "structDeclaration",
     "tilesetResourceName",
     "timelineResourceName"
 ];
@@ -275,7 +277,7 @@ function createNamingTargetPathPredicate(
     );
     const selectedOwnerDirectories = new Set(
         [...normalizedIncludedPaths]
-            .filter((candidatePath) => candidatePath.endsWith(".gml"))
+            .filter((candidatePath) => candidatePath.endsWith(".gml") || candidatePath.endsWith(".yy"))
             .map((candidatePath) => path.posix.dirname(candidatePath))
     );
 
@@ -1611,15 +1613,20 @@ export class GmlSemanticBridge {
             return this.diskIdentifierOccurrenceIndexesByFilePath.get(filePath) ?? null;
         }
 
-        const sourceText = this.readProjectSourceText(filePath);
-        if (sourceText === null) {
+        try {
+            const absolutePath = path.resolve(this.projectRoot, filePath);
+            if (!fs.existsSync(absolutePath)) {
+                this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, null);
+                return null;
+            }
+            const content = fs.readFileSync(absolutePath, "utf8");
+            const index = GmlIdentifierOccurrenceIndex.fromSourceText(content);
+            this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, index);
+            return index;
+        } catch {
             this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, null);
             return null;
         }
-
-        const occurrenceIndex = GmlIdentifierOccurrenceIndex.fromSourceText(sourceText);
-        this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, occurrenceIndex);
-        return occurrenceIndex;
     }
 
     /**
@@ -1865,7 +1872,7 @@ export class GmlSemanticBridge {
 
         const seen = new Set<string>();
         return occurrences.filter((occ) => {
-            if (!Core.isNonEmptyString(occ.path) || occ.end <= occ.start) {
+            if (!Core.isNonEmptyString(occ.path) || occ.end < occ.start) {
                 return false;
             }
 
