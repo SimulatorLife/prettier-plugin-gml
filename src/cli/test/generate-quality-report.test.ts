@@ -640,6 +640,44 @@ void test("readTestResults prefers canonical tests.xml results over auxiliary XM
 
     assert.ok(record);
     assert.strictEqual(record.status, "passed");
+    assert.strictEqual(head.stats.total, 1);
+    assert.strictEqual(head.stats.passed, 1);
+    assert.strictEqual(head.stats.failed, 0);
+    assert.strictEqual(head.stats.skipped, 0);
+});
+
+void test("readTestResults counts deduplicated records when canonical report replaces auxiliary failure", () => {
+    const resultsDir = path.join(workspace, "reports");
+
+    writeXml(
+        resultsDir,
+        "performance",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="shared test" classname="suite" file="/repo/src/refactor/dist/test/naming-convention-performance.test.js">
+          <failure message="performance threshold exceeded" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        resultsDir,
+        "tests",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="shared test" classname="suite" file="/repo/src/refactor/dist/test/naming-convention-performance.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const head = readTestResults(["reports"], { workspace });
+
+    assert.strictEqual(head.results.size, 1);
+    assert.strictEqual(head.stats.total, 1);
+    assert.strictEqual(head.stats.passed, 1);
+    assert.strictEqual(head.stats.failed, 0);
+    assert.strictEqual(head.stats.skipped, 0);
 });
 
 void test("does not report regressions when only auxiliary performance.xml differs for the same test key", () => {
