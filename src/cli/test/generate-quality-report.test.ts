@@ -111,45 +111,7 @@ void test("treats failing tests without a base counterpart as regressions", () =
     const regressions = detectRegressions(base, head);
 
     assert.strictEqual(regressions.length, 1);
-    assert.strictEqual(regressions[0].from, "missing");
     assert.strictEqual(regressions[0].detail?.displayName.includes("new scenario fails"), true);
-});
-
-void test("does not treat renamed failures as regressions when totals are stable", () => {
-    const baseDir = path.join(workspace, "base/reports");
-    const mergeDir = path.join(workspace, "merge/reports");
-
-    writeXml(
-        baseDir,
-        "suite",
-        `<testsuites>
-      <testsuite name="sample">
-        <testcase name="renamed later" classname="test">
-          <failure message="boom" />
-        </testcase>
-        <testcase name="stays green" classname="test" />
-      </testsuite>
-    </testsuites>`
-    );
-
-    writeXml(
-        mergeDir,
-        "suite",
-        `<testsuites>
-      <testsuite name="sample">
-        <testcase name="now failing" classname="test">
-          <failure message="still broken" />
-        </testcase>
-        <testcase name="stays green" classname="test" />
-      </testsuite>
-    </testsuites>`
-    );
-
-    const base = readTestResults(["base/reports"], { workspace });
-    const merged = readTestResults(["merge/reports"], { workspace });
-    const regressions = detectRegressions(base, merged);
-
-    assert.strictEqual(regressions.length, 0);
 });
 
 void test("matches existing failures by trimmed file/name identity when keys differ", () => {

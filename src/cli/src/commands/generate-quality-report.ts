@@ -885,10 +885,6 @@ function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions 
     };
 }
 
-function shouldSkipRegressionDetection(baseStats, targetStats) {
-    return baseStats && targetStats && baseStats.total === targetStats.total && targetStats.failed <= baseStats.failed;
-}
-
 /**
  * Normalize result-set inputs so downstream helpers can rely on Map semantics.
  */
@@ -1115,10 +1111,6 @@ function collectResolvedFailures({ baseResults, targetResults }) {
 }
 
 function detectRegressions(baseResults, targetResults) {
-    if (shouldSkipRegressionDetection(baseResults?.stats, targetResults?.stats)) {
-        return [];
-    }
-
     return collectRegressions({
         baseResults: resolveResultsMap(baseResults),
         targetResults: resolveResultsMap(targetResults)
