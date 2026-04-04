@@ -1792,6 +1792,362 @@ void test("executeConfiguredCodemods handles duplicate case-only local variable 
     });
 });
 
+void test("executeConfiguredCodemods handles repeated local variables during resource renames", async () => {
+    const objectSource = [
+        "function Draw_0() {",
+        "    for (var i = 0; i < 2; i++) {",
+        "        var IK = twojointik(i);",
+        "        draw_sprite(IK[0], IK[1]);",
+        "    }",
+        "",
+        "    for (var i = 0; i < 2; i++) {",
+        "        var IK = twojointik(i + 1);",
+        "        draw_sprite(IK[0], IK[1]);",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+    const scriptSource = ["function twojointik(value) {", "    return [value, value + 1];", "}", ""].join("\n");
+
+    const roomMetadataOriginal = JSON.stringify(
+        {
+            "%Name": "Room1",
+            name: "Room1",
+            resourceType: "GMRoom",
+            resourcePath: "rooms/Room1/Room1.yy",
+            instanceCreationOrder: [{ name: "inst_7056BF4E", path: "rooms/Room1/Room1.yy" }],
+            layers: [
+                {
+                    $GMRInstance: "v4",
+                    name: "inst_7056BF4E",
+                    objectId: { name: "oSpider", path: "objects/oSpider/oSpider.yy" },
+                    resourceType: "GMRInstance",
+                    resourceVersion: "2.0"
+                }
+            ]
+        },
+        null,
+        2
+    );
+    const objectMetadataOriginal = JSON.stringify(
+        {
+            "%Name": "oSpider",
+            name: "oSpider",
+            resourceType: "GMObject",
+            resourcePath: "objects/oSpider/oSpider.yy"
+        },
+        null,
+        2
+    );
+    const scriptMetadataOriginal = JSON.stringify(
+        {
+            "%Name": "InverseKinematics",
+            name: "InverseKinematics",
+            resourceType: "GMScript",
+            resourcePath: "scripts/InverseKinematics/InverseKinematics.yy"
+        },
+        null,
+        2
+    );
+    const projectMetadataOriginal = JSON.stringify(
+        {
+            name: "MyGame",
+            resourceType: "GMProject",
+            resources: [
+                { id: { name: "oSpider", path: "objects/oSpider/oSpider.yy" } },
+                { id: { name: "Room1", path: "rooms/Room1/Room1.yy" } },
+                { id: { name: "InverseKinematics", path: "scripts/InverseKinematics/InverseKinematics.yy" } }
+            ],
+            RoomOrderNodes: [{ roomId: { name: "Room1", path: "rooms/Room1/Room1.yy" } }]
+        },
+        null,
+        2
+    );
+
+    const firstIkDefinitionStart = objectSource.indexOf("IK =");
+    const firstIkReferenceStart = objectSource.indexOf("IK[0]");
+    const firstIkSecondReferenceStart = objectSource.indexOf("IK[1]");
+    const secondIkDefinitionStart = objectSource.lastIndexOf("IK =");
+    const secondIkReferenceStart = objectSource.lastIndexOf("IK[0]");
+    const secondIkSecondReferenceStart = objectSource.lastIndexOf("IK[1]");
+    const twojointikDefinitionStart = scriptSource.indexOf("twojointik");
+    const twojointikResourceReferenceStart = projectMetadataOriginal.indexOf("InverseKinematics");
+
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "IK",
+                category: "localVariable",
+                path: "objects/oSpider/Draw_0.gml",
+                scopeId: "scope:function:Draw_0",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "objects/oSpider/Draw_0.gml",
+                        start: firstIkDefinitionStart,
+                        end: firstIkDefinitionStart + 2,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:Draw_0:first"
+                    },
+                    {
+                        path: "objects/oSpider/Draw_0.gml",
+                        start: firstIkReferenceStart,
+                        end: firstIkReferenceStart + 2,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:Draw_0:first"
+                    },
+                    {
+                        path: "objects/oSpider/Draw_0.gml",
+                        start: firstIkSecondReferenceStart,
+                        end: firstIkSecondReferenceStart + 2,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:Draw_0:first"
+                    }
+                ]
+            },
+            {
+                name: "IK",
+                category: "localVariable",
+                path: "objects/oSpider/Draw_0.gml",
+                scopeId: "scope:function:Draw_0",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "objects/oSpider/Draw_0.gml",
+                        start: secondIkDefinitionStart,
+                        end: secondIkDefinitionStart + 2,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:Draw_0:second"
+                    },
+                    {
+                        path: "objects/oSpider/Draw_0.gml",
+                        start: secondIkReferenceStart,
+                        end: secondIkReferenceStart + 2,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:Draw_0:second"
+                    },
+                    {
+                        path: "objects/oSpider/Draw_0.gml",
+                        start: secondIkSecondReferenceStart,
+                        end: secondIkSecondReferenceStart + 2,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:Draw_0:second"
+                    }
+                ]
+            },
+            {
+                name: "twojointik",
+                category: "scriptResourceName",
+                path: "scripts/InverseKinematics/InverseKinematics.gml",
+                scopeId: null,
+                symbolId: "gml/scripts/InverseKinematics",
+                occurrences: [
+                    {
+                        path: "scripts/InverseKinematics/InverseKinematics.gml",
+                        start: twojointikDefinitionStart,
+                        end: twojointikDefinitionStart + "twojointik".length,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: null
+                    }
+                ]
+            },
+            {
+                name: "InverseKinematics",
+                category: "scriptResourceName",
+                path: "MyGame.yyp",
+                scopeId: null,
+                symbolId: "gml/scripts/InverseKinematics",
+                occurrences: [
+                    {
+                        path: "MyGame.yyp",
+                        start: twojointikResourceReferenceStart,
+                        end: twojointikResourceReferenceStart + "InverseKinematics".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: null
+                    }
+                ]
+            },
+            {
+                name: "oSpider",
+                category: "objectResourceName",
+                path: "objects/oSpider/oSpider.yy",
+                scopeId: null,
+                symbolId: "gml/objects/oSpider",
+                occurrences: []
+            },
+            {
+                name: "Room1",
+                category: "roomResourceName",
+                path: "rooms/Room1/Room1.yy",
+                scopeId: null,
+                symbolId: "gml/rooms/Room1",
+                occurrences: []
+            }
+        ],
+        getAdditionalSymbolEdits: (symbolId, newName) => {
+            if (symbolId === "gml/objects/oSpider") {
+                const workspace = new Refactor.WorkspaceEdit();
+                workspace.addMetadataEdit(
+                    "objects/oSpider/oSpider.yy",
+                    objectMetadataOriginal
+                        .replaceAll('"oSpider"', `"${newName}"`)
+                        .replaceAll("objects/oSpider/oSpider.yy", `objects/${newName}/${newName}.yy`)
+                );
+                workspace.addMetadataEdit(
+                    "rooms/Room1/Room1.yy",
+                    roomMetadataOriginal
+                        .replaceAll('"oSpider"', `"${newName}"`)
+                        .replaceAll("objects/oSpider/oSpider.yy", `objects/${newName}/${newName}.yy`)
+                );
+                workspace.addMetadataEdit(
+                    "MyGame.yyp",
+                    projectMetadataOriginal
+                        .replaceAll('"oSpider"', `"${newName}"`)
+                        .replaceAll("objects/oSpider/oSpider.yy", `objects/${newName}/${newName}.yy`)
+                );
+                workspace.addFileRename("objects/oSpider/oSpider.yy", `objects/${newName}/${newName}.yy`);
+                workspace.addFileRename("objects/oSpider", `objects/${newName}`);
+                return workspace;
+            }
+
+            if (symbolId === "gml/rooms/Room1") {
+                const workspace = new Refactor.WorkspaceEdit();
+                workspace.addMetadataEdit(
+                    "rooms/Room1/Room1.yy",
+                    roomMetadataOriginal
+                        .replaceAll('"Room1"', `"${newName}"`)
+                        .replaceAll("rooms/Room1/Room1.yy", `rooms/${newName}/${newName}.yy`)
+                );
+                workspace.addMetadataEdit(
+                    "MyGame.yyp",
+                    projectMetadataOriginal
+                        .replaceAll('"Room1"', `"${newName}"`)
+                        .replaceAll("rooms/Room1/Room1.yy", `rooms/${newName}/${newName}.yy`)
+                );
+                workspace.addFileRename("rooms/Room1/Room1.yy", `rooms/${newName}/${newName}.yy`);
+                workspace.addFileRename("rooms/Room1", `rooms/${newName}`);
+                return workspace;
+            }
+
+            if (symbolId === "gml/scripts/InverseKinematics") {
+                const workspace = new Refactor.WorkspaceEdit();
+                workspace.addMetadataEdit(
+                    "scripts/InverseKinematics/InverseKinematics.yy",
+                    scriptMetadataOriginal
+                        .replaceAll('"InverseKinematics"', `"${newName}"`)
+                        .replaceAll(
+                            "scripts/InverseKinematics/InverseKinematics.yy",
+                            `scripts/${newName}/${newName}.yy`
+                        )
+                );
+                workspace.addMetadataEdit(
+                    "MyGame.yyp",
+                    projectMetadataOriginal
+                        .replaceAll('"InverseKinematics"', `"${newName}"`)
+                        .replaceAll(
+                            "scripts/InverseKinematics/InverseKinematics.yy",
+                            `scripts/${newName}/${newName}.yy`
+                        )
+                );
+                workspace.addFileRename(
+                    "scripts/InverseKinematics/InverseKinematics.yy",
+                    `scripts/${newName}/${newName}.yy`
+                );
+                workspace.addFileRename("scripts/InverseKinematics", `scripts/${newName}`);
+                return workspace;
+            }
+
+            return null;
+        }
+    };
+
+    const fileContents = new Map<string, string>([
+        ["objects/oSpider/Draw_0.gml", objectSource],
+        ["scripts/InverseKinematics/InverseKinematics.gml", scriptSource],
+        ["objects/oSpider/oSpider.yy", objectMetadataOriginal],
+        ["rooms/Room1/Room1.yy", roomMetadataOriginal],
+        ["scripts/InverseKinematics/InverseKinematics.yy", scriptMetadataOriginal],
+        ["MyGame.yyp", projectMetadataOriginal]
+    ]);
+    const writes = new Map<string, string>();
+    const engine = new Refactor.RefactorEngine({ semantic });
+    Object.assign(engine, {
+        async applyWorkspaceEdit(workspace: InstanceType<typeof Refactor.WorkspaceEdit>) {
+            const applied = new Map<string, string>();
+            for (const metadataEdit of workspace.metadataEdits) {
+                fileContents.set(metadataEdit.path, metadataEdit.content);
+                writes.set(metadataEdit.path, metadataEdit.content);
+                applied.set(metadataEdit.path, "");
+            }
+
+            for (const textEdit of workspace.edits) {
+                const previous = fileContents.get(textEdit.path) ?? "";
+                const next = previous.slice(0, textEdit.start) + textEdit.newText + previous.slice(textEdit.end);
+                fileContents.set(textEdit.path, next);
+                writes.set(textEdit.path, next);
+                applied.set(textEdit.path, "");
+            }
+
+            return applied;
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["objects/oSpider/Draw_0.gml", "scripts/InverseKinematics/InverseKinematics.gml"],
+        config: {
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "lower_snake"
+                        },
+                        scriptResourceName: {
+                            caseStyle: "lower_snake"
+                        },
+                        objectResourceName: {
+                            caseStyle: "lower_snake",
+                            prefix: "obj_"
+                        },
+                        roomResourceName: {
+                            caseStyle: "lower_snake",
+                            prefix: "rm_"
+                        }
+                    }
+                }
+            }
+        },
+        readFile: async (filePath) => fileContents.get(filePath) ?? "",
+        writeFile: async (filePath, content) => {
+            fileContents.set(filePath, content);
+            writes.set(filePath, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+
+    const rewrittenObjectSource = fileContents.get("objects/oSpider/Draw_0.gml") ?? "";
+    assert.match(rewrittenObjectSource, /var ik = twojointik\(i\);/);
+    assert.match(rewrittenObjectSource, /draw_sprite\(ik\[0\], ik\[1\]\);/);
+    assert.match(rewrittenObjectSource, /var ik = twojointik\(i \+ 1\);/);
+    assert.doesNotMatch(rewrittenObjectSource, /\bIK\b/);
+
+    const rewrittenScriptSource = fileContents.get("scripts/InverseKinematics/InverseKinematics.gml") ?? "";
+    assert.match(rewrittenScriptSource, /function twojointik\(value\)/);
+    assert.ok(
+        result.summaries[0]?.warnings.some((warning) => warning.includes("No occurrences found")),
+        "expected warning coverage for no-occurrence resource renames seen in vendor projects"
+    );
+
+    assert.doesNotThrow(() => {
+        const ast = Parser.GMLParser.parse(rewrittenObjectSource);
+        assert.ok(ast && ast.type === "Program");
+    });
+});
+
 void test("executeConfiguredCodemods surfaces namingConvention hot reload warnings from top-level plans", async () => {
     const semantic: PartialSemanticAnalyzer = {
         listNamingConventionTargets: async () => [
