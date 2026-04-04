@@ -1,6 +1,7 @@
 import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
+import { areExpressionNodesEquivalentIgnoringParentheses } from "../ast-node-equivalence.js";
 import { printExpression, readNodeText } from "../print-expression.js";
 import {
     applySourceTextEdits,
@@ -51,79 +52,10 @@ const SUPPORTED_OPAQUE_MATH_FACTOR_TYPES = new Set([
     "MemberIndexExpression",
     "CallExpression"
 ]);
-const IGNORED_AST_METADATA_KEYS = new Set(["start", "end", "range", "loc", "parent", "comments", "tokens"]);
 const COMMENT_SEQUENCE_PATTERN = /\/\/|\/\*|\*\//u;
 const MANUAL_MATH_CALL_SIGNAL_PATTERN =
     /\b(?:arccos|arcsin|arctan|arctan2|cos|darccos|darcsin|darctan|darctan2|dcos|degtorad|dsin|dtan|exp|lengthdir_[xy]|ln|log2|mean|point_direction|point_distance(?:_3d)?|power|radtodeg|sin|sqr|sqrt|tan)\s*\(/u;
 const NUMERIC_LITERAL_SIGNAL_PATTERN = /(?<![\w.])(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?(?![\w.])/iu;
-
-function areAstValuesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
-    if (left === right) {
-        return true;
-    }
-
-    if (left === null || right === null) {
-        return false;
-    }
-
-    if (Array.isArray(left) || Array.isArray(right)) {
-        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
-            return false;
-        }
-
-        for (const [index, element] of left.entries()) {
-            if (!areExpressionNodesEquivalentIgnoringParentheses(element, right[index])) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    if (typeof left !== typeof right) {
-        return false;
-    }
-
-    if (typeof left !== "object" || typeof right !== "object") {
-        return false;
-    }
-
-    const leftRecord = left as Record<string, unknown>;
-    const rightRecord = right as Record<string, unknown>;
-
-    for (const [leftKey, leftValue] of Object.entries(leftRecord)) {
-        if (IGNORED_AST_METADATA_KEYS.has(leftKey)) {
-            continue;
-        }
-
-        if (!(leftKey in rightRecord)) {
-            return false;
-        }
-
-        if (!areExpressionNodesEquivalentIgnoringParentheses(leftValue, rightRecord[leftKey])) {
-            return false;
-        }
-    }
-
-    for (const rightKey of Object.keys(rightRecord)) {
-        if (IGNORED_AST_METADATA_KEYS.has(rightKey)) {
-            continue;
-        }
-
-        if (!(rightKey in leftRecord)) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-function areExpressionNodesEquivalentIgnoringParentheses(left: unknown, right: unknown): boolean {
-    return areAstValuesEquivalentIgnoringParentheses(
-        unwrapParenthesized(left as Parameters<typeof unwrapParenthesized>[0]),
-        unwrapParenthesized(right as Parameters<typeof unwrapParenthesized>[0])
-    );
-}
 
 function tryEvaluateExpression(node: any): any {
     const unwrapped = unwrapParenthesized(node);
