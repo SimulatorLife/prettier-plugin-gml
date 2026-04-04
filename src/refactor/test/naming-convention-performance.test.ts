@@ -149,15 +149,14 @@ function buildNamingConventionCodemodExecutor(
     projectRoot: string
 ): () => Promise<ConfiguredCodemodRunResult> {
     const config: RefactorProjectConfig = {
-        namingConventionPolicy: {
-            rules: {
-                localVariable: {
-                    caseStyle: "camel"
+        codemods: {
+            namingConvention: {
+                rules: {
+                    localVariable: {
+                        caseStyle: "camel"
+                    }
                 }
             }
-        },
-        codemods: {
-            namingConvention: {}
         }
     };
 

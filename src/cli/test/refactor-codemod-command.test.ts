@@ -49,16 +49,15 @@ void test("refactor codemod --list discovers gmloop.json and tolerates unrelated
 void test("refactor codemod --only filters configured codemods during listing", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    localVariable: {
-                        caseStyle: "camel"
-                    }
-                }
-            },
             codemods: {
                 loopLengthHoisting: {},
-                namingConvention: {}
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "camel"
+                        }
+                    }
+                }
             }
         }
     });
@@ -80,15 +79,14 @@ void test("refactor codemod --only filters configured codemods during listing", 
 void test("refactor codemod --write applies configured namingConvention renames across project resources", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    scriptResourceName: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        scriptResourceName: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -128,18 +126,17 @@ void test("refactor codemod --write applies configured namingConvention renames 
 void test("refactor codemod --write preserves allowed leading underscores while applying safe snake-case renames", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    resource: {
-                        caseStyle: "lower_snake"
-                    },
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        },
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -193,18 +190,17 @@ void test("refactor codemod --write preserves allowed leading underscores while 
 void test("refactor codemod --write renames sibling object metadata inside a folder renamed earlier in the same batch", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    resource: {
-                        caseStyle: "lower_snake"
-                    },
-                    objectResourceName: {
-                        prefix: "obj_"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        },
+                        objectResourceName: {
+                            prefix: "obj_"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -270,18 +266,17 @@ void test("refactor codemod --write renames sibling object metadata inside a fol
 void test("refactor codemod --write normalizes existing script metadata resourceType/resourcePath order", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    resource: {
-                        caseStyle: "lower_snake"
-                    },
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        },
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -323,18 +318,17 @@ void test("refactor codemod --write normalizes existing script metadata resource
 void test("refactor codemod --write does not add resourcePath to scripts that did not have one", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    resource: {
-                        caseStyle: "lower_snake"
-                    },
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        },
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -369,15 +363,14 @@ void test("refactor codemod --write does not add resourcePath to scripts that di
 void test("refactor codemod --write renames implicit instance variables across object event files", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -410,15 +403,14 @@ void test("refactor codemod --write renames implicit instance variables across o
 void test("refactor codemod --write renames implicit instance variables across inherited child objects and dotted object references", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -542,21 +534,20 @@ void test("refactor codemod --write renames implicit instance variables across i
 void test("refactor codemod --write does not overlap object-resource renames with implicit instance-variable renames", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    resource: {
-                        caseStyle: "lower_snake"
-                    },
-                    objectResourceName: {
-                        prefix: "obj_"
-                    },
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        },
+                        objectResourceName: {
+                            prefix: "obj_"
+                        },
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -625,19 +616,18 @@ void test("refactor codemod --write does not overlap object-resource renames wit
 void test("refactor codemod --write preserves valid enum member accesses when locals share the same name", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    enum: {
-                        prefix: "e",
-                        caseStyle: "camel"
-                    },
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        enum: {
+                            prefix: "e",
+                            caseStyle: "camel"
+                        },
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -699,16 +689,15 @@ void test("refactor codemod --write preserves valid enum member accesses when lo
 void test("refactor codemod --write renames cross-file enum references and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    enum: {
-                        prefix: "e",
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        enum: {
+                            prefix: "e",
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -750,22 +739,21 @@ void test("refactor codemod --write renames cross-file enum references and repar
 void test("refactor codemod --write preserves enum members when same-name implicit instance-variable renames are applied", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    enum: {
-                        prefix: "e",
-                        caseStyle: "camel"
-                    },
-                    enumMember: {
-                        caseStyle: "upper_snake"
-                    },
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        enum: {
+                            prefix: "e",
+                            caseStyle: "camel"
+                        },
+                        enumMember: {
+                            caseStyle: "upper_snake"
+                        },
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -807,15 +795,14 @@ void test("refactor codemod --write preserves enum members when same-name implic
 void test("refactor codemod --write renames object resources together with object event references", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    objectResourceName: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        objectResourceName: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -867,19 +854,18 @@ void test("refactor codemod --write renames object resources together with objec
 void test("refactor codemod --write renames cross-file enum member references without splitting digit tokens", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    enum: {
-                        prefix: "e",
-                        caseStyle: "camel"
-                    },
-                    enumMember: {
-                        caseStyle: "upper_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        enum: {
+                            prefix: "e",
+                            caseStyle: "camel"
+                        },
+                        enumMember: {
+                            caseStyle: "upper_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -929,19 +915,18 @@ void test("refactor codemod --write renames cross-file enum member references wi
 void test("refactor codemod --write renames enum references embedded in macro declaration bodies", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    enum: {
-                        prefix: "e",
-                        caseStyle: "camel"
-                    },
-                    enumMember: {
-                        caseStyle: "upper_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        enum: {
+                            prefix: "e",
+                            caseStyle: "camel"
+                        },
+                        enumMember: {
+                            caseStyle: "upper_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1014,18 +999,17 @@ void test("refactor codemod --write renames enum references embedded in macro de
 void test("refactor codemod --write keeps same-name macros intact when renaming the owning script resource", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    resource: {
-                        caseStyle: "lower_snake"
-                    },
-                    macro: {
-                        caseStyle: "upper_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        },
+                        macro: {
+                            caseStyle: "upper_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1071,18 +1055,17 @@ void test("refactor codemod --write keeps same-name macros intact when renaming 
 void test("refactor codemod --write keeps project manifest entries aligned for batched case-only script resource renames", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    resource: {
-                        caseStyle: "lower_snake"
-                    },
-                    macro: {
-                        caseStyle: "upper_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        },
+                        macro: {
+                            caseStyle: "upper_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1121,22 +1104,21 @@ void test("refactor codemod --write keeps project manifest entries aligned for b
 void test("refactor codemod --write keeps reserved built-in local names intact and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    variable: {
-                        caseStyle: "lower_snake"
-                    },
-                    spriteResourceName: {
-                        prefix: "spr_",
-                        caseStyle: "lower_snake"
-                    }
-                },
-                exclusivePrefixes: {
-                    spr_: "spriteResourceName"
-                }
-            },
             codemods: {
-                namingConvention: {}
+                namingConvention: {
+                    rules: {
+                        variable: {
+                            caseStyle: "lower_snake"
+                        },
+                        spriteResourceName: {
+                            prefix: "spr_",
+                            caseStyle: "lower_snake"
+                        }
+                    },
+                    exclusivePrefixes: {
+                        spr_: "spriteResourceName"
+                    }
+                }
             }
         }
     });
@@ -1194,15 +1176,14 @@ void test("refactor codemod --write keeps reserved built-in local names intact a
 void test("refactor codemod --write skips local renames required by referenced macro expansions and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    variable: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        variable: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1251,15 +1232,14 @@ void test("refactor codemod --write skips local renames required by referenced m
 void test("refactor codemod --write skips argument renames that would collide with reachable locals and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    argument: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        argument: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1320,15 +1300,14 @@ void test("refactor codemod --write skips argument renames that would collide wi
 void test("refactor codemod --write updates constructor inheritance references when renaming struct declarations", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    structDeclaration: {
-                        caseStyle: "pascal"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        structDeclaration: {
+                            caseStyle: "pascal"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1364,15 +1343,14 @@ void test("refactor codemod --write updates constructor inheritance references w
 void test("refactor codemod --write updates constructor runtime type checks for coupled single-callable scripts", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    constructorFunction: {
-                        caseStyle: "pascal"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        constructorFunction: {
+                            caseStyle: "pascal"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1438,18 +1416,17 @@ void test("refactor codemod --write updates constructor runtime type checks for 
 void test("refactor codemod --write does not rename plain functions in mixed multi-callable scripts when only struct declarations are configured", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    structDeclaration: {
-                        caseStyle: "pascal"
-                    },
-                    resource: {
-                        caseStyle: "lower_snake"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        structDeclaration: {
+                            caseStyle: "pascal"
+                        },
+                        resource: {
+                            caseStyle: "lower_snake"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1499,15 +1476,14 @@ void test("refactor codemod --write does not rename plain functions in mixed mul
 void test("refactor codemod --write renames unique constructor static member calls across files", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    staticVariable: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        staticVariable: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1556,15 +1532,14 @@ void test("refactor codemod --write renames unique constructor static member cal
 void test("refactor codemod --write renames unique constructor static member bare calls inside constructors and with blocks", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    staticVariable: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        staticVariable: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1630,18 +1605,17 @@ void test("refactor codemod --write renames unique constructor static member bar
 void test("refactor codemod --write lets multi-function scripts rename the resource and same-name callable independently", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    scriptResourceName: {
-                        caseStyle: "lower_snake"
-                    },
-                    function: {
-                        caseStyle: "camel"
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        scriptResourceName: {
+                            caseStyle: "lower_snake"
+                        },
+                        function: {
+                            caseStyle: "camel"
+                        }
                     }
                 }
-            },
-            codemods: {
-                namingConvention: {}
             }
         }
     });
@@ -1729,16 +1703,15 @@ void test("refactor codemod --write applies configured loop-length hoisting chan
 void test("refactor codemod --write only rebuilds the project index between changed codemods", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
-            namingConventionPolicy: {
-                rules: {
-                    localVariable: {
-                        caseStyle: "camel"
-                    }
-                }
-            },
             codemods: {
                 loopLengthHoisting: {},
-                namingConvention: {}
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "camel"
+                        }
+                    }
+                }
             }
         }
     });

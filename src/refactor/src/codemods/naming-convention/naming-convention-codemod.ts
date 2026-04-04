@@ -418,13 +418,13 @@ export async function planNamingConventionCodemod(
         includeTopLevelPlan?: boolean;
     }
 ): Promise<NamingConventionCodemodPlan> {
-    const policy = parameters.config.namingConventionPolicy;
+    const policy = parameters.config.codemods?.namingConvention;
     if (!policy) {
         return {
             workspace: new WorkspaceEditClass(),
             violations: [],
             warnings: [
-                "The namingConvention codemod is enabled but refactor.namingConventionPolicy is not configured."
+                "The namingConvention codemod is enabled but refactor.codemods.namingConvention is not configured."
             ],
             errors: [],
             topLevelRenamePlan: null,

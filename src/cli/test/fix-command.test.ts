@@ -42,15 +42,14 @@ async function createSyntheticProject(): Promise<string> {
         `${JSON.stringify(
             {
                 refactor: {
-                    namingConventionPolicy: {
-                        rules: {
-                            scriptResourceName: {
-                                caseStyle: "camel"
+                    codemods: {
+                        namingConvention: {
+                            rules: {
+                                scriptResourceName: {
+                                    caseStyle: "camel"
+                                }
                             }
                         }
-                    },
-                    codemods: {
-                        namingConvention: {}
                     }
                 }
             },

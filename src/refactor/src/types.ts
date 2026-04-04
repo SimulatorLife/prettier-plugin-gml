@@ -92,7 +92,7 @@ export type RefactorCodemodId = "loopLengthHoisting" | "namingConvention";
  */
 export interface RefactorCodemodConfigMap {
     loopLengthHoisting: LoopLengthHoistingCodemodOptions;
-    namingConvention: Record<string, never>;
+    namingConvention: NamingConventionPolicy;
 }
 
 /**
@@ -106,7 +106,6 @@ export type RefactorCodemodConfigEntry<T extends RefactorCodemodId = RefactorCod
  * Refactor-specific configuration loaded from the `refactor` section of `gmloop.json`.
  */
 export interface RefactorProjectConfig {
-    namingConventionPolicy?: NamingConventionPolicy;
     codemods?: Partial<{ [K in RefactorCodemodId]: RefactorCodemodConfigEntry<K> }>;
 }
 
