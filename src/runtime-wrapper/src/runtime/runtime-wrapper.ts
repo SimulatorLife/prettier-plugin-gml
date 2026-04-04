@@ -1,6 +1,6 @@
 import { Core } from "@gmloop/core";
 
-import { getHighResolutionTime, getWallClockTime } from "../timing/index.js";
+import { getHighResolutionTime } from "../timing/index.js";
 import {
     applyPatchInternal,
     calculateTimingMetrics,
@@ -137,7 +137,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             patchKind: patch.kind,
             category,
             error: errorMessage,
-            timestamp: getWallClockTime(),
+            timestamp: Date.now(),
             stackTrace
         });
 
@@ -228,7 +228,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             const durationMs = getHighResolutionTime() - startTime;
 
             state.registry = nextRegistry;
-            recordAppliedPatch(patch, resolvedSnapshot, getWallClockTime(), durationMs);
+            recordAppliedPatch(patch, resolvedSnapshot, Date.now(), durationMs);
 
             return result;
         } catch (error) {
@@ -318,7 +318,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         };
 
         const startTime = getHighResolutionTime();
-        const wallClockStartTime = getWallClockTime();
+        const wallClockStartTime = Date.now();
         let appliedCount = 0;
 
         try {
@@ -330,7 +330,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 const durationMs = getHighResolutionTime() - patchStartTime;
 
                 state.registry = nextRegistry;
-                recordAppliedPatch(patch, snapshot, getWallClockTime(), durationMs);
+                recordAppliedPatch(patch, snapshot, Date.now(), durationMs);
                 appliedCount++;
             }
 
@@ -370,7 +370,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                     id: `batch:${appliedCount}_of_${validatedPatches.length}`
                 },
                 version: state.registry.version,
-                timestamp: getWallClockTime(),
+                timestamp: Date.now(),
                 action: "rollback",
                 error: message
             });
@@ -403,7 +403,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         state.patchHistory.push({
             patch: { kind: snapshot.kind, id: snapshot.id },
             version: state.registry.version,
-            timestamp: getWallClockTime(),
+            timestamp: Date.now(),
             action: "undo"
         });
 
@@ -488,7 +488,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
                 version: state.registry.version,
-                timestamp: getWallClockTime(),
+                timestamp: Date.now(),
                 action: "rollback",
                 error: message
             });

@@ -25,16 +25,6 @@ export function getHighResolutionTime(): number {
 }
 
 /**
- * Returns the current wall-clock time as a Unix timestamp.
- * Always uses Date.now() for timestamps that represent absolute time.
- *
- * @returns Unix timestamp in milliseconds
- */
-export function getWallClockTime(): number {
-    return Date.now();
-}
-
-/**
  * Measures the duration of a synchronous operation.
  *
  * @param fn - The operation to measure
