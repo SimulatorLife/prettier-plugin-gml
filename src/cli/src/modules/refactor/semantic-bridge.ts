@@ -2115,17 +2115,53 @@ export class GmlSemanticBridge {
         shouldIncludePath: NamingTargetPathPredicate,
         pushTarget: NamingTargetSink
     ): void {
-        this.collectExactIdentifierNamingTargets(
-            this.identifiers.globalVariables ?? {},
-            "globalVariable",
-            shouldIncludePath,
-            pushTarget
-        );
+        const knownShadowableNames = new Set<string>();
+
+        for (const entry of Object.values(this.identifiers.enums ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownShadowableNames.add(entry.name);
+            }
+        }
+        for (const entry of Object.values(this.identifiers.macros ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownShadowableNames.add(entry.name);
+            }
+        }
+        for (const resource of Object.values(this.resources ?? {})) {
+            if (typeof resource?.name === "string") {
+                knownShadowableNames.add(resource.name);
+            }
+        }
+
+        for (const entry of Object.values(this.identifiers.globalVariables ?? {})) {
+            const declarationFilePath = this.getDeclarationFilePath(entry);
+            const entryName = typeof entry?.name === "string" ? entry.name : entry?.key;
+            if (
+                !shouldIncludePath(declarationFilePath) ||
+                typeof entryName !== "string" ||
+                knownShadowableNames.has(entryName)
+            ) {
+                continue;
+            }
+
+            pushTarget({
+                category: "globalVariable",
+                name: entryName,
+                occurrences: [],
+                path: declarationFilePath,
+                scopeId: entry.scopeId ?? null,
+                symbolId: this.generateScipId(entry, entryName)
+            });
+        }
 
         for (const entry of Object.values(this.identifiers.instanceVariables ?? {})) {
             const declarationFilePath = this.getDeclarationFilePath(entry);
             const entryName = typeof entry?.name === "string" ? entry.name : entry?.key;
-            if (!shouldIncludePath(declarationFilePath) || typeof entryName !== "string") {
+            if (
+                !shouldIncludePath(declarationFilePath) ||
+                typeof entryName !== "string" ||
+                knownShadowableNames.has(entryName)
+            ) {
                 continue;
             }
 
