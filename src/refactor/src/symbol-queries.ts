@@ -105,12 +105,9 @@ function findNodeAtOffset(node: AstNode | null, offset: number): SymbolLocation 
 /**
  * Validate symbol exists in the semantic index.
  */
-export async function validateSymbolExists(
-    symbolId: string,
-    semantic: PartialSemanticAnalyzer | null
-): Promise<boolean> {
+export function validateSymbolExists(symbolId: string, semantic: PartialSemanticAnalyzer | null): Promise<boolean> {
     if (!semantic) {
-        throw new Error("RefactorEngine requires a semantic analyzer to validate symbols");
+        return Promise.reject(new Error("RefactorEngine requires a semantic analyzer to validate symbols"));
     }
 
     // Query the semantic analyzer's symbol table to determine whether the given
@@ -118,13 +115,13 @@ export async function validateSymbolExists(
     // non-existent symbols, which would otherwise silently succeed but produce
     // no edits, confusing users who expect feedback when they mistype a name.
     if (Core.hasMethods(semantic, "hasSymbol")) {
-        return await semantic.hasSymbol(symbolId);
+        return Promise.resolve(semantic.hasSymbol(symbolId));
     }
 
     // If the semantic analyzer doesn't expose a validation method, assume the
     // symbol exists. This fallback permits refactorings to proceed in
     // environments where the semantic layer is minimal or still initializing.
-    return true;
+    return Promise.resolve(true);
 }
 
 /**
@@ -208,17 +205,17 @@ export async function getSymbolDependents(
 /**
  * Resolve a symbol ID from an identifier name.
  */
-export async function resolveSymbolId(
+export function resolveSymbolId(
     identifierName: string,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<string | null> {
     if (!semantic) {
-        return null;
+        return Promise.resolve(null);
     }
 
     if (Core.hasMethods(semantic, "resolveSymbolId")) {
-        return await semantic.resolveSymbolId(identifierName);
+        return Promise.resolve(semantic.resolveSymbolId(identifierName));
     }
 
-    return null;
+    return Promise.resolve(null);
 }

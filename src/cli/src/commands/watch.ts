@@ -337,7 +337,7 @@ export function delayFileReadRetry(durationMs: number, abortSignal?: AbortSignal
  * Retry briefly when the file is observed as empty so we do not treat
  * transient truncation windows as a permanent transpilation failure.
  */
-async function readSourceFileWithTransientEmptyRetry(
+function readSourceFileWithTransientEmptyRetry(
     filePath: string,
     retryCount: number,
     retryDelayMs: number,
@@ -359,10 +359,10 @@ async function readSourceFileWithTransientEmptyRetry(
     };
 
     if (abortSignal?.aborted) {
-        return null;
+        return Promise.resolve(null);
     }
 
-    return await readAttempt(0);
+    return readAttempt(0);
 }
 
 async function runAutoInjectHotReload(
