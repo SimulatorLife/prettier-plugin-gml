@@ -54,7 +54,7 @@ pnpm run cli -- lint --fix path/to/project
 - `--max-warnings <count>` - Fail when warning count exceeds limit
 - `--config <path>` - Use an explicit flat config
 - `--no-default-config` - Disable bundled fallback config
-- `--project <path>` - Force project root directory or `.yyp` path
+- `--path <path>` - Force project root directory or `.yyp` path
 - `--project-strict` - Fail when linted files are outside forced project root
 - `--quiet` - Suppress fallback/config discovery warnings
 - `--verbose` - Emit per-file lint/format timing and total run duration diagnostics
@@ -70,7 +70,7 @@ plugin and language (`plugins: { gml: Lint.plugin }` and
 `GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` warning that points back to the affected
 files.
 
-`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
+`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--path` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
 
 If a target does not contain any `.gml` files, `lint` now prints an explicit
 guidance message explaining that only `.gml` sources are processed and includes
@@ -80,7 +80,7 @@ an example invocation.
 
 Runs the project-wide write workflow in one command:
 
-1. `refactor codemod --write`
+1. `refactor codemod --fix`
 2. `lint --fix`
 3. `format`
 
@@ -92,7 +92,7 @@ pnpm run cli -- fix --only namingConvention
 **Options:**
 
 - `[projectPath]` - Project directory or `.yyp` path (default: current project)
-- `--project-root <path>` - Explicit GameMaker project root directory or `.yyp` path
+- `--path <path>` - Explicit GameMaker project root directory or `.yyp` path
 - `--config <path>` - Explicit `gmloop.json` path for the refactor stage
 - `--only <ids>` - Comma-separated list of configured refactor codemod ids to run
 - `--verbose` - Enable verbose diagnostics for all three stages
@@ -571,7 +571,7 @@ pnpm run cli -- refactor --symbol-id gml/script/scr_old_name --new-name scr_new_
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 
 # Dry run to preview changes
-pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --dry-run
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth 
 
 # Validate hot reload compatibility
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --check-hot-reload
@@ -583,16 +583,16 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 pnpm run cli -- refactor codemod --list
 
 # Dry-run configured codemods inferred from the project config
-pnpm run cli -- refactor --project-root path/to/project
+pnpm run cli -- refactor --path path/to/project
 
 # Dry-run configured codemods
 pnpm run cli -- refactor codemod
 
 # Apply configured codemods to selected paths only
-pnpm run cli -- refactor codemod scripts/player --write
+pnpm run cli -- refactor codemod scripts/player --fix
 
 # Apply only one configured codemod
-pnpm run cli -- refactor codemod --only namingConvention --write
+pnpm run cli -- refactor codemod --only namingConvention --fix
 ```
 
 **Options:**
@@ -600,15 +600,15 @@ pnpm run cli -- refactor codemod --only namingConvention --write
 - `--symbol-id <id>` - SCIP-style symbol identifier to rename (e.g., gml/script/scr_player)
 - `--old-name <name>` - Current name of the symbol to rename
 - `--new-name <name>` - New name for the symbol (required)
-- `--project-root <path>` - Root directory of the GameMaker project (default: current directory)
-- `--dry-run` - Show what would be changed without modifying files
+- `--path <path>` - Root directory of the GameMaker project (default: current directory)
+- `--fix` - Apply the rename/codemod changes (default behavior without `--fix` is dry-run preview)
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
 
 **Codemod options (`refactor codemod`):**
 
 - `--config <path>` - Explicit path to `gmloop.json`
-- `--write` - Apply configured codemods (default is dry-run)
+- `--fix` - Apply configured codemods (default is dry-run)
 - `--only <ids>` - Comma-separated list of configured codemod ids to run
 - `--list` - Print discovered codemods and their effective normalized config
 
@@ -650,7 +650,7 @@ When no rename target is provided, `refactor` will automatically run configured 
 **Use Cases:**
 
 - **Safe Renaming**: Rename variables, scripts, or other symbols project-wide without breaking scope
-- **Refactoring Preparation**: Preview changes before applying them with `--dry-run`
+- **Refactoring Preparation**: Preview changes by default, then apply with `--fix` when ready
 - **Hot Reload Validation**: Ensure refactored code remains compatible with live updates using `--check-hot-reload`
 - **Development Workflow Integration**: Coordinate with watch mode for real-time refactoring feedback
 

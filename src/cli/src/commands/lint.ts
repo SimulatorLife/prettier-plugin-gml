@@ -11,6 +11,14 @@ import { ESLint } from "eslint";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import {
+    APPLY_FIXES_OPTION_DESCRIPTION,
+    APPLY_FIXES_OPTION_FLAGS,
+    createListOption,
+    createPathOption,
+    createVerboseOption,
+    PATH_OPTION_FLAGS
+} from "../cli-core/shared-command-options.js";
+import {
     calculateElapsedNanoseconds,
     formatElapsedNanosecondsAsMilliseconds,
     readMonotonicNanoseconds
@@ -30,7 +38,7 @@ const GML_FILE_EXTENSION = ".gml";
 const LINT_RUNTIME_ERROR_RULE_ID = "gml/internal-runtime-error";
 
 const LINT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml lint path/to/project";
-const LINT_COMMAND_FIX_EXAMPLE = "pnpm dlx prettier-plugin-gml lint --fix path/to/project";
+const LINT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml lint ${APPLY_FIXES_OPTION_FLAGS} path/to/project`;
 const LINT_COMMAND_CI_EXAMPLE = `pnpm dlx prettier-plugin-gml lint --max-warnings 0 path/to/script${GML_FILE_EXTENSION}`;
 
 const LINT_NAMESPACE = LintWorkspace.Lint;
@@ -44,8 +52,9 @@ type LintCommandOptions = {
     config?: string;
     noDefaultConfig?: boolean;
     verbose?: boolean;
-    project?: string;
+    path?: string;
     projectStrict?: boolean;
+    list?: boolean;
 };
 
 type DiscoveryResult = {
@@ -106,9 +115,9 @@ function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
         return args;
     }
 
-    const options = command.opts() ?? {};
-    if (typeof options.project === "string" && options.project.length > 0) {
-        return [options.project];
+    const options = (command.opts?.() ?? {}) as { path?: unknown };
+    if (typeof options.path === "string" && options.path.trim().length > 0) {
+        return [options.path.trim()];
     }
 
     return ["."];
@@ -583,7 +592,7 @@ function normalizeMaxWarnings(rawValue: unknown): number {
 
 function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<LintCommandOptions, "config">> & {
     config: string | null;
-    project: string | null;
+    path: string | null;
 } {
     const options = (command.opts() ?? {}) as LintCommandOptions;
 
@@ -596,9 +605,27 @@ function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<Lin
         config: typeof options.config === "string" && options.config.length > 0 ? options.config : null,
         noDefaultConfig: options.noDefaultConfig === true,
         verbose: options.verbose === true,
-        project: typeof options.project === "string" && options.project.length > 0 ? options.project : null,
+        path: typeof options.path === "string" && options.path.length > 0 ? options.path : null,
+        list: options.list === true,
         projectStrict: options.projectStrict === true
     };
+}
+
+function printLintCommandSettings(
+    options: ReturnType<typeof resolveCommandOptions>,
+    targets: ReadonlyArray<string>
+): void {
+    const targetSummary = targets.length > 0 ? targets.join(", ") : ".";
+    console.log(`Targets: ${targetSummary}`);
+    console.log(`Path override: ${options.path ?? "(auto-discover from cwd/targets)"}`);
+    console.log(`Project strict mode: ${options.projectStrict ? "enabled" : "disabled"}`);
+    console.log(`Fix mode: ${options.fix ? "enabled (--fix)" : "disabled (preview/default)"}`);
+    console.log(`Formatter: ${options.formatter}`);
+    console.log(`Max warnings: ${String(options.maxWarnings)}`);
+    console.log(`Config path: ${options.config ?? "(auto-discover or bundled default)"}`);
+    console.log(`Default config fallback: ${options.noDefaultConfig ? "disabled" : "enabled"}`);
+    console.log(`Warn ignored files: ${options.warnIgnored ? "enabled" : "disabled"}`);
+    console.log(`Verbose mode: ${options.verbose ? "enabled" : "disabled"}`);
 }
 
 function printFallbackMessageIfNeeded(parameters: { quiet: boolean; searchedPaths: Array<string> }): void {
@@ -1116,16 +1143,17 @@ export function createLintCommand(): Command {
         new Command("lint")
             .description("Lint GameMaker Language files using @gmloop/lint")
             .argument("[paths...]", "File or directory paths to lint")
-            .option("--fix", "Apply automatic fixes", false)
+            .option(APPLY_FIXES_OPTION_FLAGS, APPLY_FIXES_OPTION_DESCRIPTION, false)
             .option("--warn-ignored", "Report ignored-file warnings from ESLint output", false)
             .option("--formatter <name>", "Formatter output (stylish|json|checkstyle)", "stylish")
             .option("--max-warnings <count>", "Maximum warning count before exit code 1", "-1")
             .option("--config <path>", "Explicit eslint flat config path")
             .option("--no-default-config", "Disable bundled default config fallback")
-            .option("--project <path>", "Force a project root directory or .yyp file path")
-            .option("--project-strict", "Fail when lint targets fall outside forced --project root", false)
+            .addOption(createPathOption())
+            .option("--project-strict", `Fail when lint targets fall outside forced ${PATH_OPTION_FLAGS} root`, false)
+            .addOption(createListOption())
             .option("--quiet", "Suppress fallback warnings", false)
-            .option("--verbose", "Enable verbose command output and timing diagnostics", false)
+            .addOption(createVerboseOption())
             .addHelpText("after", () =>
                 [
                     "",
@@ -1142,6 +1170,12 @@ export function createLintCommand(): Command {
 export async function runLintCommand(command: CommanderCommandLike): Promise<void> {
     const options = resolveCommandOptions(command);
     const targets = normalizeLintTargets(command);
+
+    if (options.list) {
+        printLintCommandSettings(options, targets);
+        return;
+    }
+
     const commandCwd = process.cwd();
     const eslintCwd = resolveEslintCwd({ cwd: commandCwd, targets });
     const eslintConstructorOptions = createEslintConstructorOptions(eslintCwd, options.fix, options.warnIgnored);
@@ -1168,13 +1202,13 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    const forcedProjectValidationError = validateForcedProjectPath(options.project);
+    const forcedProjectValidationError = validateForcedProjectPath(options.path);
     if (forcedProjectValidationError) {
         console.error(forcedProjectValidationError);
         setProcessExitCode(2);
         return;
     }
-    const forcedProjectRoot = resolveForcedProjectRoot(options.project);
+    const forcedProjectRoot = resolveForcedProjectRoot(options.path);
 
     let eslint: ESLint;
     try {
