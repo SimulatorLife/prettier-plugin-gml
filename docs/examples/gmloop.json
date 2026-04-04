@@ -4,6 +4,11 @@
   "semi": true,
   "allowInlineControlFlowBlocks": true,
   "logicalOperatorsStyle": "keywords",
+  "lintRules": {
+    "gml/normalize-doc-comments": "error",
+    "gml/prefer-hoistable-loop-accessors": "error",
+    "gml/optimize-logical-flow": "error"
+  },
   "refactor": {
     "codemods": {
       "loopLengthHoisting": {},
