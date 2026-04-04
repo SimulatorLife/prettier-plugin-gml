@@ -477,6 +477,14 @@ function hasOverlappingRange(start: number, end: number, edits: ReadonlyArray<So
     return edits.some((edit) => start < edit.end && end > edit.start);
 }
 
+function hasOverlapWithLastScheduledEdit(
+    start: number,
+    end: number,
+    lastScheduledEdit: SourceTextEdit | null
+): boolean {
+    return lastScheduledEdit !== null && start < lastScheduledEdit.end && end > lastScheduledEdit.start;
+}
+
 type SourceTextRange = Readonly<{ start: number; end: number }>;
 
 const MATH_OPTIMIZATION_SIGNAL_PATTERN =
@@ -1255,10 +1263,8 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
             if (
                 fastDotProductReplacement &&
                 !rangeContainsCommentToken(commentTokenRangeIndex, start, end) &&
-                !(
-                    (lastScheduledEdit !== null && start < lastScheduledEdit.end && end > lastScheduledEdit.start) ||
-                    hasOverlappingRange(start, end, edits)
-                )
+                !hasOverlapWithLastScheduledEdit(start, end, lastScheduledEdit) &&
+                !hasOverlappingRange(start, end, edits)
             ) {
                 const replacementText =
                     isIfTest && !fastDotProductReplacement.startsWith("(")
@@ -1363,12 +1369,8 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                     }
 
                     if (
-                        !(
-                            (lastScheduledEdit !== null &&
-                                start < lastScheduledEdit.end &&
-                                end > lastScheduledEdit.start) ||
-                            hasOverlappingRange(start, end, edits)
-                        )
+                        !hasOverlapWithLastScheduledEdit(start, end, lastScheduledEdit) &&
+                        !hasOverlappingRange(start, end, edits)
                     ) {
                         const scheduledEdit = { start, end, text: replacement };
                         edits.push(scheduledEdit);
