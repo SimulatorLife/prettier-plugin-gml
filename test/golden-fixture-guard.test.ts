@@ -91,5 +91,5 @@ void test("automerge regression agent comment includes quality report regression
     const source = await readFile(automergeWorkflowPath, "utf8");
 
     assert.match(source, /Regression summary from the Quality Report:/u);
-    assert.match(source, /line\.startsWith\('❌ Test regressions detected\.'\)/u);
+    assert.match(source, /line\.trim\(\)\.startsWith\('❌ Test regressions detected\.'\)/u);
 });

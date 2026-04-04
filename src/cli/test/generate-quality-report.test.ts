@@ -79,7 +79,7 @@ void test("detects regressions when a previously passing test now fails", () => 
     assert.strictEqual(regressions[0].to, "failed");
 });
 
-void test("treats failing tests without a base counterpart as regressions", () => {
+void test("does not treat failing tests without a base counterpart as regressions", () => {
     const baseDir = path.join(workspace, "base/reports");
     const headDir = path.join(workspace, "reports");
 
@@ -110,8 +110,7 @@ void test("treats failing tests without a base counterpart as regressions", () =
     const head = readTestResults(["reports"], { workspace });
     const regressions = detectRegressions(base, head);
 
-    assert.strictEqual(regressions.length, 1);
-    assert.strictEqual(regressions[0].detail?.displayName.includes("new scenario fails"), true);
+    assert.strictEqual(regressions.length, 0);
 });
 
 void test("matches existing failures by trimmed file/name identity when keys differ", () => {
@@ -373,8 +372,7 @@ void test("detectResolvedFailures returns failures that now pass or are missing"
     assert.strictEqual(resolvedFailures[0].key, "sample :: test :: existing failure");
     assert.strictEqual(resolvedFailures[0].to, "passed");
 
-    assert.strictEqual(regressions.length, 1);
-    assert.strictEqual(regressions[0].key, "sample :: test :: new failure");
+    assert.strictEqual(regressions.length, 0);
 });
 
 void test("detectRegressions accepts heterogeneous result containers", () => {
@@ -568,9 +566,9 @@ void test("does not count a node runner file-level IPC crash as a regression whe
     assert.strictEqual(regressions.length, 0);
 });
 
-void test("still counts a file-level crash as a regression when no inner tests passed", () => {
-    // If the test file produced no passing inner tests at all, the file-level crash
-    // is likely a genuine failure (e.g., an import error) rather than a runner fluke.
+void test("does not count a file-level crash as a regression when no inner tests passed", () => {
+    // Newly introduced failing tests are allowed, so even this file-level crash record
+    // should not count as a regression when no matching base test exists.
     const baseDir = path.join(workspace, "base/reports");
     const mergeDir = path.join(workspace, "merge/reports");
 
@@ -605,9 +603,7 @@ void test("still counts a file-level crash as a regression when no inner tests p
     const merged = readTestResults(["merge/reports"], { workspace });
     const regressions = detectRegressions(base, merged);
 
-    // No passing inner tests from broken.test.js → treat as genuine regression.
-    assert.strictEqual(regressions.length, 1);
-    assert.ok(regressions[0].key.includes("broken.test.js"));
+    assert.strictEqual(regressions.length, 0);
 });
 
 void test("readTestResults prefers canonical tests.xml results over auxiliary XML reports for duplicate test keys", () => {

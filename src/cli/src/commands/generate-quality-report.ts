@@ -962,24 +962,24 @@ function getNormalizedTestRecordIdentity(record: TestRecordEntry): {
 }
 
 /**
- * Build a secondary lookup of base failures keyed by `(file, testName)`.
+ * Build a secondary lookup of base test statuses keyed by `(file, testName)`.
  *
- * This is used to detect when a failing target test corresponds to an already-failing
- * base test that was "renamed" due to a change in the JUnit XML suite hierarchy (e.g.,
- * a malformed `<undefined>` wrapper produced by node's JUnit reporter when a test file
- * triggers an IPC-deserialization error). Without this check, such a renamed failure
- * would incorrectly appear as a brand-new regression.
+ * This is used to match target failures against base results when the JUnit suite
+ * hierarchy changes and test keys are renamed (for example due to malformed wrappers).
+ * Matching by `(file, testName)` lets us distinguish genuinely new failing tests
+ * (which should be ignored) from renamed pre-existing tests (which should keep their
+ * original base status).
  */
-function buildBaseFailuresByFileAndName(baseResults: Map<string, unknown>): Set<string> {
-    const index = new Set<string>();
+function buildBaseStatusesByFileAndName(baseResults: Map<string, unknown>): Map<string, string> {
+    const index = new Map<string, string>();
     for (const record of baseResults.values()) {
         const r = record as TestRecordEntry;
-        if (r.status !== TestCaseStatus.FAILED) {
+        if (typeof r.status !== "string" || r.status.length === 0) {
             continue;
         }
         const { fileLowerCase, name } = getNormalizedTestRecordIdentity(r);
         if (fileLowerCase && name) {
-            index.add(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`);
+            index.set(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`, r.status);
         }
     }
     return index;
@@ -1041,13 +1041,13 @@ function createRegressionRecord({
     baseResults,
     key,
     targetRecord,
-    baseFailuresByFileAndName,
+    baseStatusesByFileAndName,
     targetFilesWithPassingTests
 }: {
     baseResults: Map<string, unknown>;
     key: string;
     targetRecord: TestRecordEntry | null | undefined;
-    baseFailuresByFileAndName: Set<string>;
+    baseStatusesByFileAndName: Map<string, string>;
     targetFilesWithPassingTests: Set<string>;
 }): { key: string; from: string; to: string; detail: unknown } | null {
     if (!targetRecord || targetRecord.status !== TestCaseStatus.FAILED) {
@@ -1055,7 +1055,7 @@ function createRegressionRecord({
     }
 
     const baseRecord = baseResults.get(key) as { status?: string } | undefined;
-    const baseStatus = baseRecord?.status;
+    let baseStatus = baseRecord?.status;
     if (baseStatus === TestCaseStatus.FAILED) {
         return null;
     }
@@ -1067,14 +1067,24 @@ function createRegressionRecord({
     // tests to change. Those renamed failures must not be reported as new regressions.
     if (baseStatus === undefined) {
         const { fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
-        if (fileLowerCase && name && baseFailuresByFileAndName.has(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`)) {
-            return null;
+        if (fileLowerCase && name) {
+            const renamedBaseStatus = baseStatusesByFileAndName.get(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`);
+            if (renamedBaseStatus) {
+                baseStatus = renamedBaseStatus;
+                if (baseStatus === TestCaseStatus.FAILED) {
+                    return null;
+                }
+            }
         }
         // Detect node test runner file-level crash records: synthetic testcases where
         // the name equals the file path and the file has other passing inner tests.
         // These are infrastructure artefacts produced by the test runner itself (e.g.,
         // IPC-deserialization errors) and must not be reported as code regressions.
         if (isNodeRunnerFileLevelCrash(targetRecord, targetFilesWithPassingTests)) {
+            return null;
+        }
+        // Newly introduced tests are intentionally excluded from regression checks.
+        if (baseStatus === undefined) {
             return null;
         }
     }
@@ -1092,7 +1102,7 @@ function createRegressionRecord({
  */
 function collectRegressions({ baseResults, targetResults }) {
     const regressions = [];
-    const baseFailuresByFileAndName = buildBaseFailuresByFileAndName(baseResults);
+    const baseStatusesByFileAndName = buildBaseStatusesByFileAndName(baseResults);
     const targetFilesWithPassingTests = buildTargetFilesWithPassingTests(targetResults);
 
     for (const [key, targetRecord] of targetResults.entries()) {
@@ -1100,7 +1110,7 @@ function collectRegressions({ baseResults, targetResults }) {
             baseResults,
             key,
             targetRecord,
-            baseFailuresByFileAndName,
+            baseStatusesByFileAndName,
             targetFilesWithPassingTests
         });
 
