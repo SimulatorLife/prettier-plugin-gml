@@ -52,26 +52,14 @@ export function createPathSelectionMatcher(
                 isPathInsideSelection(absoluteTargetPath, absoluteSelectionPath)
             );
         if (!isAllowed) {
-<<<<<<< HEAD
             cache.set(targetPath, false);
-            return false;
-        }
-
-        const isDenied = absoluteDeniedPaths.some((absoluteSelectionPath) =>
-            isPathInsideSelection(absoluteTargetPath, absoluteSelectionPath)
-        );
-        const result = !isDenied;
-        cache.set(targetPath, result);
-=======
-            resultCache.set(targetPath, false);
             return false;
         }
 
         const result = !absoluteDeniedPaths.some((absoluteSelectionPath) =>
             isPathInsideSelection(absoluteTargetPath, absoluteSelectionPath)
         );
-        resultCache.set(targetPath, result);
->>>>>>> 33846f47c (perf(refactor): eliminate hot-path bottlenecks in naming-convention codemod)
+        cache.set(targetPath, result);
         return result;
     };
 }
