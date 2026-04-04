@@ -67,6 +67,7 @@ import {
 } from "./validation.js";
 import {
     getWorkspaceArrays,
+    getWorkspaceEditRevision,
     type GroupedTextEdits,
     isWorkspaceEditLike,
     type TextEdit,
@@ -75,12 +76,61 @@ import {
 } from "./workspace-edit.js";
 
 const RENAME_VALIDATION_CACHE_MAX_SIZE = 4096;
+const validatedWorkspaceRevisions = new WeakMap<object, number>();
+
+function hasCurrentValidatedWorkspaceRevision(workspace: object): boolean {
+    const currentRevision = getWorkspaceEditRevision(workspace);
+    if (currentRevision === null) {
+        return false;
+    }
+
+    return validatedWorkspaceRevisions.get(workspace) === currentRevision;
+}
+
+function rememberValidatedWorkspaceRevision(workspace: object): void {
+    const currentRevision = getWorkspaceEditRevision(workspace);
+    if (currentRevision === null) {
+        return;
+    }
+
+    validatedWorkspaceRevisions.set(workspace, currentRevision);
+}
 
 function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+    if (occurrences.length <= 1) {
+        return [...occurrences];
+    }
+
+    if (occurrences.length <= 8) {
+        const deduplicated: Array<SymbolOccurrence> = [];
+
+        for (const occurrence of occurrences) {
+            const existingIndex = deduplicated.findIndex(
+                (candidate) => candidate.path === occurrence.path && candidate.start === occurrence.start
+            );
+
+            if (existingIndex === -1) {
+                deduplicated.push(occurrence);
+                continue;
+            }
+
+            // Replace the entire entry when the incoming occurrence covers a wider span so
+            // that all fields (including `kind`) come from the dominant occurrence rather
+            // than forming a hybrid with stale metadata from the first entry seen.
+            if (occurrence.end > deduplicated[existingIndex].end) {
+                deduplicated[existingIndex] = occurrence;
+            }
+        }
+
+        return deduplicated;
+    }
+
     const deduplicatedByStart = new Map<string, SymbolOccurrence>();
 
     for (const occurrence of occurrences) {
-        const key = [occurrence.path ?? "", occurrence.start].join(":");
+        // Use a template literal instead of array+join to avoid the intermediate
+        // array allocation on every iteration of the deduplication hot loop.
+        const key = `${occurrence.path ?? ""}:${occurrence.start}`;
         const existing = deduplicatedByStart.get(key);
 
         if (!existing || occurrence.end > existing.end) {
@@ -225,9 +275,15 @@ export class RefactorEngine {
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
     gatherSymbolOccurrences(symbolName: string, symbolId: string | null = null): Promise<Array<SymbolOccurrence>> {
-        return this.semanticCache
-            .getSymbolOccurrences(symbolName, symbolId)
-            .then((occurrences) => deduplicateSymbolOccurrences(occurrences));
+        return this.semanticCache.getSymbolOccurrences(symbolName, symbolId).then((occurrences) => {
+            const deduplicated = deduplicateSymbolOccurrences(occurrences);
+            // Replace the raw occurrence cache entry with the deduped+range-merged
+            // result so that every subsequent cache hit for the same symbol skips
+            // the deduplication work entirely.  The prime is a no-op when the entry
+            // exceeds maxOccurrenceCacheEntries or when caching is disabled.
+            this.semanticCache.primeOccurrenceCache(symbolName, symbolId, deduplicated);
+            return deduplicated;
+        });
     }
 
     /**
@@ -411,11 +467,14 @@ export class RefactorEngine {
             }
         }
 
+        // Route through the semantic cache so repeated getFileSymbols lookups
+        // for the same file across multiple symbol validations in a batch are
+        // served from memory rather than re-queried from the semantic bridge.
         const crossFileConflicts = await validateCrossFileConsistency(
             symbolId,
             normalizedNewName,
             occurrences,
-            this.semantic
+            this.semanticCache
         );
 
         for (const conflict of crossFileConflicts) {
@@ -600,22 +659,26 @@ export class RefactorEngine {
         const { symbolId, newName } = request;
 
         const normalizedNewName = assertValidIdentifierName(newName);
+        const cachedValidation = this.renameValidationCache.peek(symbolId, newName);
+        const hasReusableValidation = cachedValidation?.valid === true;
 
         // Confirm the symbol exists in the semantic index before proceeding. This
         // prevents wasted work gathering occurrences for non-existent symbols and
         // provides a clear error message when the user mistypes a symbol name.
-        const exists = await this.validateSymbolExists(symbolId);
-        if (!exists) {
-            throw new Error(
-                `Symbol '${symbolId}' not found in semantic index. ` +
-                    `Ensure the project has been analyzed before attempting renames.`
-            );
+        if (!hasReusableValidation) {
+            const exists = await this.validateSymbolExists(symbolId);
+            if (!exists) {
+                throw new Error(
+                    `Symbol '${symbolId}' not found in semantic index. ` +
+                        `Ensure the project has been analyzed before attempting renames.`
+                );
+            }
         }
 
         // Extract the symbol's base name from its fully-qualified ID by taking the
         // last path component. For example, "gml/script/scr_foo" becomes "scr_foo",
         // which we use to search for all occurrences in the codebase.
-        const symbolName = extractSymbolName(symbolId);
+        const symbolName = cachedValidation?.symbolName ?? extractSymbolName(symbolId);
 
         if (symbolName === normalizedNewName) {
             throw new Error(`The new name '${normalizedNewName}' matches the existing identifier`);
@@ -629,17 +692,19 @@ export class RefactorEngine {
         // Detect potential conflicts (shadowing, reserved keywords, etc.) before
         // applying edits. If conflicts exist, we abort the rename to prevent
         // introducing scope errors or breaking existing code.
-        const conflicts = await detectRenameConflicts(
-            symbolName,
-            normalizedNewName,
-            occurrences,
-            this.semantic,
-            this.semantic
-        );
+        if (!hasReusableValidation) {
+            const conflicts = await detectRenameConflicts(
+                symbolName,
+                normalizedNewName,
+                occurrences,
+                this.semantic,
+                this.semantic
+            );
 
-        if (conflicts.length > 0) {
-            const messages = conflicts.map((c) => c.message).join("; ");
-            throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
+            if (conflicts.length > 0) {
+                const messages = conflicts.map((c) => c.message).join("; ");
+                throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
+            }
         }
 
         // Build a workspace edit containing text edits for every occurrence. Each
@@ -771,7 +836,17 @@ export class RefactorEngine {
             }
         }
 
-        return { valid: errors.length === 0, errors, warnings };
+        const validationSummary = {
+            valid: errors.length === 0,
+            errors,
+            warnings
+        };
+
+        if (validationSummary.valid) {
+            rememberValidatedWorkspaceRevision(workspace);
+        }
+
+        return validationSummary;
     }
 
     /**
@@ -808,8 +883,10 @@ export class RefactorEngine {
         // Verify the workspace edit is structurally sound and free of conflicts
         // before modifying any files. This prevents partial application of invalid
         // edits that could leave the codebase in an inconsistent state.
-        const validation = await this.validateRename(workspace);
-        throwIfValidationFailed(validation, "Cannot apply workspace edit");
+        if (!hasCurrentValidatedWorkspaceRevision(workspace)) {
+            const validation = await this.validateRename(workspace);
+            throwIfValidationFailed(validation, "Cannot apply workspace edit");
+        }
 
         // Organize edits by file so we can process each file independently. This
         // allows us to load, edit, and save one file at a time, reducing memory
@@ -863,7 +940,10 @@ export class RefactorEngine {
      * @param {Array<{symbolId: string, newName: string}>} renames - Array of rename operations
      * @returns {Promise<WorkspaceEdit>} Combined workspace edit for all renames
      */
-    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
+    private async planValidatedBatchRename(renames: Array<RenameRequest>): Promise<{
+        validation: ValidationSummary;
+        workspace: WorkspaceEdit;
+    }> {
         Core.assertArray(renames, {
             errorMessage: "planBatchRename requires an array of renames"
         });
@@ -959,7 +1039,15 @@ export class RefactorEngine {
         const validation = await this.validateRename(merged);
         throwIfValidationFailed(validation, "Batch rename validation failed");
 
-        return merged;
+        return {
+            validation,
+            workspace: merged
+        };
+    }
+
+    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
+        const preparedBatchRename = await this.planValidatedBatchRename(renames);
+        return preparedBatchRename.workspace;
     }
 
     /**
@@ -1526,8 +1614,9 @@ export class RefactorEngine {
         let planningSucceeded = false;
 
         try {
-            workspace = await this.planBatchRename(renames);
-            validation = await this.validateRename(workspace);
+            const preparedBatchRename = await this.planValidatedBatchRename(renames);
+            workspace = preparedBatchRename.workspace;
+            validation = preparedBatchRename.validation;
             planningSucceeded = true;
 
             // Perform hot reload compatibility checks if requested

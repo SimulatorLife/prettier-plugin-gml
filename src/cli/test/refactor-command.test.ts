@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { runCliTestCommand } from "../src/cli.js";
 import { createRefactorCommand } from "../src/commands/refactor.js";
 
 void describe("Refactor command", () => {
@@ -71,5 +72,27 @@ void describe("Refactor command", () => {
         assert.equal(command.registeredArguments.length, 2);
         assert.equal(command.registeredArguments[0]?.required, false);
         assert.equal(command.registeredArguments[1]?.variadic, true);
+    });
+
+    void it("surfaces missing-argument errors as actionable usage guidance without a stack trace", async () => {
+        // Running refactor with no arguments should produce a clean, human-readable
+        // error message (no internal stack frames visible) and append the command's
+        // usage text so the contributor knows what to provide next.
+        const result = await runCliTestCommand({ argv: ["refactor"] });
+
+        assert.equal(result.exitCode, 1, "Should exit with code 1 when mode cannot be inferred");
+        assert.match(
+            result.stderr,
+            /Could not infer refactor mode\. Provide --old-name\/--symbol-id with --new-name for renames/,
+            "Should surface the actionable guidance message"
+        );
+        assert.match(
+            result.stderr,
+            /Usage: prettier-plugin-gml refactor \[options\] \[operation\] \[paths\.\.\.\]/,
+            "Should include usage text so the user knows what to provide"
+        );
+        // No internal file path fragments should appear in the error output – the
+        // raw stack trace is opaque noise for a simple usage mistake.
+        assert.doesNotMatch(result.stderr, /\bat .*\/refactor\.js/, "Should not expose a raw stack trace");
     });
 });

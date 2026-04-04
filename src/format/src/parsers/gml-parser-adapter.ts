@@ -10,11 +10,10 @@ const PARSER_OPTIONS = {
     getLocations: true,
     simplifyLocations: false,
     getComments: true,
-    // Attach legacy `@function`/`@func` comments to their function declarations
-    // during parsing so formatter output stays stable for existing fixtures.
-    // This remains formatter-safe because the parser only wires comment
-    // ownership; it does not rewrite doc tag content.
-    attachFunctionDocComments: true
+    // Keep formatter parsing strictly layout-focused: do not opt into parser
+    // doc-tag attachment heuristics. Lint owns content-aware doc normalization
+    // and attachment interpretation (target-state.md §2.2, §3.2).
+    attachFunctionDocComments: false
 } as const;
 
 function parse(text: string): MutableGameMakerAstNode {

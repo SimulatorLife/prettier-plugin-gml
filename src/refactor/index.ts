@@ -80,6 +80,7 @@ export type {
     ValidationSummary,
     WorkspaceEdit,
     WorkspaceReadFile,
+    WorkspaceRevisionProvider,
     WorkspaceWriteFile
 } from "./src/index.js";
-export { Refactor } from "./src/index.js";
+export { Refactor, WORKSPACE_EDIT_REVISION_TOKEN } from "./src/index.js";

@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { Core } from "@gmloop/core";
 
 import { evaluateNamingConvention, resolveNamingConventionRules } from "../../naming-convention-policy.js";
@@ -10,6 +8,7 @@ import type {
     BatchRenameValidation,
     CodemodEngine,
     MacroExpansionDependency,
+    NamingCategory,
     NamingConventionCodemodPlan,
     NamingConventionViolation,
     RefactorProjectConfig,
@@ -18,7 +17,7 @@ import type {
 } from "../../types.js";
 import { detectCircularRenames, detectCrossRenameNameConfusion, detectDuplicateTargetNames } from "../../validation.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
-import { createPathSelectionMatcher } from "./path-selection.js";
+import { createPathSelectionMatcher, resolveProjectPath } from "./path-selection.js";
 
 const RESERVED_LOCAL_RENAME_CATEGORIES = new Set([
     "globalVariable",
@@ -64,10 +63,6 @@ function appendWorkspaceEdits(destination: WorkspaceEdit, source: WorkspaceEdit)
     for (const fileRename of source.fileRenames) {
         destination.addFileRename(fileRename.oldPath, fileRename.newPath);
     }
-}
-
-function incrementScopedNameCount(names: Map<string, number>, normalizedName: string): void {
-    names.set(normalizedName, (names.get(normalizedName) ?? 0) + 1);
 }
 
 function decrementScopedNameCount(names: Map<string, number>, normalizedName: string): void {
@@ -217,30 +212,38 @@ function findDependentMacroNames(
     return dependentMacroNames.toSorted();
 }
 
-function collectNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: ReadonlyArray<string>): Array<string> {
+/**
+ * Build the expanded list of file paths to pass to `listNamingConventionTargets`.
+ *
+ * For each selected GML file the semantic analyzer is also given:
+ * - The project-absolute form of the GML path, since indexers may store absolute paths.
+ * - The companion `.yy` metadata file path (GameMaker resource descriptor), in both
+ *   relative and absolute forms, because some semantic adapters key their symbol tables
+ *   on the resource path rather than the GML source path.
+ *
+ * Passing all four variants ensures the analyzer can surface targets regardless of how
+ * it has indexed the project.
+ *
+ * @param projectRoot - Absolute project root path used to resolve relative entries.
+ * @param selectedFilePaths - Relative or absolute GML file paths that passed selection.
+ * @returns Deduplicated list of paths to query.
+ */
+function buildNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: Array<string>): Array<string> {
     const queryPaths = new Set<string>();
 
     for (const filePath of selectedFilePaths) {
-        const normalizedFilePath = filePath.replaceAll("\\", "/");
-        const siblingResourcePath = normalizedFilePath.replace(/\.gml$/i, ".yy");
-        const ownerDirectory = path.posix.dirname(normalizedFilePath);
-        const ownerResourceName = path.posix.basename(ownerDirectory);
-        const ownerParentDirectory = path.posix.dirname(ownerDirectory);
-        const ownerResourcePath =
-            ownerParentDirectory === "." ? null : path.posix.join(ownerDirectory, `${ownerResourceName}.yy`);
+        queryPaths.add(filePath);
+        queryPaths.add(resolveProjectPath(projectRoot, filePath));
 
-        queryPaths.add(normalizedFilePath);
-        queryPaths.add(path.resolve(projectRoot, normalizedFilePath));
-        queryPaths.add(siblingResourcePath);
-        queryPaths.add(path.resolve(projectRoot, siblingResourcePath));
-
-        if (ownerResourcePath !== null) {
-            queryPaths.add(ownerResourcePath);
-            queryPaths.add(path.resolve(projectRoot, ownerResourcePath));
+        // Companion .yy resource descriptor (sibling of every GML script file).
+        const yyPath = filePath.replace(/\.gml$/i, ".yy");
+        if (yyPath !== filePath) {
+            queryPaths.add(yyPath);
+            queryPaths.add(resolveProjectPath(projectRoot, yyPath));
         }
     }
 
-    return Array.from(queryPaths);
+    return [...queryPaths];
 }
 
 /**
@@ -286,6 +289,7 @@ export async function planNamingConventionCodemod(
 
     const includeTopLevelPlan = parameters.includeTopLevelPlan !== false;
     const resolvedRules = resolveNamingConventionRules(policy);
+    const requestedCategories = Object.keys(resolvedRules) as Array<NamingCategory>;
     let workspace = new WorkspaceEditClass();
     const warnings: Array<string> = [];
     const errors: Array<string> = [];
@@ -297,17 +301,17 @@ export async function planNamingConventionCodemod(
     const isSelectedTargetPath = createPathSelectionMatcher(parameters.projectRoot, parameters.targetPaths, []);
 
     const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) => isSelectedTargetPath(filePath));
+    const queryPaths = buildNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths);
     const queriedTargets = await semantic.listNamingConventionTargets(
-        selectedFilePaths.length === 0
-            ? undefined
-            : collectNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths)
+        queryPaths.length === 0 ? undefined : queryPaths,
+        requestedCategories
     );
     const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));
-    const macroDependencyNamesByFile = collectMacroDependencyNamesByFile(
-        typeof semantic.listMacroExpansionDependencies === "function"
-            ? await semantic.listMacroExpansionDependencies(selectedFilePaths)
-            : []
-    );
+    const requiresMacroDependencyAnalysis = selectedTargets.some((target) => target.symbolId === null);
+    const macroDependencyNamesByFile =
+        requiresMacroDependencyAnalysis && typeof semantic.listMacroExpansionDependencies === "function"
+            ? collectMacroDependencyNamesByFile(await semantic.listMacroExpansionDependencies(selectedFilePaths))
+            : null;
 
     for (const target of selectedTargets) {
         if (target.symbolId !== null) {
@@ -316,7 +320,7 @@ export async function planNamingConventionCodemod(
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const names = localScopeNames.get(scopeKey) ?? new Map<string, number>();
-        incrementScopedNameCount(names, target.name.toLowerCase());
+        Core.incrementMapValue(names, target.name.toLowerCase());
         localScopeNames.set(scopeKey, names);
     }
 
@@ -379,7 +383,10 @@ export async function planNamingConventionCodemod(
             continue;
         }
 
-        const dependentMacroNames = findDependentMacroNames(macroDependencyNamesByFile, target.path, target.name);
+        const dependentMacroNames =
+            macroDependencyNamesByFile === null
+                ? []
+                : findDependentMacroNames(macroDependencyNamesByFile, target.path, target.name);
         if (dependentMacroNames.length > 0) {
             warnings.push(
                 `Skipping local rename '${target.name}' -> '${evaluation.suggestedName}' in ${target.path} because macro expansion${dependentMacroNames.length === 1 ? "" : "s"} ${dependentMacroNames.map((macroName) => `'${macroName}'`).join(", ")} ${dependentMacroNames.length === 1 ? "depends" : "depend"} on '${target.name}'.`
@@ -392,7 +399,7 @@ export async function planNamingConventionCodemod(
         }
 
         decrementScopedNameCount(existingNames, normalizedCurrentName);
-        incrementScopedNameCount(existingNames, normalizedSuggestedName);
+        Core.incrementMapValue(existingNames, normalizedSuggestedName);
         localScopeNames.set(scopeKey, existingNames);
         localRenameCount += 1;
     }

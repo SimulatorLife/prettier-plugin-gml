@@ -3,7 +3,7 @@ import { Core } from "@gmloop/core";
 import type { Logger } from "../runtime/logger.js";
 import { validatePatch } from "../runtime/patch-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
-import { getHighResolutionTime, getWallClockTime } from "../timing/index.js";
+import { getHighResolutionTime } from "../timing/index.js";
 import {
     createInitialConnectionMetrics,
     createPatchQueueState,
@@ -41,7 +41,7 @@ function applyIncomingPatchInternal(
     alreadyRecordedReceived = false
 ): boolean {
     const receivedAt = alreadyRecordedReceived
-        ? (state.connectionMetrics.lastPatchReceivedAt ?? getWallClockTime())
+        ? (state.connectionMetrics.lastPatchReceivedAt ?? Date.now())
         : recordPatchReceived(state);
 
     const patchResult = validatePatchCandidate(incoming, onError);
@@ -72,7 +72,7 @@ function applyIncomingPatchInternal(
 
     const recordSuccess = (applyDuration: number) => {
         state.connectionMetrics.patchesApplied += 1;
-        state.connectionMetrics.lastPatchAppliedAt = getWallClockTime();
+        state.connectionMetrics.lastPatchAppliedAt = Date.now();
         if (logger) {
             logger.info(`Patch ${patch.id} applied in ${applyDuration}ms`);
         }
@@ -319,7 +319,7 @@ export function createWebSocketClient({
 
         if (state.isConnected) {
             state.connectionMetrics.totalDisconnections += 1;
-            state.connectionMetrics.lastDisconnectedAt = getWallClockTime();
+            state.connectionMetrics.lastDisconnectedAt = Date.now();
             if (logger) {
                 logger.websocketDisconnected();
             }
@@ -471,7 +471,7 @@ function createOpenHandler(
         const websocketState = state;
         websocketState.isConnected = true;
         websocketState.connectionMetrics.totalConnections += 1;
-        websocketState.connectionMetrics.lastConnectedAt = getWallClockTime();
+        websocketState.connectionMetrics.lastConnectedAt = Date.now();
 
         if (websocketState.reconnectTimer) {
             clearTimeout(websocketState.reconnectTimer);
@@ -600,7 +600,7 @@ function createCloseHandler({
         websocketState.isConnected = false;
         websocketState.ws = null;
         websocketState.connectionMetrics.totalDisconnections += 1;
-        websocketState.connectionMetrics.lastDisconnectedAt = getWallClockTime();
+        websocketState.connectionMetrics.lastDisconnectedAt = Date.now();
 
         if (logger) {
             logger.websocketDisconnected();

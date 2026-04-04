@@ -2,8 +2,8 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
+import { loadBuiltInIdentifiers } from "../symbols/built-in-identifiers.js";
 import { createProjectIndexAbortGuard, PROJECT_INDEX_BUILD_ABORT_MESSAGE } from "./abort-guard.js";
-import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { getDefaultProjectIndexCacheMaxSize, loadProjectIndexCache, saveProjectIndexCache } from "./cache.js";
 import { clampConcurrency } from "./concurrency.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";

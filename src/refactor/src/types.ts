@@ -491,7 +491,10 @@ export interface KeywordProvider {
  * renameable identifiers and resources.
  */
 export interface NamingConventionTargetProvider {
-    listNamingConventionTargets(filePaths?: Array<string>): MaybePromise<Array<NamingConventionTarget>>;
+    listNamingConventionTargets(
+        filePaths?: Array<string>,
+        categories?: ReadonlyArray<NamingCategory>
+    ): MaybePromise<Array<NamingConventionTarget>>;
 }
 
 /**

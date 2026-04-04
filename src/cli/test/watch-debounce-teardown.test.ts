@@ -20,10 +20,9 @@
  *   confirm they intend to execute (not discard) pending work.
  * - If "drain before shutdown" semantics are ever desired, they should be implemented
  *   explicitly and only after the watcher is still open — not after `watcher.close()`.
- * - The SIGTERM path currently exits via `process.exit(exitCode)` after cleanup; a future
- *   improvement would propagate an internal AbortSignal through the entire pipeline so that
- *   the abort-signal guard in `readSourceFileWithTransientEmptyRetry` provides defense-in-
- *   depth even when triggered from the SIGTERM/SIGINT path.
+ * - A complementary defence — an internal AbortController aborted at the start of cleanup and
+ *   threaded through the unknown-scan path — is implemented in the watch command and tested in
+ *   watch-unknown-change-abort.test.ts.
  */
 
 import assert from "node:assert/strict";

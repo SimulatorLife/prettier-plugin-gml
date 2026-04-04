@@ -182,7 +182,7 @@ function processStatementListForMemberCaching(statements: StatementList): void {
             );
         }
 
-        if (isLoopStatement(statement)) {
+        if (Core.isLoopLikeNode(statement)) {
             insertionOffset += maybeHoistInvariantLoopCondition(statement, statements, index + insertionOffset);
         }
 
@@ -267,7 +267,7 @@ function maybeHoistInvariantLoopCondition(
     statements: StatementList,
     statementIndex: number
 ): number {
-    if (!Core.isObjectLike(statement) || !isLoopStatement(statement)) {
+    if (!Core.isObjectLike(statement) || !Core.isLoopLikeNode(statement)) {
         return 0;
     }
 
@@ -424,7 +424,10 @@ function recreateMemberPathExpression(
     sourceNode: MutableGameMakerAstNode
 ): MutableGameMakerAstNode | null {
     const segments = path.split(".").filter((segment) => segment.length > 0);
-    if (segments.length < 3) {
+    // A member access path requires at least two segments (e.g. "a.b").
+    // Single-segment or empty paths are plain identifiers or invalid – not
+    // something we need to reconstruct as a MemberDotExpression chain.
+    if (segments.length < 2) {
         return null;
     }
 
@@ -503,7 +506,12 @@ function isCollectibleMemberAccessNode(
         return false;
     }
 
-    return memberPath.split(".").length >= 3;
+    // A MemberDotExpression always produces a path with at least two segments.
+    // The original ">= 3" guard was overly restrictive: two-segment paths such
+    // as "arr.length" or "obj.count" are equally valid candidates for caching
+    // and invariant hoisting.  Only require the minimum depth that can actually
+    // be represented as a MemberDotExpression.
+    return memberPath.split(".").length >= 2;
 }
 
 function createCachedVariableDeclaration(
@@ -611,31 +619,12 @@ function containsCallExpression(node: unknown): boolean {
 }
 
 function getLoopConditionExpression(loopNode: MutableGameMakerAstNode): MutableGameMakerAstNode | null {
-    if (!isLoopStatement(loopNode)) {
+    if (!Core.isLoopLikeNode(loopNode)) {
         return null;
     }
 
     const testNode = (loopNode as MutableAstRecord).test;
     return Core.isObjectLike(testNode) ? (testNode as MutableGameMakerAstNode) : null;
-}
-
-function isLoopStatement(node: unknown): node is MutableGameMakerAstNode {
-    if (!Core.isObjectLike(node) || typeof (node as MutableGameMakerAstNode).type !== "string") {
-        return false;
-    }
-
-    switch ((node as MutableGameMakerAstNode).type) {
-        case "ForStatement":
-        case "WhileStatement":
-        case "DoUntilStatement":
-        case "DoWhileStatement":
-        case "RepeatStatement": {
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
 }
 
 function walkNode(

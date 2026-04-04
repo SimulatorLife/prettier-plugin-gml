@@ -108,42 +108,26 @@ function _printImpl(path, options, print) {
     return _printImplCore(node, path, options, print);
 }
 
+// Ordered list of category-level printers tried in sequence. Each function
+// returns `undefined` (via implicit switch fall-through) when it does not own
+// the given node type, allowing the loop to advance to the next candidate.
+// Note: some printers legitimately return `null` for a valid-but-empty result
+// (e.g. a bare ExpressionStatement that emits nothing), so the "no match"
+// sentinel is strictly `undefined` – using `??` here would be incorrect.
+const NODE_TYPE_PRINTERS = [
+    tryPrintControlStructureNode,
+    tryPrintFunctionNode,
+    tryPrintFunctionSupportNode,
+    tryPrintVariableNode,
+    tryPrintExpressionNode,
+    tryPrintDeclarationNode,
+    tryPrintLiteralNode
+];
+
 function _printImplCore(node, path, options, print) {
-    let doc;
-
-    doc = tryPrintControlStructureNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintFunctionNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintFunctionSupportNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintVariableNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintExpressionNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintDeclarationNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintLiteralNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
+    for (const tryPrint of NODE_TYPE_PRINTERS) {
+        const doc = tryPrint(node, path, options, print);
+        if (doc !== undefined) return doc;
     }
 }
 

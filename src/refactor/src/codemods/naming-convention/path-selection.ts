@@ -21,6 +21,10 @@ export function resolveProjectPath(projectRoot: string, inputPath: string): stri
 /**
  * Compile allow/deny path lists into a reusable matcher for repeated candidate checks.
  *
+ * The returned predicate caches resolved results by input path string so that
+ * repeated checks for the same file path (common when many targets share the
+ * same source file) pay the `path.resolve` cost at most once.
+ *
  * @param projectRoot - Root path used to resolve relative entries.
  * @param allowedPaths - Optional allow list.
  * @param deniedPaths - Optional deny list.
@@ -33,8 +37,14 @@ export function createPathSelectionMatcher(
 ): (targetPath: string) => boolean {
     const absoluteAllowedPaths = allowedPaths.map((selectionPath) => resolveProjectPath(projectRoot, selectionPath));
     const absoluteDeniedPaths = deniedPaths.map((selectionPath) => resolveProjectPath(projectRoot, selectionPath));
+    const cache = new Map<string, boolean>();
 
     return (targetPath: string): boolean => {
+        const cached = cache.get(targetPath);
+        if (cached !== undefined) {
+            return cached;
+        }
+
         const absoluteTargetPath = resolveProjectPath(projectRoot, targetPath);
         const isAllowed =
             absoluteAllowedPaths.length === 0 ||
@@ -42,12 +52,16 @@ export function createPathSelectionMatcher(
                 isPathInsideSelection(absoluteTargetPath, absoluteSelectionPath)
             );
         if (!isAllowed) {
+            cache.set(targetPath, false);
             return false;
         }
 
-        return !absoluteDeniedPaths.some((absoluteSelectionPath) =>
+        const isDenied = absoluteDeniedPaths.some((absoluteSelectionPath) =>
             isPathInsideSelection(absoluteTargetPath, absoluteSelectionPath)
         );
+        const result = !isDenied;
+        cache.set(targetPath, result);
+        return result;
     };
 }
 

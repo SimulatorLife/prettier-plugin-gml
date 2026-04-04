@@ -4,6 +4,36 @@
  * represent a semantic-safe refactoring operation across multiple files.
  */
 
+/**
+ * Well-known symbol that any workspace-edit-like object can implement to expose
+ * its current mutation revision without being an instance of {@link WorkspaceEdit}.
+ * Substitutable implementations should call this method each time they mutate
+ * their edit collection and increment the returned counter so that callers can
+ * detect staleness without relying on `instanceof` checks.
+ *
+ * @example
+ * ```ts
+ * import { WORKSPACE_EDIT_REVISION_TOKEN } from "./workspace-edit.js";
+ *
+ * class MyWorkspaceEdit {
+ *   #revision = 0;
+ *   [WORKSPACE_EDIT_REVISION_TOKEN](): number { return this.#revision; }
+ *   addEdit(...) { this.#revision++; ... }
+ * }
+ * ```
+ */
+export const WORKSPACE_EDIT_REVISION_TOKEN: unique symbol = Symbol("WorkspaceEdit.revision");
+
+/**
+ * Contract that a workspace-edit-like object must implement to participate in
+ * revision-based cache invalidation. Any class that exposes this method via the
+ * {@link WORKSPACE_EDIT_REVISION_TOKEN} symbol can be used wherever revision
+ * tracking is required, without being a concrete {@link WorkspaceEdit} instance.
+ */
+export interface WorkspaceRevisionProvider {
+    readonly [WORKSPACE_EDIT_REVISION_TOKEN]: () => number;
+}
+
 export interface TextEdit {
     path: string;
     start: number;
@@ -35,14 +65,14 @@ export type WorkspaceEditTelemetry = {
     highWaterTextBytes: number;
 };
 
-type WorkspaceEditTelemetryState = {
-    totalTextBytes: number;
-    highWaterTextBytes: number;
-    touchedFiles: Set<string>;
+type WorkspaceEditMutableState = {
+    groupedEditsCache: GroupedTextEdits | null;
+    groupedEditsRevision: number;
+    revision: number;
 };
 
-const workspaceEditTelemetryState = new WeakMap<WorkspaceEdit, WorkspaceEditTelemetryState>();
 const workspaceEditExactKeyState = new WeakMap<WorkspaceEdit, Set<string>>();
+const workspaceEditMutableState = new WeakMap<WorkspaceEdit, WorkspaceEditMutableState>();
 const TEXT_EDIT_IDENTITY_DELIMITER = "\u0000";
 
 function createTextEditIdentityKey(path: string, start: number, end: number, newText: string): string {
@@ -62,19 +92,26 @@ function getExactEditKeys(workspace: WorkspaceEdit): Set<string> {
     return created;
 }
 
-function getTelemetryState(workspace: WorkspaceEdit): WorkspaceEditTelemetryState {
-    const existing = workspaceEditTelemetryState.get(workspace);
+function getMutableState(workspace: WorkspaceEdit): WorkspaceEditMutableState {
+    const existing = workspaceEditMutableState.get(workspace);
     if (existing) {
         return existing;
     }
 
-    const created: WorkspaceEditTelemetryState = {
-        totalTextBytes: 0,
-        highWaterTextBytes: 0,
-        touchedFiles: new Set<string>()
+    const created: WorkspaceEditMutableState = {
+        groupedEditsCache: null,
+        groupedEditsRevision: -1,
+        revision: 0
     };
-    workspaceEditTelemetryState.set(workspace, created);
+    workspaceEditMutableState.set(workspace, created);
     return created;
+}
+
+function markWorkspaceEditChanged(workspace: WorkspaceEdit): void {
+    const mutableState = getMutableState(workspace);
+    mutableState.revision += 1;
+    mutableState.groupedEditsCache = null;
+    mutableState.groupedEditsRevision = -1;
 }
 
 export class WorkspaceEdit {
@@ -98,33 +135,30 @@ export class WorkspaceEdit {
             return;
         }
 
-        const telemetryState = getTelemetryState(this);
         this.edits.push({ path, start, end, newText });
         exactEditKeys.add(editKey);
-        telemetryState.touchedFiles.add(path);
-        telemetryState.totalTextBytes += Buffer.byteLength(newText, "utf8");
-        telemetryState.highWaterTextBytes = Math.max(telemetryState.highWaterTextBytes, telemetryState.totalTextBytes);
+        markWorkspaceEditChanged(this);
     }
 
     addFileRename(oldPath: string, newPath: string): void {
-        const telemetryState = getTelemetryState(this);
         this.fileRenames.push({ oldPath, newPath });
-        telemetryState.touchedFiles.add(oldPath);
-        telemetryState.touchedFiles.add(newPath);
+        markWorkspaceEditChanged(this);
     }
 
     /**
      * Queue a full-document metadata rewrite.
      */
     addMetadataEdit(path: string, content: string): void {
-        const telemetryState = getTelemetryState(this);
         this.metadataEdits.push({ path, content });
-        telemetryState.touchedFiles.add(path);
-        telemetryState.totalTextBytes += Buffer.byteLength(content, "utf8");
-        telemetryState.highWaterTextBytes = Math.max(telemetryState.highWaterTextBytes, telemetryState.totalTextBytes);
+        markWorkspaceEditChanged(this);
     }
 
     groupByFile(): GroupedTextEdits {
+        const mutableState = getMutableState(this);
+        if (mutableState.groupedEditsCache !== null && mutableState.groupedEditsRevision === mutableState.revision) {
+            return mutableState.groupedEditsCache;
+        }
+
         const grouped: GroupedTextEdits = new Map();
 
         for (const edit of this.edits) {
@@ -148,7 +182,20 @@ export class WorkspaceEdit {
             );
         }
 
+        mutableState.groupedEditsCache = grouped;
+        mutableState.groupedEditsRevision = mutableState.revision;
         return grouped;
+    }
+
+    /**
+     * Implement the {@link WorkspaceRevisionProvider} contract so that
+     * {@link getWorkspaceEditRevision} can retrieve the revision via a
+     * capability probe rather than an `instanceof WorkspaceEdit` check.
+     * This allows substitutable workspace implementations to participate in
+     * revision-based cache invalidation by implementing the same symbol method.
+     */
+    [WORKSPACE_EDIT_REVISION_TOKEN](): number {
+        return getMutableState(this).revision;
     }
 }
 
@@ -156,15 +203,55 @@ export class WorkspaceEdit {
  * Return size/counter telemetry collected while building a workspace edit.
  */
 export function getWorkspaceEditTelemetry(workspace: WorkspaceEdit): WorkspaceEditTelemetry {
-    const telemetryState = getTelemetryState(workspace);
+    const touchedFiles = new Set<string>();
+    let totalTextBytes = 0;
+
+    for (const edit of workspace.edits) {
+        touchedFiles.add(edit.path);
+        totalTextBytes += Buffer.byteLength(edit.newText, "utf8");
+    }
+
+    for (const metadataEdit of workspace.metadataEdits) {
+        touchedFiles.add(metadataEdit.path);
+        totalTextBytes += Buffer.byteLength(metadataEdit.content, "utf8");
+    }
+
+    for (const fileRename of workspace.fileRenames) {
+        touchedFiles.add(fileRename.oldPath);
+        touchedFiles.add(fileRename.newPath);
+    }
+
     return {
         textEditCount: workspace.edits.length,
         fileRenameCount: workspace.fileRenames.length,
         metadataEditCount: workspace.metadataEdits.length,
-        touchedFileCount: telemetryState.touchedFiles.size,
-        totalTextBytes: telemetryState.totalTextBytes,
-        highWaterTextBytes: telemetryState.highWaterTextBytes
+        touchedFileCount: touchedFiles.size,
+        totalTextBytes,
+        highWaterTextBytes: totalTextBytes
     };
+}
+
+/**
+ * Return the current mutation revision for any object that implements the
+ * {@link WorkspaceRevisionProvider} contract via {@link WORKSPACE_EDIT_REVISION_TOKEN}.
+ * The revision increments whenever text edits, metadata edits, or file renames
+ * are appended, allowing callers to invalidate caches tied to the workspace's
+ * current contents without exposing the mutable bookkeeping itself.
+ *
+ * Any substitutable workspace implementation that exposes
+ * `[WORKSPACE_EDIT_REVISION_TOKEN](): number` participates in revision tracking
+ * without needing to be a concrete {@link WorkspaceEdit} instance.
+ *
+ * @param workspace - Workspace edit instance or compatible provider to inspect.
+ * @returns Current mutation revision, or `null` when the object does not implement the contract.
+ */
+export function getWorkspaceEditRevision(workspace: object): number | null {
+    const provider = workspace as Partial<WorkspaceRevisionProvider>;
+    if (typeof provider[WORKSPACE_EDIT_REVISION_TOKEN] !== "function") {
+        return null;
+    }
+
+    return provider[WORKSPACE_EDIT_REVISION_TOKEN]();
 }
 
 /**

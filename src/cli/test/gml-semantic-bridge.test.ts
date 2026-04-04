@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { Refactor } from "@gmloop/refactor";
 import { Semantic } from "@gmloop/semantic";
 
+import { collectImplicitInstanceVariableTargets } from "../src/modules/refactor/implicit-instance-variable-targets.js";
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
 function findNthIndex(sourceText: string, searchText: string, occurrenceNumber: number): number {
@@ -607,12 +608,12 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             resourceAbsolute,
-            `{"name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
             refAbsolute,
-            `{"name":"oRef","resourceType":"GMObject","spriteId":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",},}`,
+            `{"name":"oRef","resourceType":"GMObject","spriteId":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",},}`,
             "utf8"
         );
         fs.writeFileSync(
@@ -620,7 +621,7 @@ void describe("GmlSemanticBridge tests", () => {
             `{
                 "name":"MyGame",
                 "resourceType":"GMProject",
-                "resources":[{"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
+                "resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
             }`,
             "utf8"
         );
@@ -691,7 +692,7 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             resourceAbsolute,
-            `{"name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
@@ -699,7 +700,7 @@ void describe("GmlSemanticBridge tests", () => {
             `{
                 "name":"MyGame",
                 "resourceType":"GMProject",
-                "resources":[{"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
+                "resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
             }`,
             "utf8"
         );
@@ -739,6 +740,106 @@ void describe("GmlSemanticBridge tests", () => {
         assert.match(resourceEdit.content, /"resourcePath"\s*:\s*"objects\/oGravityWell\/oGravityWell\.yy"/);
     });
 
+    void it("getAdditionalSymbolEdits keeps InterplanetaryFootball.resource_order aligned across staged resource renames", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-resource-order-"));
+        const projectRoot = path.join(tmpRoot, "InterplanetaryFootball");
+        const objectPath = "objects/oCamera/oCamera.yy";
+        const scriptPath = "scripts/AssetLoader/AssetLoader.yy";
+        const resourceOrderPath = "InterplanetaryFootball.resource_order";
+
+        const objectAbsolute = path.join(projectRoot, objectPath);
+        const scriptAbsolute = path.join(projectRoot, scriptPath);
+        const resourceOrderAbsolute = path.join(projectRoot, resourceOrderPath);
+        fs.mkdirSync(path.dirname(objectAbsolute), { recursive: true });
+        fs.mkdirSync(path.dirname(scriptAbsolute), { recursive: true });
+
+        fs.writeFileSync(
+            objectAbsolute,
+            `{"name":"oCamera","resourceType":"GMObject","resourcePath":"objects/oCamera/oCamera.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            scriptAbsolute,
+            `{"name":"AssetLoader","resourceType":"GMScript","resourcePath":"scripts/AssetLoader/AssetLoader.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            resourceOrderAbsolute,
+            JSON.stringify(
+                {
+                    FolderOrderSettings: [],
+                    ResourceOrderSettings: [
+                        {
+                            name: "oCamera",
+                            order: 4,
+                            path: "objects/oCamera/oCamera.yy"
+                        },
+                        {
+                            name: "AssetLoader",
+                            order: 1,
+                            path: "scripts/AssetLoader/AssetLoader.yy"
+                        },
+                        {
+                            name: "oGoal",
+                            order: 2,
+                            path: "objects/oGoal/oGoal.yy"
+                        }
+                    ]
+                },
+                null,
+                2
+            ),
+            "utf8"
+        );
+
+        const mockProjectIndex = {
+            identifiers: {},
+            resources: {
+                [objectPath]: {
+                    path: objectPath,
+                    name: "oCamera",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [scriptPath]: {
+                    path: scriptPath,
+                    name: "AssetLoader",
+                    resourceType: "GMScript",
+                    assetReferences: []
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, projectRoot);
+        const objectRenameEdits = bridge.getAdditionalSymbolEdits("gml/objects/oCamera", "obj_o_camera");
+
+        assert.ok(objectRenameEdits, "Expected edits for the object rename");
+        const firstResourceOrderEdit = objectRenameEdits.metadataEdits.find(
+            (entry) => entry.path === resourceOrderPath
+        );
+        assert.ok(firstResourceOrderEdit);
+        assert.match(firstResourceOrderEdit.content, /"name"\s*:\s*"obj_o_camera"/);
+        assert.match(firstResourceOrderEdit.content, /"path"\s*:\s*"objects\/obj_o_camera\/obj_o_camera\.yy"/);
+        assert.match(firstResourceOrderEdit.content, /"name"\s*:\s*"AssetLoader"/);
+        assert.match(firstResourceOrderEdit.content, /"path"\s*:\s*"scripts\/AssetLoader\/AssetLoader\.yy"/);
+
+        bridge.stageWorkspaceEdit(objectRenameEdits);
+
+        const scriptRenameEdits = bridge.getAdditionalSymbolEdits("gml/scripts/AssetLoader", "asset_loader");
+
+        assert.ok(scriptRenameEdits, "Expected edits for the script rename");
+        const stagedResourceOrderEdit = scriptRenameEdits.metadataEdits.find(
+            (entry) => entry.path === resourceOrderPath
+        );
+        assert.ok(stagedResourceOrderEdit);
+        assert.match(stagedResourceOrderEdit.content, /"name"\s*:\s*"obj_o_camera"/);
+        assert.match(stagedResourceOrderEdit.content, /"path"\s*:\s*"objects\/obj_o_camera\/obj_o_camera\.yy"/);
+        assert.match(stagedResourceOrderEdit.content, /"name"\s*:\s*"asset_loader"/);
+        assert.match(stagedResourceOrderEdit.content, /"path"\s*:\s*"scripts\/asset_loader\/asset_loader\.yy"/);
+        assert.match(stagedResourceOrderEdit.content, /"name"\s*:\s*"oGoal"/);
+        assert.match(stagedResourceOrderEdit.content, /"path"\s*:\s*"objects\/oGoal\/oGoal\.yy"/);
+    });
+
     void it("getAdditionalSymbolEdits replaces project manifest entries in-place", () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-manifest-inplace-"));
         const resourcePath = "objects/oGravitySphere/oGravitySphere.yy";
@@ -750,12 +851,12 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             resourceAbsolute,
-            `{"name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
             projectManifestAbsolute,
-            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy"}}]}`,
+            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy"}}]}`,
             "utf8"
         );
 
@@ -806,12 +907,12 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             resourceAbsolute,
-            `{"name":"oGravitySphere","resourcePath":"objects/oGravitySphere/oGravitySphere.yy","resourceType":"GMObject"}`,
+            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourcePath":"objects/oGravitySphere/oGravitySphere.yy","resourceType":"GMObject"}`,
             "utf8"
         );
         fs.writeFileSync(
             projectManifestAbsolute,
-            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy"}}]}`,
+            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy"}}]}`,
             "utf8"
         );
 
@@ -871,7 +972,7 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             objectAbsolute,
-            `{"name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
@@ -885,7 +986,7 @@ void describe("GmlSemanticBridge tests", () => {
                 "name":"MyGame",
                 "resourceType":"GMProject",
                 "resources":[
-                    {"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}},
+                    {"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}},
                     {"id":{"name":"sEnemy","path":"sprites/sEnemy/sEnemy.yy",}}
                 ],
             }`,
@@ -951,6 +1052,113 @@ void describe("GmlSemanticBridge tests", () => {
         assert.doesNotMatch(resetManifestEdit.content, /"name"\s*:\s*"oGravityWell"/);
     });
 
+    void it("getAdditionalSymbolEdits resolves staged directory renames for sibling object resources in shared folders", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-shared-object-folder-"));
+        const parentObjectPath = "objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy";
+        const siblingObjectPath = "objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy";
+        const projectManifestPath = "project.yyp";
+
+        const parentObjectAbsolute = path.join(tmpRoot, parentObjectPath);
+        const siblingObjectAbsolute = path.join(tmpRoot, siblingObjectPath);
+        const projectManifestAbsolute = path.join(tmpRoot, projectManifestPath);
+        fs.mkdirSync(path.dirname(parentObjectAbsolute), { recursive: true });
+
+        fs.writeFileSync(
+            parentObjectAbsolute,
+            `{"name":"oColmesh2DemoCylinder","resourceType":"GMObject","resourcePath":"objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            siblingObjectAbsolute,
+            `{"name":"oColmeshDemo2Sphere","resourceType":"GMObject","resourcePath":"objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(
+            projectManifestAbsolute,
+            `{
+                "name":"MyGame",
+                "resourceType":"GMProject",
+                "resources":[
+                    {"id":{"name":"oColmesh2DemoCylinder","path":"objects/oColmesh2DemoCylinder/oColmesh2DemoCylinder.yy",}},
+                    {"id":{"name":"oColmeshDemo2Sphere","path":"objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy",}}
+                ],
+            }`,
+            "utf8"
+        );
+
+        const mockProjectIndex = {
+            identifiers: {},
+            resources: {
+                [parentObjectPath]: {
+                    path: parentObjectPath,
+                    name: "oColmesh2DemoCylinder",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [siblingObjectPath]: {
+                    path: siblingObjectPath,
+                    name: "oColmeshDemo2Sphere",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [projectManifestPath]: {
+                    path: projectManifestPath,
+                    name: "MyGame",
+                    resourceType: "GMProject",
+                    assetReferences: [
+                        {
+                            propertyPath: "resources.0.id",
+                            targetPath: parentObjectPath,
+                            targetName: "oColmesh2DemoCylinder"
+                        },
+                        {
+                            propertyPath: "resources.1.id",
+                            targetPath: siblingObjectPath,
+                            targetName: "oColmeshDemo2Sphere"
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const parentRenameEdits = bridge.getAdditionalSymbolEdits(
+            "gml/objects/oColmesh2DemoCylinder",
+            "obj_o_colmesh2demo_cylinder"
+        );
+        assert.ok(parentRenameEdits);
+        bridge.stageWorkspaceEdit(parentRenameEdits);
+
+        const siblingRenameEdits = bridge.getAdditionalSymbolEdits(
+            "gml/objects/oColmeshDemo2Sphere",
+            "obj_o_colmesh_demo2sphere"
+        );
+        assert.ok(siblingRenameEdits);
+
+        assert.deepEqual(siblingRenameEdits.fileRenames, [
+            {
+                oldPath: "objects/obj_o_colmesh2demo_cylinder/oColmeshDemo2Sphere.yy",
+                newPath: "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh_demo2sphere.yy"
+            }
+        ]);
+
+        const siblingMetadataEdit = siblingRenameEdits.metadataEdits.find((entry) => entry.path === siblingObjectPath);
+        assert.ok(siblingMetadataEdit);
+        assert.match(
+            siblingMetadataEdit.content,
+            /"resourcePath"\s*:\s*"objects\/obj_o_colmesh2demo_cylinder\/obj_o_colmesh_demo2sphere\.yy"/
+        );
+
+        const manifestEdit = siblingRenameEdits.metadataEdits.find((entry) => entry.path === projectManifestPath);
+        assert.ok(manifestEdit);
+        assert.match(manifestEdit.content, /"name"\s*:\s*"obj_o_colmesh2demo_cylinder"/);
+        assert.match(manifestEdit.content, /"name"\s*:\s*"obj_o_colmesh_demo2sphere"/);
+        assert.match(
+            manifestEdit.content,
+            /"path"\s*:\s*"objects\/obj_o_colmesh2demo_cylinder\/obj_o_colmesh_demo2sphere\.yy"/
+        );
+    });
+
     void it("getAdditionalSymbolEdits preserves room float metadata across sequential staged rewrites", () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-room-floats-"));
         const playerPath = "objects/oPlayer/oPlayer.yy";
@@ -990,7 +1198,7 @@ void describe("GmlSemanticBridge tests", () => {
               "isDnd":false,
               "layers":[
                 {"$GMRInstanceLayer":"","%Name":"Instances_3","depth":100,"effectEnabled":true,"effectType":null,"gridX":32,"gridY":32,"hierarchyFrozen":false,"inheritLayerDepth":false,"inheritLayerSettings":false,"inheritSubLayers":true,"inheritVisibility":true,"instances":[
-                    {"$GMRInstance":"v4","%Name":"inst_104A19B6","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_104A19B6","objectId":{"name":"oPlayer","path":"objects/oPlayer/oPlayer.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":640.0,"y":480.0,},
+                    {"$GMRInstance":"v4","%Name":"inst_104A19B6","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_104A19B6","objectId":{"name":"oPlayer","path":"objects/oPlayer/oPlayer.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":3.7500002,"scaleX":1.7499999,"scaleY":1.0,"x":640.0,"y":480.0,},
                     {"$GMRInstance":"v4","%Name":"inst_722E568F","colour":4294967295,"frozen":false,"hasCreationCode":false,"ignore":false,"imageIndex":0,"imageSpeed":1.0,"inheritCode":false,"inheritedItemId":null,"inheritItemSettings":false,"isDnd":false,"name":"inst_722E568F","objectId":{"name":"oGoal","path":"objects/oGoal/oGoal.yy",},"properties":[],"resourceType":"GMRInstance","resourceVersion":"2.0","rotation":0.0,"scaleX":1.0,"scaleY":1.0,"x":1056.0,"y":544.0,},
                   ],"layers":[],"name":"Instances_3","properties":[],"resourceType":"GMRInstanceLayer","resourceVersion":"2.0","userdefinedDepth":false,"visible":true,},
                 {"$GMRBackgroundLayer":"","%Name":"Background","animationFPS":15.0,"animationSpeedType":0,"colour":4278190080,"depth":300,"effectEnabled":true,"effectType":null,"gridX":32,"gridY":32,"hierarchyFrozen":false,"hspeed":0.0,"htiled":false,"inheritLayerDepth":false,"inheritLayerSettings":false,"inheritSubLayers":true,"inheritVisibility":true,"layers":[],"name":"Background","properties":[],"resourceType":"GMRBackgroundLayer","resourceVersion":"2.0","spriteId":null,"stretch":false,"userdefinedAnimFPS":false,"userdefinedDepth":false,"visible":true,"vspeed":0.0,"vtiled":false,"x":0,"y":0,},
@@ -1068,8 +1276,9 @@ void describe("GmlSemanticBridge tests", () => {
         assert.match(roomEdit.content, /"name":"oEndGoal"/u);
         assert.match(roomEdit.content, /"path":"objects\/oEndGoal\/oEndGoal\.yy"/u);
         assert.match(roomEdit.content, /"imageSpeed":1\.0/u);
-        assert.match(roomEdit.content, /"rotation":0\.0/u);
-        assert.match(roomEdit.content, /"scaleX":1\.0/u);
+        assert.match(roomEdit.content, /"rotation":3\.7500002/u);
+        assert.match(roomEdit.content, /"scaleX":1\.7499999/u);
+        assert.match(roomEdit.content, /"scaleY":1\.0/u);
         assert.match(roomEdit.content, /"animationFPS":15\.0/u);
         assert.match(roomEdit.content, /"PhysicsWorldGravityY":10\.0/u);
         assert.match(roomEdit.content, /"PhysicsWorldPixToMetres":0\.1/u);
@@ -1094,12 +1303,12 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             objectAbsolute,
-            `{"name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
             projectManifestAbsolute,
-            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],}`,
+            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],}`,
             "utf8"
         );
         fs.writeFileSync(
@@ -1963,6 +2172,61 @@ void describe("GmlSemanticBridge tests", () => {
         }
     });
 
+    void it("listNamingConventionTargets excludes ambiguous constructor static members with unresolved references", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-static-member-ambiguous-"));
+
+        try {
+            const class1Source = [
+                "function Vector2() constructor {",
+                "    static Add = function(val) { return 2; };",
+                "}",
+                ""
+            ].join("\n");
+
+            const class2Source = [
+                "function Vector3() constructor {",
+                "    static Add = function(val) { return 3; };",
+                "}",
+                ""
+            ].join("\n");
+
+            const consumerSource = ["function update(pos) {", "    return pos.Add(1);", "}", ""].join("\n");
+
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "classes"), { recursive: true });
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "consumer"), { recursive: true });
+            fs.writeFileSync(
+                path.join(tmpRoot, "MyGame.yyp"),
+                `${JSON.stringify({ name: "MyGame", resourceType: "GMProject" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "classes", "classes.gml"), class1Source + class2Source);
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "classes", "classes.yy"),
+                `${JSON.stringify({ name: "classes", resourceType: "GMScript" }, null, 2)}\n`
+            );
+            fs.writeFileSync(path.join(tmpRoot, "scripts", "consumer", "consumer.gml"), consumerSource);
+            fs.writeFileSync(
+                path.join(tmpRoot, "scripts", "consumer", "consumer.yy"),
+                `${JSON.stringify({ name: "consumer", resourceType: "GMScript" }, null, 2)}\n`
+            );
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const targets = await bridge.listNamingConventionTargets();
+
+            const addTargets = targets.filter(
+                (target) => target.category === "staticVariable" && target.name === "Add"
+            );
+
+            assert.strictEqual(
+                addTargets.length,
+                0,
+                "Should abort yielding static variable targets for ambiguous occurrences"
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
     void it("listMacroExpansionDependencies reports caller-scoped identifiers consumed by referenced macros", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-macro-deps-"));
 
@@ -2479,6 +2743,98 @@ void describe("GmlSemanticBridge tests", () => {
         );
     });
 
+    void it("listNamingConventionTargets does not synthesize implicit instance-variable targets for known resource identifiers", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-resource-name-targets-"));
+        const systemFilePath = "objects/oSystem/Other_2.gml";
+        const playerFilePath = "objects/oPlayer/Create_0.gml";
+        const systemSource = ["instance_create_depth(0, 0, 0, oCamera);", "if (instance_exists(oCamera)) {}", ""].join(
+            "\n"
+        );
+        const playerSource = [
+            "if (instance_exists(oCamera)) {",
+            "    show_debug_message(oCamera.camXfrom);",
+            "}",
+            ""
+        ].join("\n");
+
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oSystem"), { recursive: true });
+        fs.mkdirSync(path.join(tmpRoot, "objects", "oPlayer"), { recursive: true });
+        fs.writeFileSync(path.join(tmpRoot, systemFilePath), systemSource, "utf8");
+        fs.writeFileSync(path.join(tmpRoot, playerFilePath), playerSource, "utf8");
+
+        const systemCreateDepthStart = findNthIndex(systemSource, "oCamera", 1);
+        const systemInstanceExistsStart = findNthIndex(systemSource, "oCamera", 2);
+        const playerInstanceExistsStart = findNthIndex(playerSource, "oCamera", 1);
+        const playerDottedOwnerStart = findNthIndex(playerSource, "oCamera", 2);
+
+        const mockProjectIndex = {
+            identifiers: {
+                instanceVariables: {}
+            },
+            resources: {
+                "objects/oCamera/oCamera.yy": {
+                    path: "objects/oCamera/oCamera.yy",
+                    name: "oCamera",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                }
+            },
+            files: {
+                [systemFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oSystem",
+                            start: { index: systemCreateDepthStart },
+                            end: { index: systemCreateDepthStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oSystem",
+                            start: { index: systemInstanceExistsStart },
+                            end: { index: systemInstanceExistsStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                },
+                [playerFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: playerInstanceExistsStart },
+                            end: { index: playerInstanceExistsStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "oCamera",
+                            scopeId: "scope:object:oPlayer",
+                            start: { index: playerDottedOwnerStart },
+                            end: { index: playerDottedOwnerStart + "oCamera".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const targets = await bridge.listNamingConventionTargets([systemFilePath, playerFilePath]);
+
+        assert.ok(!targets.some((target) => target.category === "instanceVariable" && target.name === "oCamera"));
+    });
+
     void it("listNamingConventionTargets excludes enum-member property references from implicit instance-variable targets", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-implicit-enum-members-"));
         const enumFilePath = "scripts/cm_misc/cm_misc.gml";
@@ -2595,5 +2951,42 @@ void describe("GmlSemanticBridge tests", () => {
             start: { index: 10 }
         });
         assert.equal(result, true);
+    });
+    void it("collectImplicitInstanceVariableTargets handles variable instances dynamically accessed in external global script files", () => {
+        fs.mkdirSync("/tmp/scripts/conveniencefunctions", { recursive: true });
+        fs.writeFileSync("/tmp/scripts/conveniencefunctions/conveniencefunctions.gml", "var anim = playerModel = 1;");
+        const mockProjectIndex = {
+            files: {
+                "scripts/conveniencefunctions/conveniencefunctions.gml": {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "playerModel",
+                            scopeId: "scope:script:conveniencefunctions",
+                            start: { index: 10 },
+                            end: { index: 21 },
+                            declaration: null,
+                            classifications: ["property"],
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        // unused bridge
+        const targets = collectImplicitInstanceVariableTargets({
+            files: mockProjectIndex.files as any,
+            knownEnumNames: new Set<string>(),
+            knownNamesByObjectDirectory: new Map<string, Set<string>>(),
+            knownResourceNames: new Set<string>(),
+            projectRoot: "/tmp",
+            shouldIncludePath: () => true
+        });
+
+        const playerTarget = targets.find((t) => t.name === "playerModel");
+        assert.ok(playerTarget);
+        assert.equal(playerTarget?.occurrences?.[0]?.start, 10);
     });
 });

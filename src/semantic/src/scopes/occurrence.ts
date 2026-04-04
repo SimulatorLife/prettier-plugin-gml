@@ -2,6 +2,21 @@ import { Core, type GameMakerAstNode } from "@gmloop/core";
 
 import type { Location, Occurrence, ScopeSymbolMetadata } from "./types.js";
 
+type OccurrenceDraft = Omit<Occurrence, "start" | "end">;
+type UsageContextSource = {
+    isAssignmentTarget?: boolean;
+    isCallTarget?: boolean;
+    parentType?: string;
+};
+type IdentifierToken = {
+    line: number;
+    start?: number;
+    startIndex?: number;
+    stop?: number;
+    stopIndex?: number;
+    column?: number;
+};
+
 /**
  * Creates a new occurrence object for a symbol declaration or reference.
  */
@@ -12,12 +27,16 @@ export function createOccurrence(
     declarationMetadata: ScopeSymbolMetadata | null | undefined
 ): Occurrence {
     const declaration = declarationMetadata
-        ? Core.assignClonedLocation({ scopeId: declarationMetadata.scopeId }, declarationMetadata)
+        ? {
+              scopeId: declarationMetadata.scopeId,
+              start: Core.cloneLocation(declarationMetadata.start),
+              end: Core.cloneLocation(declarationMetadata.end)
+          }
         : null;
 
     const usageContext = kind === "declaration" ? null : extractUsageContext(source);
 
-    const baseOccurrence = {
+    const baseOccurrence: OccurrenceDraft = {
         kind,
         name: metadata.name ?? null,
         scopeId: metadata.scopeId ?? null,
@@ -26,7 +45,7 @@ export function createOccurrence(
         }) as string[],
         declaration,
         usageContext
-    } as any;
+    };
 
     return Core.assignClonedLocation(baseOccurrence, source ?? {}) as Occurrence;
 }
@@ -40,20 +59,20 @@ export function extractUsageContext(node: unknown): Occurrence["usageContext"] {
     }
 
     const context: NonNullable<Occurrence["usageContext"]> = {};
-    const nodeAny = node as Record<string, any>;
+    const sourceNode = node as UsageContextSource;
 
-    if (nodeAny.isAssignmentTarget === true) {
+    if (sourceNode.isAssignmentTarget === true) {
         context.isAssignmentTarget = true;
         context.isWrite = true;
     }
 
-    if (nodeAny.isCallTarget === true) {
+    if (sourceNode.isCallTarget === true) {
         context.isCallTarget = true;
         context.isRead = true;
     }
 
-    if (typeof nodeAny.parentType === "string") {
-        context.parentType = nodeAny.parentType;
+    if (typeof sourceNode.parentType === "string") {
+        context.parentType = sourceNode.parentType;
     }
 
     if (!context.isWrite && !context.isRead) {
@@ -112,22 +131,22 @@ export function cloneOccurrence(occurrence: Occurrence | null | undefined): Occu
  * Build a `{ start, end }` location object from a token, preserving `line`, `index`,
  * and optional `column` data. Returns `null` if no token is provided.
  */
-export function createIdentifierLocation(token: any): Location | null {
+export function createIdentifierLocation(token: IdentifierToken | null | undefined): Location | null {
     if (!token) {
         return null;
     }
 
-    const { line } = token as { line: number };
-    const startIndex = (token.start ?? token.startIndex) as number | undefined;
-    const stopIndex = (token.stop ?? token.stopIndex ?? startIndex) as number | undefined;
-    const startColumn = token.column as number | undefined;
+    const { line } = token;
+    const startIndex = token.start ?? token.startIndex;
+    const stopIndex = token.stop ?? token.stopIndex ?? startIndex;
+    const startColumn = token.column;
     const identifierLength =
         Number.isInteger(startIndex) && Number.isInteger(stopIndex)
             ? (stopIndex ?? 0) - (startIndex ?? 0) + 1
             : undefined;
 
     const buildPoint = (index: number | undefined, column?: number): Location["start"] => {
-        const point: any = {
+        const point: Location["start"] = {
             line,
             index: index ?? 0
         };
