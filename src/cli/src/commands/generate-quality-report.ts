@@ -170,7 +170,7 @@ function resolveNextSuitePath(node, suitePath, { hasTestcase, hasTestsuite }) {
 /**
  * Record a single testcase result in the aggregate list.
  */
-function recordSuiteTestCase(cases, node, suitePath) {
+function recordSuiteTestCase(cases, node, suitePath, reportFilePath = "") {
     const key = buildTestKey(node, suitePath);
     const displayName = describeTestCase(node, suitePath) || key;
     const time = Number.parseFloat(node.time) || 0;
@@ -181,7 +181,8 @@ function recordSuiteTestCase(cases, node, suitePath) {
         key,
         status: computeStatus(node),
         displayName,
-        time
+        time,
+        reportFilePath
     });
     return cases;
 }
@@ -209,7 +210,7 @@ function processTraversalQueue<T>(queue: T[], visitor: (item: T, queue: T[]) => 
     }
 }
 
-function collectTestCases(root) {
+function collectTestCases(root, { reportFilePath = "" }: { reportFilePath?: string } = {}) {
     const cases = [];
     const queue = createTestTraversalQueue(root);
 
@@ -235,7 +236,7 @@ function collectTestCases(root) {
         });
 
         if (looksLikeTestCase(node)) {
-            recordSuiteTestCase(cases, node, suitePath);
+            recordSuiteTestCase(cases, node, suitePath, reportFilePath);
         }
 
         if (hasTestcase) {
@@ -628,7 +629,7 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
         return { cases: [], notes: [] };
     }
 
-    const parseResult = parseXmlTestCases(xml, displayPath);
+    const parseResult = parseXmlTestCases(xml, displayPath, filePath);
     if (parseResult.status === ParseResultStatus.ERROR) {
         return { cases: [], notes: [parseResult.note] };
     }
@@ -655,7 +656,7 @@ function readXmlFile(filePath, displayPath) {
     }
 }
 
-function parseXmlTestCases(xml, displayPath) {
+function parseXmlTestCases(xml, displayPath, reportFilePath = "") {
     try {
         const data = parser.parse(xml);
         if (isCheckstyleDocument(data)) {
@@ -670,7 +671,10 @@ function parseXmlTestCases(xml, displayPath) {
                 note: `Parsed ${displayPath} but it does not contain any test suites or cases.`
             };
         }
-        return { status: ParseResultStatus.OK, cases: collectTestCases(data) };
+        return {
+            status: ParseResultStatus.OK,
+            cases: collectTestCases(data, { reportFilePath })
+        };
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
         return {
@@ -749,7 +753,9 @@ function recordTestCases(aggregates, testCases) {
     const { results, stats } = aggregates;
 
     for (const testCase of testCases) {
-        results.set(testCase.key, testCase);
+        const existingRecord = results.get(testCase.key);
+        const preferredRecord = choosePreferredTestRecord(existingRecord, testCase);
+        results.set(testCase.key, preferredRecord);
         stats.total += 1;
         stats.time += testCase.time || 0;
 
@@ -761,6 +767,33 @@ function recordTestCases(aggregates, testCases) {
             stats.passed += 1;
         }
     }
+}
+
+function isCanonicalTestsXmlReportPath(value): boolean {
+    const reportPath = toTrimmedString(value);
+    if (!reportPath) {
+        return false;
+    }
+    return path.basename(reportPath).toLowerCase() === "tests.xml";
+}
+
+function choosePreferredTestRecord(existingRecord, incomingRecord) {
+    if (!existingRecord) {
+        return incomingRecord;
+    }
+
+    const existingIsCanonical = isCanonicalTestsXmlReportPath(existingRecord?.reportFilePath);
+    const incomingIsCanonical = isCanonicalTestsXmlReportPath(incomingRecord?.reportFilePath);
+
+    if (existingIsCanonical && !incomingIsCanonical) {
+        return existingRecord;
+    }
+
+    if (incomingIsCanonical && !existingIsCanonical) {
+        return incomingRecord;
+    }
+
+    return incomingRecord;
 }
 
 function createResultAggregates() {
