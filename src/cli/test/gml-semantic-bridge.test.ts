@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { Refactor } from "@gmloop/refactor";
 import { Semantic } from "@gmloop/semantic";
 
+import { collectImplicitInstanceVariableTargets } from "../src/modules/refactor/implicit-instance-variable-targets.js";
 import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 
 function findNthIndex(sourceText: string, searchText: string, occurrenceNumber: number): number {
