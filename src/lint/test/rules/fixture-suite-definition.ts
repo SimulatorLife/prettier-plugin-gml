@@ -2,14 +2,6 @@ import { FixtureRunner } from "@gmloop/fixture-runner";
 
 import { createLintFixtureAdapter } from "./fixture-adapter.js";
 
-function resolveLintFixtureRoot(): string {
-    return FixtureRunner.resolveFixtureDirectoryFromModuleUrl({
-        moduleUrl: import.meta.url,
-        sourceRelativeSegments: ["..", "fixtures"],
-        distRelativeSegments: ["..", "..", "..", "test", "fixtures"]
-    });
-}
-
 /**
  * Create the canonical lint fixture suite definition shared by workspace and
  * aggregate fixture runs.
@@ -17,11 +9,13 @@ function resolveLintFixtureRoot(): string {
  * @returns Lint fixture suite registration metadata.
  */
 export function createLintFixtureSuiteDefinition() {
-    return Object.freeze({
+    return FixtureRunner.createFixtureSuiteDefinition({
         workspaceName: "lint",
         suiteName: "lint rule fixtures",
         compiledWorkspaceTestFilePath: "src/lint/dist/test/rules/rule-fixtures.test.js",
-        fixtureRoot: resolveLintFixtureRoot(),
+        moduleUrl: import.meta.url,
+        sourceRelativeSegments: ["..", "fixtures"],
+        distRelativeSegments: ["..", "..", "..", "test", "fixtures"],
         adapter: createLintFixtureAdapter()
     });
 }

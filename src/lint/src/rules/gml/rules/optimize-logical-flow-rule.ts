@@ -2,7 +2,7 @@ import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import { printNodeForAutofix } from "../print-expression.js";
-import { cloneAstNodeWithoutTraversalLinks, createMeta } from "../rule-base-helpers.js";
+import { cloneAstNodeWithoutTraversalLinks, createMeta, resolveLocFromIndex } from "../rule-base-helpers.js";
 import type { GmlRuleDefinition } from "../rule-definition.js";
 import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expression-traversal-normalization.js";
 
@@ -274,25 +274,15 @@ function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
         return true;
     }
 
-    if (logicalExpression.operator === "&&") {
-        return (
-            left.type === "LogicalExpression" ||
-            right.type === "LogicalExpression" ||
-            left.type === "BinaryExpression" ||
-            right.type === "BinaryExpression"
-        );
-    }
-
-    if (logicalExpression.operator === "||") {
-        return (
-            left.type === "LogicalExpression" ||
-            right.type === "LogicalExpression" ||
-            left.type === "BinaryExpression" ||
-            right.type === "BinaryExpression"
-        );
-    }
-
-    return false;
+    // At this point the operator is guaranteed to be "&&" or "||" (checked above).
+    // Both operators share the same structural heuristic: normalize when either
+    // operand is itself a logical/binary expression that could be further simplified.
+    return (
+        left.type === "LogicalExpression" ||
+        right.type === "LogicalExpression" ||
+        left.type === "BinaryExpression" ||
+        right.type === "BinaryExpression"
+    );
 }
 
 function getNodeRange(node: unknown): SourceTextRange | null {
@@ -318,43 +308,6 @@ function isRangeInsideAnyRange(range: SourceTextRange, existingRanges: ReadonlyA
     return existingRanges.some((existingRange) => {
         return range.start >= existingRange.start && range.end <= existingRange.end;
     });
-}
-
-function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: number; column: number } {
-    const sourceText = context.sourceCode.text;
-    const rawStart = Core.getNodeStartIndex(node as any);
-    const startIndex =
-        typeof rawStart === "number" && Number.isFinite(rawStart) ? Core.clamp(rawStart, 0, sourceText.length) : 0;
-    const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (index: number) => { line: number; column: number } | undefined;
-    };
-    const located =
-        typeof sourceCodeWithLocator.getLocFromIndex === "function"
-            ? sourceCodeWithLocator.getLocFromIndex(startIndex)
-            : undefined;
-    if (
-        located &&
-        typeof located.line === "number" &&
-        typeof located.column === "number" &&
-        Number.isFinite(located.line) &&
-        Number.isFinite(located.column)
-    ) {
-        return located;
-    }
-
-    let line = 1;
-    let lastLineStart = 0;
-    for (let index = 0; index < startIndex; index += 1) {
-        if (sourceText[index] === "\n") {
-            line += 1;
-            lastLineStart = index + 1;
-        }
-    }
-
-    return {
-        line,
-        column: startIndex - lastLineStart
-    };
 }
 
 export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -434,7 +387,11 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                         rewrittenNodeRanges.push(nodeRange);
 
                         context.report({
-                            loc: resolveSafeNodeLoc(context, originalNode as unknown),
+                            loc: resolveLocFromIndex(
+                                context,
+                                fullSourceText,
+                                Core.getNodeStartIndex(originalNode) ?? 0
+                            ),
                             messageId: definition.messageId,
                             fix(fixer) {
                                 return fixer.replaceTextRange([nodeRange.start, nodeRange.end], newText);

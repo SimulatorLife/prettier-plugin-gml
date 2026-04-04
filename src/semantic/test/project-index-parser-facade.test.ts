@@ -19,3 +19,27 @@ void test("resolveProjectIndexParser prefers facade overrides", () => {
     assert.deepEqual(result, { ok: true });
     assert.deepEqual(calls, ["test_source"]);
 });
+
+void test("resolveProjectIndexParser ignores legacy parserFacade alias and uses canonical parseGml", () => {
+    const legacyCalls: Array<string> = [];
+    const canonicalCalls: Array<string> = [];
+
+    const parser = resolveProjectIndexParser({
+        parserFacade: {
+            parse(sourceText: string) {
+                legacyCalls.push(sourceText);
+                return { source: "legacy" };
+            }
+        },
+        parseGml(sourceText: string) {
+            canonicalCalls.push(sourceText);
+            return { source: "canonical" };
+        }
+    });
+
+    const result = parser("test_source");
+
+    assert.deepEqual(result, { source: "canonical" });
+    assert.deepEqual(canonicalCalls, ["test_source"]);
+    assert.deepEqual(legacyCalls, []);
+});

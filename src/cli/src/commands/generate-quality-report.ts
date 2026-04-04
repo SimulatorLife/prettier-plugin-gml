@@ -286,9 +286,9 @@ function readCoverage(lcovFiles) {
             const text = readTextFileSync(file);
             for (const line of text.split(/\r?\n/)) {
                 if (line.startsWith("LF:")) {
-                    found += Number.parseInt(line.slice(3), 10) || 0;
+                    found += Number.parseInt(line.slice(3)) || 0;
                 } else if (line.startsWith("LH:")) {
-                    hit += Number.parseInt(line.slice(3), 10) || 0;
+                    hit += Number.parseInt(line.slice(3)) || 0;
                 }
             }
         } catch {
@@ -885,10 +885,6 @@ function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions 
     };
 }
 
-function shouldSkipRegressionDetection(baseStats, targetStats) {
-    return baseStats && targetStats && baseStats.total === targetStats.total && targetStats.failed <= baseStats.failed;
-}
-
 /**
  * Normalize result-set inputs so downstream helpers can rely on Map semantics.
  */
@@ -1115,10 +1111,6 @@ function collectResolvedFailures({ baseResults, targetResults }) {
 }
 
 function detectRegressions(baseResults, targetResults) {
-    if (shouldSkipRegressionDetection(baseResults?.stats, targetResults?.stats)) {
-        return [];
-    }
-
     return collectRegressions({
         baseResults: resolveResultsMap(baseResults),
         targetResults: resolveResultsMap(targetResults)

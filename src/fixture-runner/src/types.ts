@@ -169,6 +169,14 @@ export interface FixtureRunFailure {
     error: unknown;
 }
 
+export interface FixtureSuiteDefinition {
+    workspaceName: string;
+    suiteName: string;
+    compiledWorkspaceTestFilePath: string;
+    fixtureRoot: string;
+    adapter: FixtureAdapter;
+}
+
 export interface FixtureAdapter {
     workspaceName: string;
     suiteName: string;

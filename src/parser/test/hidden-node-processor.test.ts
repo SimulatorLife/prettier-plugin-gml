@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Core } from "@gmloop/core";
-
+import { createCommentBlockNode, createCommentLineNode, createWhitespaceNode } from "../src/ast/comment-nodes.js";
 import { createHiddenNodeProcessor } from "../src/ast/hidden-node-processor.js";
 
 void test("createCommentLineNode strips leading markers and records metadata", () => {
     const token = { line: 5, start: 10, stop: 18 };
-    const comment = Core.createCommentLineNode({
+    const comment = createCommentLineNode({
         token,
         tokenText: "// example",
         leadingWS: "\n",
@@ -26,7 +25,7 @@ void test("createCommentLineNode strips leading markers and records metadata", (
 
 void test("createCommentBlockNode tracks line count and boundaries", () => {
     const token = { line: 2, start: 4, stop: 25 };
-    const comment = Core.createCommentBlockNode({
+    const comment = createCommentBlockNode({
         token,
         tokenText: "/* multi\nline */",
         leadingWS: "  ",
@@ -44,7 +43,7 @@ void test("createCommentBlockNode tracks line count and boundaries", () => {
 
 void test("createWhitespaceNode annotates newlines", () => {
     const token = { line: 7, start: 3, stop: 4 };
-    const whitespace = Core.createWhitespaceNode({
+    const whitespace = createWhitespaceNode({
         token,
         tokenText: "\n",
         isNewline: true

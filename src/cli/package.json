@@ -21,21 +21,24 @@
   },
   "dependencies": {
     "@gmloop/core": "workspace:*",
+    "@gmloop/format": "workspace:*",
     "@gmloop/lint": "workspace:*",
     "@gmloop/parser": "workspace:*",
-    "@gmloop/format": "workspace:*",
     "@gmloop/refactor": "workspace:*",
     "@gmloop/semantic": "workspace:*",
     "@gmloop/transpiler": "workspace:*",
     "commander": "^14.0.2",
     "eslint": "^9.39.1",
     "eslint-formatter-checkstyle": "^9.0.1",
-    "linkedom": "^0.18.12",
     "fast-xml-parser": "^5.3.4",
+    "linkedom": "^0.18.12",
     "ws": "^8.18.0"
   },
   "engines": {
     "node": ">=22.0.0"
   },
-  "packageManager": "pnpm@10.28.0"
+  "packageManager": "pnpm@10.28.0",
+  "devDependencies": {
+    "tsx": "^4.21.0"
+  }
 }

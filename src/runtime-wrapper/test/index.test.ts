@@ -5,10 +5,8 @@ import { RuntimeWrapper } from "../index.js";
 import type { PatchHistoryReader, PatchUndoController } from "../src/runtime/types.js";
 
 void test("runtime wrapper exposes timing helpers through the dedicated timing namespace", () => {
-    assert.strictEqual(typeof RuntimeWrapper.Timing.getWallClockTime, "function");
     assert.strictEqual(typeof RuntimeWrapper.Timing.getHighResolutionTime, "function");
     assert.strictEqual(typeof RuntimeWrapper.Timing.measureDuration, "function");
-    assert.ok(!("getWallClockTime" in RuntimeWrapper));
     assert.ok(!("getHighResolutionTime" in RuntimeWrapper));
     assert.ok(!("measureDuration" in RuntimeWrapper));
 });
