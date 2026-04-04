@@ -181,10 +181,9 @@ function processLocalNamingConventionRename(parameters: {
 }): number {
     const { target, suggestedName } = parameters;
     const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
-    const declarationKey = parameters.hasDuplicateScopedDeclarations ? getLocalDeclarationKey(target) : "";
-    const scopedDeclarationKey =
-        parameters.hasDuplicateScopedDeclarations && declarationKey.length > 0 ? `${scopeKey}:${declarationKey}` : "";
-    if (scopedDeclarationKey.length > 0 && parameters.duplicateScopedDeclarationKeys.has(scopedDeclarationKey)) {
+    const declarationKey = parameters.hasDuplicateScopedDeclarations ? getLocalDeclarationKey(target) : null;
+    const scopedDeclarationKey = declarationKey === null ? null : `${scopeKey}:${declarationKey}`;
+    if (scopedDeclarationKey !== null && parameters.duplicateScopedDeclarationKeys.has(scopedDeclarationKey)) {
         const plannedDecision = parameters.localDeclarationRenameDecisions.get(scopedDeclarationKey);
         if (plannedDecision) {
             if (!plannedDecision.shouldApply) {
@@ -218,7 +217,7 @@ function processLocalNamingConventionRename(parameters: {
             parameters.warnings.push(
                 `Skipping local rename '${target.name}' -> '${suggestedName}' in ${target.path} because the target name already exists in the same scope.`
             );
-            if (scopedDeclarationKey.length > 0) {
+            if (scopedDeclarationKey !== null) {
                 parameters.localDeclarationRenameDecisions.set(scopedDeclarationKey, {
                     shouldApply: false,
                     suggestedName
@@ -235,7 +234,7 @@ function processLocalNamingConventionRename(parameters: {
         parameters.warnings.push(
             `Skipping local rename '${target.name}' -> '${suggestedName}' in ${target.path} because '${suggestedName}' is a reserved GameMaker identifier.`
         );
-        if (scopedDeclarationKey.length > 0) {
+        if (scopedDeclarationKey !== null) {
             parameters.localDeclarationRenameDecisions.set(scopedDeclarationKey, {
                 shouldApply: false,
                 suggestedName
@@ -252,7 +251,7 @@ function processLocalNamingConventionRename(parameters: {
         parameters.warnings.push(
             `Skipping local rename '${target.name}' -> '${suggestedName}' in ${target.path} because macro expansion${dependentMacroNames.length === 1 ? "" : "s"} ${dependentMacroNames.map((macroName) => `'${macroName}'`).join(", ")} ${dependentMacroNames.length === 1 ? "depends" : "depend"} on '${target.name}'.`
         );
-        if (scopedDeclarationKey.length > 0) {
+        if (scopedDeclarationKey !== null) {
             parameters.localDeclarationRenameDecisions.set(scopedDeclarationKey, {
                 shouldApply: false,
                 suggestedName
@@ -265,7 +264,7 @@ function processLocalNamingConventionRename(parameters: {
         parameters.workspace.addEdit(occurrence.path, occurrence.start, occurrence.end, suggestedName);
     }
 
-    if (scopedDeclarationKey.length > 0 && parameters.duplicateScopedDeclarationKeys.has(scopedDeclarationKey)) {
+    if (scopedDeclarationKey !== null && parameters.duplicateScopedDeclarationKeys.has(scopedDeclarationKey)) {
         parameters.localDeclarationRenameDecisions.set(scopedDeclarationKey, {
             shouldApply: true,
             suggestedName

@@ -291,9 +291,13 @@ export function resolveNamingConventionRules(policy: NamingConventionPolicy): Re
                 runtimeRule.maxChars = entry.rule.maxChars;
             }
             if (entry.rule.bannedPrefixes !== undefined) {
+                // Keep the merged list unsorted here; it is sorted once after the
+                // full inheritance chain is resolved.
                 runtimeRule.bannedPrefixes = [...entry.rule.bannedPrefixes];
             }
             if (entry.rule.bannedSuffixes !== undefined) {
+                // Keep the merged list unsorted here; it is sorted once after the
+                // full inheritance chain is resolved.
                 runtimeRule.bannedSuffixes = [...entry.rule.bannedSuffixes];
             }
         }
