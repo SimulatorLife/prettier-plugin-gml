@@ -750,23 +750,29 @@ function enqueueObjectChildValues(queue, object) {
 }
 
 function recordTestCases(aggregates, testCases) {
-    const { results, stats } = aggregates;
+    const { results } = aggregates;
 
     for (const testCase of testCases) {
         const existingRecord = results.get(testCase.key);
         const preferredRecord = choosePreferredTestRecord(existingRecord, testCase);
         results.set(testCase.key, preferredRecord);
-        stats.total += 1;
-        stats.time += testCase.time || 0;
+    }
+}
 
-        if (testCase.status === TestCaseStatus.FAILED) {
+function computeAggregateStatsFromResults(results: Map<string, AggregatedTestRecord>) {
+    const stats = { total: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
+    for (const record of results.values()) {
+        stats.total += 1;
+        stats.time += Number(record.time) || 0;
+        if (record.status === TestCaseStatus.FAILED) {
             stats.failed += 1;
-        } else if (testCase.status === TestCaseStatus.SKIPPED) {
+        } else if (record.status === TestCaseStatus.SKIPPED) {
             stats.skipped += 1;
         } else {
             stats.passed += 1;
         }
     }
+    return stats;
 }
 
 type AggregatedTestRecord = TestRecordEntry & {
@@ -900,9 +906,11 @@ function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions 
         recordTestCases(aggregates, scan.cases);
 
         const duplicates = resolveDuplicatesWithFallback(scan, directory);
+        const stats = computeAggregateStatsFromResults(aggregates.results);
 
         return {
             ...aggregates,
+            stats,
             usedDir: directory.resolved,
             displayDir: directory.display,
             notes,
@@ -962,24 +970,28 @@ function getNormalizedTestRecordIdentity(record: TestRecordEntry): {
 }
 
 /**
- * Build a secondary lookup of base failures keyed by `(file, testName)`.
+ * Build a secondary lookup of base test statuses keyed by `(file, testName)`.
  *
- * This is used to detect when a failing target test corresponds to an already-failing
- * base test that was "renamed" due to a change in the JUnit XML suite hierarchy (e.g.,
- * a malformed `<undefined>` wrapper produced by node's JUnit reporter when a test file
- * triggers an IPC-deserialization error). Without this check, such a renamed failure
- * would incorrectly appear as a brand-new regression.
+ * This is used to match target failures against base results when the JUnit suite
+ * hierarchy changes and test keys are renamed (for example due to malformed wrappers).
+ * Matching by `(file, testName)` lets us distinguish genuinely new failing tests
+ * (which should be ignored) from renamed pre-existing tests (which should keep their
+ * original base status).
  */
-function buildBaseFailuresByFileAndName(baseResults: Map<string, unknown>): Set<string> {
-    const index = new Set<string>();
+function buildBaseStatusesByFileAndName(baseResults: Map<string, unknown>): Map<string, string> {
+    const index = new Map<string, string>();
     for (const record of baseResults.values()) {
         const r = record as TestRecordEntry;
-        if (r.status !== TestCaseStatus.FAILED) {
+        if (
+            r.status !== TestCaseStatus.FAILED &&
+            r.status !== TestCaseStatus.PASSED &&
+            r.status !== TestCaseStatus.SKIPPED
+        ) {
             continue;
         }
         const { fileLowerCase, name } = getNormalizedTestRecordIdentity(r);
         if (fileLowerCase && name) {
-            index.add(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`);
+            index.set(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`, r.status);
         }
     }
     return index;
@@ -1041,13 +1053,13 @@ function createRegressionRecord({
     baseResults,
     key,
     targetRecord,
-    baseFailuresByFileAndName,
+    baseStatusesByFileAndName,
     targetFilesWithPassingTests
 }: {
     baseResults: Map<string, unknown>;
     key: string;
     targetRecord: TestRecordEntry | null | undefined;
-    baseFailuresByFileAndName: Set<string>;
+    baseStatusesByFileAndName: Map<string, string>;
     targetFilesWithPassingTests: Set<string>;
 }): { key: string; from: string; to: string; detail: unknown } | null {
     if (!targetRecord || targetRecord.status !== TestCaseStatus.FAILED) {
@@ -1055,7 +1067,7 @@ function createRegressionRecord({
     }
 
     const baseRecord = baseResults.get(key) as { status?: string } | undefined;
-    const baseStatus = baseRecord?.status;
+    let baseStatus = baseRecord?.status;
     if (baseStatus === TestCaseStatus.FAILED) {
         return null;
     }
@@ -1066,8 +1078,19 @@ function createRegressionRecord({
     // (e.g., `<undefined>` wrapper tags), causing the suite-path prefix of existing
     // tests to change. Those renamed failures must not be reported as new regressions.
     if (baseStatus === undefined) {
+        // Newly introduced tests are intentionally excluded from regression checks.
+        // Only renamed tests that map back to an existing base status are eligible.
         const { fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
-        if (fileLowerCase && name && baseFailuresByFileAndName.has(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`)) {
+        const renamedBaseStatus =
+            fileLowerCase && name
+                ? baseStatusesByFileAndName.get(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`)
+                : undefined;
+        if (!renamedBaseStatus) {
+            return null;
+        }
+
+        baseStatus = renamedBaseStatus;
+        if (baseStatus === TestCaseStatus.FAILED) {
             return null;
         }
         // Detect node test runner file-level crash records: synthetic testcases where
@@ -1092,7 +1115,7 @@ function createRegressionRecord({
  */
 function collectRegressions({ baseResults, targetResults }) {
     const regressions = [];
-    const baseFailuresByFileAndName = buildBaseFailuresByFileAndName(baseResults);
+    const baseStatusesByFileAndName = buildBaseStatusesByFileAndName(baseResults);
     const targetFilesWithPassingTests = buildTargetFilesWithPassingTests(targetResults);
 
     for (const [key, targetRecord] of targetResults.entries()) {
@@ -1100,7 +1123,7 @@ function collectRegressions({ baseResults, targetResults }) {
             baseResults,
             key,
             targetRecord,
-            baseFailuresByFileAndName,
+            baseStatusesByFileAndName,
             targetFilesWithPassingTests
         });
 

@@ -320,6 +320,7 @@ jobs:
         with:
           github-token: ${{ env.GH_USER_TOKEN }}
           script: |
+            const fs = require('node:fs');
             const marker = '<!-- automerge-pr-regression-agent -->';
             const { owner, repo } = context.repo;
             const number = context.payload.pull_request?.number;
@@ -346,16 +347,36 @@ jobs:
             });
 
             const existing = comments.find(comment => comment.body && comment.body.includes(marker));
+            const reportFile = 'reports/summary-report.md';
+            let regressionSummaryLine = '';
+            try {
+              const reportBody = fs.readFileSync(reportFile, 'utf8');
+              const matchingLine = reportBody
+                .split(/\r?\n/u)
+                .find((line) => line.trim().startsWith('❌ Test regressions detected.'));
+              regressionSummaryLine = matchingLine ? matchingLine.trim() : '';
+            } catch (error) {
+              if (error?.code !== 'ENOENT') {
+                core.warning(`Unable to read regression summary from ${reportFile}: ${error.message}`);
+              }
+            }
 
             const lines = [
               marker,
               '',
               `${agentMention} The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
+            ];
+
+            if (regressionSummaryLine) {
+              lines.push('', `Regression summary from the Quality Report: ${regressionSummaryLine}`);
+            }
+
+            lines.push(
               '',
               'Suggested next steps:',
               '1. Reproduce the failures locally (for example, `pnpm run test:report` and `pnpm run test:coverage`) to confirm the regression.',
               '2. Deliver the smallest possible fix—or a precise explanation of the required follow-up—that resolves the regression blocking auto-merge.'
-            ];
+            );
 
             const normalizedAgent = agentMention.replace(/^@/, '').trim().toLowerCase();
             if (normalizedAgent !== 'copilot') {
