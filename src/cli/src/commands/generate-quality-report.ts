@@ -286,9 +286,9 @@ function readCoverage(lcovFiles) {
             const text = readTextFileSync(file);
             for (const line of text.split(/\r?\n/)) {
                 if (line.startsWith("LF:")) {
-                    found += Number.parseInt(line.slice(3), 10) || 0;
+                    found += Number.parseInt(line.slice(3)) || 0;
                 } else if (line.startsWith("LH:")) {
-                    hit += Number.parseInt(line.slice(3), 10) || 0;
+                    hit += Number.parseInt(line.slice(3)) || 0;
                 }
             }
         } catch {

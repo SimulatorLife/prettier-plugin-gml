@@ -114,6 +114,9 @@ function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Arr
                 continue;
             }
 
+            // Replace the entire entry when the incoming occurrence covers a wider span so
+            // that all fields (including `kind`) come from the dominant occurrence rather
+            // than forming a hybrid with stale metadata from the first entry seen.
             if (occurrence.end > deduplicated[existingIndex].end) {
                 deduplicated[existingIndex] = occurrence;
             }
@@ -125,7 +128,9 @@ function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Arr
     const deduplicatedByStart = new Map<string, SymbolOccurrence>();
 
     for (const occurrence of occurrences) {
-        const key = [occurrence.path ?? "", occurrence.start].join(":");
+        // Use a template literal instead of array+join to avoid the intermediate
+        // array allocation on every iteration of the deduplication hot loop.
+        const key = `${occurrence.path ?? ""}:${occurrence.start}`;
         const existing = deduplicatedByStart.get(key);
 
         if (!existing || occurrence.end > existing.end) {
@@ -270,9 +275,15 @@ export class RefactorEngine {
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
     gatherSymbolOccurrences(symbolName: string, symbolId: string | null = null): Promise<Array<SymbolOccurrence>> {
-        return this.semanticCache
-            .getSymbolOccurrences(symbolName, symbolId)
-            .then((occurrences) => deduplicateSymbolOccurrences(occurrences));
+        return this.semanticCache.getSymbolOccurrences(symbolName, symbolId).then((occurrences) => {
+            const deduplicated = deduplicateSymbolOccurrences(occurrences);
+            // Replace the raw occurrence cache entry with the deduped+range-merged
+            // result so that every subsequent cache hit for the same symbol skips
+            // the deduplication work entirely.  The prime is a no-op when the entry
+            // exceeds maxOccurrenceCacheEntries or when caching is disabled.
+            this.semanticCache.primeOccurrenceCache(symbolName, symbolId, deduplicated);
+            return deduplicated;
+        });
     }
 
     /**
@@ -456,11 +467,14 @@ export class RefactorEngine {
             }
         }
 
+        // Route through the semantic cache so repeated getFileSymbols lookups
+        // for the same file across multiple symbol validations in a batch are
+        // served from memory rather than re-queried from the semantic bridge.
         const crossFileConflicts = await validateCrossFileConsistency(
             symbolId,
             normalizedNewName,
             occurrences,
-            this.semantic
+            this.semanticCache
         );
 
         for (const conflict of crossFileConflicts) {

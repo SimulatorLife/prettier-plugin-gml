@@ -30,3 +30,26 @@ void test("GmlIdentifierOccurrenceIndex normalizes AST identifier ends to exclus
     ]);
     assert.deepEqual(index.getOccurrences("x"), [{ start: 41, end: 42 }]);
 });
+
+void test("GmlIdentifierOccurrenceIndex visits property values in structs (e.g. anonymous functions)", () => {
+    const sourceText = `function my_event() {
+        fsm.add("follow", {
+            enter: function() {
+                var local_var = my_global;
+            },
+            step: function() {
+                if (instance_exists(oPlayer)) {
+                    follow_id = oPlayer.id;
+                }
+            }
+        });
+    }`;
+    const index = GmlIdentifierOccurrenceIndex.fromSourceText(sourceText);
+
+    // It should find "oPlayer" inside the innermost function
+    const oPlayerOccurrences = index.getOccurrences("oPlayer");
+    assert.strictEqual(oPlayerOccurrences.length, 2);
+
+    const instanceExistsOccurrences = index.getOccurrences("instance_exists");
+    assert.strictEqual(instanceExistsOccurrences.length, 1);
+});
