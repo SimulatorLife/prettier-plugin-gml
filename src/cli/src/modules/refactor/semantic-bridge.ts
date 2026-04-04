@@ -1380,6 +1380,10 @@ export class GmlSemanticBridge {
             }
 
             const { parsed, rawContent } = loadedMetadataDocument;
+            const oldResourcePathLiteral = JSON.stringify(currentResourcePath);
+            const newResourcePathLiteral = JSON.stringify(newResourcePath);
+            const hasRawPathLiteralMatch =
+                oldResourcePathLiteral !== newResourcePathLiteral && rawContent.includes(oldResourcePathLiteral);
 
             let changed = false;
             const stringMutations: Array<{ propertyPath: string; value: string }> = [];
@@ -1475,11 +1479,16 @@ export class GmlSemanticBridge {
                 }
 
                 const existingValue = Semantic.getProjectMetadataValueAtPath(parsed, reference.propertyPath);
+                const existingReferenceName = Core.isObjectLike(existingValue)
+                    ? Core.getNonEmptyString((existingValue as Record<string, unknown>).name)
+                    : null;
+                const replacementReferenceName =
+                    existingReferenceName && existingReferenceName === oldName ? newName : null;
                 const updated = Semantic.updateProjectMetadataReferenceByPath({
                     document: parsed,
                     propertyPath: reference.propertyPath,
                     newResourcePath,
-                    newName
+                    newName: replacementReferenceName
                 });
                 if (updated) {
                     if (Core.isObjectLike(existingValue)) {
@@ -1488,7 +1497,13 @@ export class GmlSemanticBridge {
                             `${reference.propertyPath}.path`,
                             newResourcePath
                         );
-                        appendProjectMetadataStringMutation(stringMutations, `${reference.propertyPath}.name`, newName);
+                        if (replacementReferenceName) {
+                            appendProjectMetadataStringMutation(
+                                stringMutations,
+                                `${reference.propertyPath}.name`,
+                                replacementReferenceName
+                            );
+                        }
                     } else if (typeof existingValue === "string") {
                         appendProjectMetadataStringMutation(stringMutations, reference.propertyPath, newResourcePath);
                     }
@@ -1496,15 +1511,26 @@ export class GmlSemanticBridge {
                     changed = true;
                 }
             }
+            if (hasRawPathLiteralMatch) {
+                changed = true;
+            }
+
             if (!changed) {
                 continue;
             }
 
             const shouldNormalizeResourcePathOrdering = requiresMetadataResourcePathOrderNormalization(rawContent);
-            const canonicalContent = shouldNormalizeResourcePathOrdering
+            let canonicalContent = shouldNormalizeResourcePathOrdering
                 ? Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path)
                 : (Semantic.applyProjectMetadataStringMutations(rawContent, stringMutations) ??
                   Semantic.stringifyProjectMetadataDocument(parsed, resourceEntry.path));
+            if (
+                hasRawPathLiteralMatch &&
+                !shouldNormalizeResourcePathOrdering &&
+                canonicalContent.includes(oldResourcePathLiteral)
+            ) {
+                canonicalContent = canonicalContent.replaceAll(oldResourcePathLiteral, newResourcePathLiteral);
+            }
 
             if (canonicalContent === rawContent) {
                 continue;

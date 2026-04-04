@@ -740,6 +740,85 @@ void describe("GmlSemanticBridge tests", () => {
         assert.match(resourceEdit.content, /"resourcePath"\s*:\s*"objects\/oGravityWell\/oGravityWell\.yy"/);
     });
 
+    void it("getAdditionalSymbolEdits updates sprite keyframe self-reference paths without mutating keyframe UUID names", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-sprite-keyframe-id-"));
+        const spritePath = "sprites/sArm/sArm.yy";
+        const manifestPath = "MyGame.yyp";
+        const spriteAbsolute = path.join(tmpRoot, spritePath);
+        const manifestAbsolute = path.join(tmpRoot, manifestPath);
+        fs.mkdirSync(path.dirname(spriteAbsolute), { recursive: true });
+
+        try {
+            fs.writeFileSync(
+                spriteAbsolute,
+                JSON.stringify(
+                    {
+                        "%Name": "sArm",
+                        name: "sArm",
+                        resourceType: "GMSprite",
+                        resourcePath: spritePath,
+                        sequence: {
+                            tracks: [
+                                {
+                                    keyframes: {
+                                        Keyframes: [
+                                            {
+                                                Channels: {
+                                                    "0": {
+                                                        Id: {
+                                                            name: "39cfd82d-bb0b-4447-a5ee-669873fd3d89",
+                                                            path: spritePath
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    null,
+                    2
+                ),
+                "utf8"
+            );
+            fs.writeFileSync(
+                manifestAbsolute,
+                `${JSON.stringify(
+                    {
+                        name: "MyGame",
+                        resourceType: "GMProject",
+                        resources: [{ id: { name: "sArm", path: spritePath } }]
+                    },
+                    null,
+                    2
+                )}\n`,
+                "utf8"
+            );
+
+            const projectIndex = await Semantic.buildProjectIndex(tmpRoot);
+            const bridge = new GmlSemanticBridge(projectIndex, tmpRoot);
+            const edits = bridge.getAdditionalSymbolEdits("gml/sprites/sArm", "spr_arm");
+
+            assert.ok(edits, "Expected additional edits for sprite resource rename");
+
+            const spriteEdit = edits.metadataEdits.find((entry) => entry.path === spritePath);
+            assert.ok(spriteEdit);
+            assert.match(spriteEdit.content, /"resourcePath"\s*:\s*"sprites\/spr_arm\/spr_arm\.yy"/);
+            assert.match(spriteEdit.content, /"path"\s*:\s*"sprites\/spr_arm\/spr_arm\.yy"/);
+            assert.match(spriteEdit.content, /"name"\s*:\s*"39cfd82d-bb0b-4447-a5ee-669873fd3d89"/);
+            assert.doesNotMatch(spriteEdit.content, /"Id"\s*:\s*\{\s*"name"\s*:\s*"spr_arm"/);
+
+            const manifestEdit = edits.metadataEdits.find((entry) => entry.path === manifestPath);
+            assert.ok(manifestEdit);
+            assert.match(manifestEdit.content, /"name"\s*:\s*"spr_arm"/);
+            assert.match(manifestEdit.content, /"path"\s*:\s*"sprites\/spr_arm\/spr_arm\.yy"/);
+        } finally {
+            fs.rmSync(tmpRoot, { recursive: true, force: true });
+        }
+    });
+
     void it("getAdditionalSymbolEdits keeps InterplanetaryFootball.resource_order aligned across staged resource renames", () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-resource-order-"));
         const projectRoot = path.join(tmpRoot, "InterplanetaryFootball");
