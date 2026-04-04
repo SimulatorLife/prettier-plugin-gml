@@ -1792,7 +1792,7 @@ void test("executeConfiguredCodemods handles duplicate case-only local variable 
     });
 });
 
-void test("executeConfiguredCodemods preserves repeated IK local definitions while renaming room/object/script resources", async () => {
+void test("executeConfiguredCodemods handles repeated local variables during resource renames", async () => {
     const objectSource = [
         "function Draw_0() {",
         "    for (var i = 0; i < 2; i++) {",

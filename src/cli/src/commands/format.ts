@@ -1048,6 +1048,13 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
  *
  * @param {string} directory
  */
+/**
+ * Check whether a directory contains project-boundary markers.
+ *
+ * A boundary is detected when the directory contains either `gmloop.json` or
+ * at least one `.yyp` file, which indicates that ignore-file discovery should
+ * stop walking further into ancestor directories.
+ */
 async function directoryContainsProjectBoundaryMarker(directory) {
     const projectConfigPath = path.join(directory, "gmloop.json");
     try {
@@ -1067,21 +1074,25 @@ async function directoryContainsProjectBoundaryMarker(directory) {
     }
 }
 
-async function findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories: Array<string>, startIndex = 0) {
-    if (startIndex >= candidateDirectories.length) {
-        return null;
-    }
+/**
+ * Return the first directory in scan order that contains a project-boundary marker.
+ *
+ * @param candidateDirectories Ancestor directories to probe from nearest to farthest.
+ * @returns The first matching directory, or `null` when no marker is found.
+ */
+async function findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories: Array<string>) {
+    const matches: Array<string> = [];
+    await Core.runSequentially(candidateDirectories, async (candidateDirectory) => {
+        if (matches.length > 0 || !candidateDirectory) {
+            return;
+        }
 
-    const candidateDirectory = candidateDirectories[startIndex];
-    if (!candidateDirectory) {
-        return null;
-    }
+        if (await directoryContainsProjectBoundaryMarker(candidateDirectory)) {
+            matches.push(candidateDirectory);
+        }
+    });
 
-    if (await directoryContainsProjectBoundaryMarker(candidateDirectory)) {
-        return candidateDirectory;
-    }
-
-    return findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories, startIndex + 1);
+    return matches[0] ?? null;
 }
 
 async function resolveIgnoreSearchBounds(directory) {
