@@ -769,7 +769,7 @@ void describe("Prettier wrapper CLI", () => {
         }
     });
 
-    void it("runs in dry-run mode by default and reports files that need formatting", async () => {
+    void it("reports files needing formatting in default dry-run mode", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1259,6 +1259,24 @@ void describe("Prettier wrapper CLI", () => {
             stdout.includes("  pnpm dlx prettier-plugin-gml format --fix --path path/to/script.gml"),
             "Expected help output to include the --fix example"
         );
+    });
+
+    void it("rejects positional target arguments for the format subcommand and directs users to --path", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            try {
+                await execFileAsync("node", [wrapperPath, "format", tempDirectory]);
+                assert.fail("Expected format subcommand positional arguments to be rejected");
+            } catch (error) {
+                assert.ok(error, "Expected an error to be thrown");
+                assert.strictEqual(error.code, 1);
+                assert.match(error.stderr, /too many arguments for 'format'/i);
+                assert.match(error.stderr, /--path <path>/);
+            }
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
     });
 
     void it("prints CLI version information without triggering error handling", async () => {

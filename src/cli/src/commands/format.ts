@@ -22,7 +22,6 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
 import {
-    APPLY_FIXES_OPTION_FLAGS,
     createApplyFixesOption,
     createListOption,
     createPathOption,
@@ -110,7 +109,7 @@ const logLevelOption = createEnumeratedOptionHelpers(VALID_PRETTIER_LOG_LEVELS, 
 
 const FORMAT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml format path/to/project";
 const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "pnpm run format:gml -- path/to/project";
-const FORMAT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml format ${APPLY_FIXES_OPTION_FLAGS} --path path/to/script${GML_EXTENSION}`;
+const FORMAT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml format --fix --path path/to/script${GML_EXTENSION}`;
 
 const PRETTIER_MODULE_ID = process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 const TARGET_EXTENSIONS = Object.freeze([GML_EXTENSION]);
