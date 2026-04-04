@@ -41,6 +41,14 @@ function getObjectDirectory(filePath: string): string {
     return path.posix.dirname(filePath.replaceAll("\\", "/"));
 }
 
+function isObjectEventFilePath(filePath: string): boolean {
+    return /(?:^|\/)objects\/[^/]+\/.+\.gml$/iu.test(filePath.replaceAll("\\", "/"));
+}
+
+function isObjectScopeId(scopeId: unknown): scopeId is string {
+    return typeof scopeId === "string" && scopeId.startsWith("scope:object:");
+}
+
 function readProjectFile(projectRoot: string, filePath: string, cache: Map<string, string>): string | null {
     const cached = cache.get(filePath);
     if (cached !== undefined) {
@@ -192,7 +200,7 @@ export function collectImplicitInstanceVariableTargets(
     const candidatesByName = new Map<string, Array<CandidateOccurrence>>();
 
     for (const [filePath, fileRecord] of Object.entries(parameters.files)) {
-        if (!parameters.shouldIncludePath(filePath)) {
+        if (!parameters.shouldIncludePath(filePath) || !isObjectEventFilePath(filePath)) {
             continue;
         }
 
@@ -205,6 +213,10 @@ export function collectImplicitInstanceVariableTargets(
         const knownNames = parameters.knownNamesByObjectDirectory.get(objectDirectory) ?? new Set<string>();
 
         for (const reference of fileRecord.references ?? []) {
+            if (!isObjectScopeId(reference.scopeId)) {
+                continue;
+            }
+
             const candidate = buildCandidateOccurrence(filePath, reference, source);
             if (candidate === null) {
                 continue;
