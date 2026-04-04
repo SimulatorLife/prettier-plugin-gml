@@ -102,7 +102,16 @@ function normalizeFormatterName(formatter: string | undefined): string {
 
 function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
     const args = Array.isArray(command.args) ? command.args : [];
-    return args.length > 0 ? args : ["."];
+    if (args.length > 0) {
+        return args;
+    }
+
+    const options = command.opts() ?? {};
+    if (typeof options.project === "string" && options.project.length > 0) {
+        return [options.project];
+    }
+
+    return ["."];
 }
 
 function formatLintTargetLocation(targets: ReadonlyArray<string>): string {
@@ -138,6 +147,9 @@ function shouldPreferBundledDefaultsForExternalTargets(parameters: {
     const cwdAbsolute = path.resolve(parameters.cwd);
     return parameters.targets.every((target) => {
         const absoluteTarget = path.resolve(parameters.cwd, target);
+        if (absoluteTarget.includes(`${path.sep}vendor${path.sep}`)) {
+            return true;
+        }
         return !Core.isPathInside(absoluteTarget, cwdAbsolute);
     });
 }
@@ -765,7 +777,7 @@ function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLi
 }
 
 function isCanonicalGmlWiring(config: ResolvedConfigLike): boolean {
-    return config.plugins?.gml === LINT_NAMESPACE.plugin && config.language === "gml/gml";
+    return config.plugins?.gml === LINT_NAMESPACE.plugin && config.language === LINT_NAMESPACE.plugin.languages?.gml;
 }
 
 function readArrayFirstEntry(value: unknown): unknown {
