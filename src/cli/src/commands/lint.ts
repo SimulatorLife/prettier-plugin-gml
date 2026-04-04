@@ -111,7 +111,16 @@ function normalizeFormatterName(formatter: string | undefined): string {
 
 function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
     const args = Array.isArray(command.args) ? command.args : [];
-    return args.length > 0 ? args : ["."];
+    if (args.length > 0) {
+        return args;
+    }
+
+    const options = (command.opts?.() ?? {}) as { path?: unknown };
+    if (typeof options.path === "string" && options.path.trim().length > 0) {
+        return [options.path.trim()];
+    }
+
+    return ["."];
 }
 
 function formatLintTargetLocation(targets: ReadonlyArray<string>): string {

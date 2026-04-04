@@ -10,12 +10,13 @@ import { __lintCommandTest__, runLintCommand } from "../src/commands/lint.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 const { Lint } = LintWorkspace;
+const GML_LANGUAGE_ID = "gml/gml";
 
 void test("wiring requires both plugin identity and language", () => {
     assert.equal(
         __lintCommandTest__.isCanonicalGmlWiring({
             plugins: { gml: LintWorkspace.Lint.plugin },
-            language: "gml/gml"
+            language: GML_LANGUAGE_ID
         }),
         true
     );
@@ -23,7 +24,7 @@ void test("wiring requires both plugin identity and language", () => {
     assert.equal(
         __lintCommandTest__.isCanonicalGmlWiring({
             plugins: { gml: {} },
-            language: "gml/gml"
+            language: GML_LANGUAGE_ID
         }),
         false
     );
@@ -573,7 +574,7 @@ void test("fully wired overlay does not trigger guardrail", async () => {
         async calculateConfigForFile(): Promise<unknown> {
             return {
                 plugins: { gml: Lint.plugin },
-                language: "gml/gml",
+                language: GML_LANGUAGE_ID,
                 rules: {
                     [Lint.services.performanceOverrideRuleIds[0]]: "warn"
                 }
@@ -604,7 +605,7 @@ void test("partially wired overlay triggers guardrail", async () => {
 
             return {
                 plugins: { gml: {} },
-                language: "gml/gml",
+                language: GML_LANGUAGE_ID,
                 rules: {
                     [Lint.services.performanceOverrideRuleIds[0]]: [2, {}]
                 }
@@ -685,7 +686,7 @@ void test("overlay guardrail resolves file configs sequentially for large result
 
             return {
                 plugins: { gml: Lint.plugin },
-                language: "gml/gml",
+                language: GML_LANGUAGE_ID,
                 rules: {
                     [Lint.services.performanceOverrideRuleIds[0]]: "warn"
                 }
@@ -761,7 +762,7 @@ void test("processor enforcement emits verbose observability warning when proces
     const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
         eslint: {
             async calculateConfigForFile() {
-                return { language: "gml/gml" };
+                return { language: GML_LANGUAGE_ID };
             }
         },
         results: [{ filePath: "/tmp/observability.gml" }],
@@ -795,7 +796,7 @@ void test("runLintCommand maps semantic provider prebuild failures to exit code 
                                 quiet: true,
                                 noDefaultConfig: true,
                                 verbose: false,
-                                project: path.join(tempRoot, "missing", "missing.yyp"),
+                                path: path.join(tempRoot, "missing", "missing.yyp"),
                                 projectStrict: false
                             };
                         }
@@ -831,7 +832,7 @@ void test("runLintCommand handles large additive-call-chain sources without pars
         "        plugins: {",
         "            gml: LintWorkspace.Lint.plugin",
         "        },",
-        '        language: "gml/gml",',
+        `        language: "${GML_LANGUAGE_ID}",`,
         "        rules: {}",
         "    }",
         "];",

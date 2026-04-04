@@ -584,7 +584,7 @@ pnpm run cli -- refactor codemod --only namingConvention --fix
 - `--old-name <name>` - Current name of the symbol to rename
 - `--new-name <name>` - New name for the symbol (required)
 - `--path <path>` - Root directory of the GameMaker project (default: current directory)
-- `` - Show what would be changed without modifying files
+- `--fix` - Apply the rename/codemod changes (default behavior without `--fix` is dry-run preview)
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
 
@@ -631,7 +631,7 @@ When no rename target is provided, `refactor` will automatically run configured 
 
 **Use Cases:**
 - **Safe Renaming**: Rename variables, scripts, or other symbols project-wide without breaking scope
-- **Refactoring Preparation**: Preview changes before applying them with ``
+- **Refactoring Preparation**: Preview changes by default, then apply with `--fix` when ready
 - **Hot Reload Validation**: Ensure refactored code remains compatible with live updates using `--check-hot-reload`
 - **Development Workflow Integration**: Coordinate with watch mode for real-time refactoring feedback
 
