@@ -1,5 +1,5 @@
 {
-  "name": "@gml-modules/format",
+  "name": "@gmloop/format",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,11 +20,14 @@
     "test": "pnpm run clean:types && pnpm run build:types && node --test dist/test/*.test.js",
     "prettier:format:raw": "pnpm run build:types && pnpm exec -- prettier $npm_config_path --plugin=$npm_package_config_root_path/dist/src/format-entry.js --ignore-path=$npm_package_config_root_path/../cli/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
     "example": "pnpm run prettier:format:raw --path=test/test14.input.gml",
-    "prettier:format": "pnpm run build:types && pnpm --filter @gml-modules/cli run build:types && node ../cli/dist/index.js $npm_config_path"
+    "prettier:format": "pnpm run build:types && pnpm --filter @gmloop/cli run build:types && node ../cli/dist/index.js $npm_config_path"
   },
   "dependencies": {
-    "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*"
+    "@gmloop/core": "workspace:*",
+    "@gmloop/parser": "workspace:*"
+  },
+  "devDependencies": {
+    "@gmloop/fixture-runner": "workspace:*"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
-import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const {
     describeValueWithArticle,
@@ -12,12 +12,14 @@ const {
     parseJsonObjectWithContext
 } = Core;
 
-const require = createRequire(import.meta.url);
-
 const isPackageJsonRecord = (value: unknown): value is Record<string, unknown> => isPlainObject(value);
+const describePackageJsonValueWithArticle = describeValueWithArticle as (
+    value: unknown,
+    options?: { emptyStringLabel?: string }
+) => string;
 
 function describePackageJsonValue(value: unknown): string {
-    return describeValueWithArticle(value, { emptyStringLabel: "an empty string" });
+    return describePackageJsonValueWithArticle(value, { emptyStringLabel: "an empty string" });
 }
 
 function buildPackageJsonObjectErrorMessage(packageJsonPath: string, payload: unknown): string {
@@ -58,6 +60,44 @@ export interface SourceDescriptor {
 }
 
 /**
+ * Parse and validate a package.json payload that has already been read from disk.
+ *
+ * @param contents Raw package.json text.
+ * @param packageJsonPath Source path used in validation errors.
+ * @returns The validated package.json object.
+ */
+export function parsePackageJsonContents(contents: string, packageJsonPath: string): Record<string, unknown> {
+    const parsed: unknown = parseJsonObjectWithContext(contents, {
+        source: packageJsonPath,
+        description: "package.json",
+        createAssertOptions: (payload) => ({
+            errorMessage: buildPackageJsonObjectErrorMessage(packageJsonPath, payload)
+        })
+    });
+
+    if (!isPackageJsonRecord(parsed)) {
+        throw new TypeError(buildPackageJsonObjectErrorMessage(packageJsonPath, parsed));
+    }
+
+    return validatePackageJsonShape(parsed, packageJsonPath);
+}
+
+/**
+ * Read a validated string field from a parsed package.json object.
+ *
+ * @param packageJson Parsed package.json object.
+ * @param fieldName Field name to read.
+ * @returns The normalized string value, or null when the field is absent.
+ */
+export function getPackageJsonStringField(packageJson: Record<string, unknown>, fieldName: string): string | null {
+    if (!Object.hasOwn(packageJson, fieldName)) {
+        return null;
+    }
+
+    return getNonEmptyTrimmedString(packageJson[fieldName]);
+}
+
+/**
  * Resolve a candidate root path to a source descriptor.
  * Returns null if the provided root is falsy.
  */
@@ -75,28 +115,18 @@ export function resolveCandidateRoot(candidateRoot: string | null | undefined): 
  */
 export async function readPackageJson(packageJsonPath: string): Promise<Record<string, unknown>> {
     const contents = await fs.readFile(packageJsonPath, "utf8");
-    const parsed = parseJsonObjectWithContext(contents, {
-        source: packageJsonPath,
-        description: "package.json",
-        createAssertOptions: (payload) => ({
-            errorMessage: buildPackageJsonObjectErrorMessage(packageJsonPath, payload)
-        })
-    });
-
-    if (!isPackageJsonRecord(parsed)) {
-        throw new TypeError(buildPackageJsonObjectErrorMessage(packageJsonPath, parsed));
-    }
-
-    return validatePackageJsonShape(parsed, packageJsonPath);
+    return parsePackageJsonContents(contents, packageJsonPath);
 }
 
 /**
- * Resolve the path to a package's package.json file.
+ * Resolve the path to a package's package.json file using Node's native ESM
+ * resolver instead of the legacy CommonJS `createRequire(...).resolve` bridge.
  * Throws if the package cannot be resolved.
  */
 export function resolvePackageJsonPath(packageName: string, context: string): string {
     try {
-        return require.resolve(`${packageName}/package.json`);
+        const packageJsonUrl = import.meta.resolve(`${packageName}/package.json`);
+        return fileURLToPath(packageJsonUrl);
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
         throw new Error(`Unable to resolve ${context} package '${packageName}'. (${message})`);

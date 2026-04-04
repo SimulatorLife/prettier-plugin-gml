@@ -1,21 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getHighResolutionTime, getWallClockTime, measureDuration } from "../src/runtime/timing-utils.js";
+import { getHighResolutionTime, measureDuration } from "../src/timing/index.js";
 
 await describe("timing utilities", async () => {
-    await it("getWallClockTime returns a number", () => {
-        const time = getWallClockTime();
-        assert.strictEqual(typeof time, "number");
-        assert.ok(time > 0);
-    });
-
-    await it("getWallClockTime returns approximately the same value as Date.now", () => {
-        const wallClock = getWallClockTime();
-        const dateNow = Date.now();
-        assert.ok(Math.abs(wallClock - dateNow) < 10, "Wall clock time should be within 10ms of Date.now()");
-    });
-
     await it("getHighResolutionTime returns a number", () => {
         const time = getHighResolutionTime();
         assert.strictEqual(typeof time, "number");

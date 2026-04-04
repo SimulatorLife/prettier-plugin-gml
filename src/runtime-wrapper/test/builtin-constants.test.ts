@@ -3,59 +3,18 @@ import test from "node:test";
 
 import { RuntimeWrapper } from "../index.js";
 import { Runtime } from "../src/index.js";
+import { restoreGlobalProperties, snapshotGlobalProperties } from "./test-helpers/runtime-global-state.js";
+
+const colorFunctionPropertyNames = ["make_colour_rgb", "make_color_rgb"] as const;
+const builtinPropertyNames = ["g_pBuiltIn"] as const;
 
 type GlobalSnapshot = {
     make_colour_rgb?: (red: number, green: number, blue: number) => number;
     make_color_rgb?: (red: number, green: number, blue: number) => number;
 };
 
-function snapshotGlobals(): GlobalSnapshot {
-    const globals = globalThis as GlobalSnapshot;
-    return {
-        make_colour_rgb: globals.make_colour_rgb,
-        make_color_rgb: globals.make_color_rgb
-    };
-}
-
-function restoreGlobals(snapshot: GlobalSnapshot): void {
-    const globals = globalThis as GlobalSnapshot;
-
-    if (snapshot.make_colour_rgb === undefined) {
-        delete globals.make_colour_rgb;
-    } else {
-        globals.make_colour_rgb = snapshot.make_colour_rgb;
-    }
-
-    if (snapshot.make_color_rgb === undefined) {
-        delete globals.make_color_rgb;
-    } else {
-        globals.make_color_rgb = snapshot.make_color_rgb;
-    }
-}
-
-type BuiltinSnapshot = {
-    g_pBuiltIn?: Record<string, unknown>;
-};
-
-function snapshotBuiltins(): BuiltinSnapshot {
-    const globals = globalThis as Record<string, unknown>;
-    return {
-        g_pBuiltIn: globals.g_pBuiltIn as Record<string, unknown> | undefined
-    };
-}
-
-function restoreBuiltins(snapshot: BuiltinSnapshot): void {
-    const globals = globalThis as Record<string, unknown>;
-
-    if (snapshot.g_pBuiltIn === undefined) {
-        delete globals.g_pBuiltIn;
-    } else {
-        globals.g_pBuiltIn = snapshot.g_pBuiltIn;
-    }
-}
-
 await test("builtin constants use make_colour_rgb when available", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(colorFunctionPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot;
@@ -73,12 +32,12 @@ await test("builtin constants use make_colour_rgb when available", () => {
         const result = fn(null, null, []) as number;
         assert.equal(result, 255);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("builtin constants use make_color_rgb when make_colour_rgb not available", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(colorFunctionPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot;
@@ -97,12 +56,12 @@ await test("builtin constants use make_color_rgb when make_colour_rgb not availa
         const result = fn(null, null, []) as number;
         assert.equal(result, 16_711_680);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("builtin constants use fallback implementation when no color function available", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(colorFunctionPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot;
@@ -121,12 +80,12 @@ await test("builtin constants use fallback implementation when no color function
         const result = fn(null, null, []) as number;
         assert.equal(result, 32_768);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("builtin constants prefer make_colour_rgb over make_color_rgb", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(colorFunctionPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot;
@@ -157,12 +116,12 @@ await test("builtin constants prefer make_colour_rgb over make_color_rgb", () =>
         assert.ok(britishCalled, "Should call make_colour_rgb");
         assert.ok(!americanCalled, "Should not call make_color_rgb when make_colour_rgb is available");
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("builtin constants include keyboard constants", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(colorFunctionPropertyNames);
 
     try {
         const wrapper = RuntimeWrapper.createRuntimeWrapper();
@@ -177,12 +136,12 @@ await test("builtin constants include keyboard constants", () => {
         const result = fn(null, null, []) as number;
         assert.equal(result, 13 + 32 + 27);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("builtin constants include math constants", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(colorFunctionPropertyNames);
 
     try {
         const wrapper = RuntimeWrapper.createRuntimeWrapper();
@@ -198,12 +157,12 @@ await test("builtin constants include math constants", () => {
         const expected = Math.PI + Math.PI * 2;
         assert.ok(Math.abs(result - expected) < 1e-9);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("scripts can read builtin properties even without getters", () => {
-    const snapshot = snapshotBuiltins();
+    const snapshot = snapshotGlobalProperties(builtinPropertyNames);
 
     try {
         const globals = globalThis as Record<string, unknown>;
@@ -221,12 +180,12 @@ await test("scripts can read builtin properties even without getters", () => {
         const result = fn(null, null, []) as number;
         assert.strictEqual(result, 555);
     } finally {
-        restoreBuiltins(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("resolveBuiltinConstants returns the same object when the color function has not changed", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(colorFunctionPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot & Record<string, unknown>;
@@ -239,12 +198,12 @@ await test("resolveBuiltinConstants returns the same object when the color funct
         // than a freshly allocated one on every call.
         assert.strictEqual(first, second);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });
 
 await test("resolveBuiltinConstants returns a new object when the color function changes", () => {
-    const snapshot = snapshotGlobals();
+    const snapshot = snapshotGlobalProperties(colorFunctionPropertyNames);
 
     try {
         const globals = globalThis as GlobalSnapshot & Record<string, unknown>;
@@ -261,6 +220,6 @@ await test("resolveBuiltinConstants returns a new object when the color function
         // function identity changed.
         assert.notStrictEqual(first, second);
     } finally {
-        restoreGlobals(snapshot);
+        restoreGlobalProperties(snapshot);
     }
 });

@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { resolveBuiltinConstants } from "./builtin-constants.js";
 import type {
@@ -41,6 +41,11 @@ type EventMapping = {
     minified: string;
 };
 
+type ObjectEventPrefixMapping = {
+    prefixes: ReadonlyArray<string>;
+    eventKey: string;
+};
+
 const EVENT_MAPPINGS: ReadonlyMap<string, EventMapping> = new Map([
     ["PreCreateEvent", { standard: "EVENT_PRE_CREATE", minified: "_qI" }],
     ["CreateEvent", { standard: "EVENT_CREATE", minified: "_rI" }],
@@ -56,6 +61,46 @@ const EVENT_MAPPINGS: ReadonlyMap<string, EventMapping> = new Map([
     ["DrawGUIBegin", { standard: "EVENT_DRAW_GUI_BEGIN", minified: "_6G2" }],
     ["DrawGUIEnd", { standard: "EVENT_DRAW_GUI_END", minified: "_7G2" }]
 ]);
+
+const OBJECT_EVENT_PREFIX_MAPPINGS: ReadonlyArray<ObjectEventPrefixMapping> = Object.freeze([
+    { prefixes: ["PreCreate"], eventKey: "PreCreateEvent" },
+    { prefixes: ["Create"], eventKey: "CreateEvent" },
+    { prefixes: ["CleanUp"], eventKey: "CleanUpEvent" },
+    { prefixes: ["Destroy"], eventKey: "DestroyEvent" },
+    { prefixes: ["StepBegin"], eventKey: "StepBeginEvent" },
+    { prefixes: ["StepEnd"], eventKey: "StepEndEvent" },
+    { prefixes: ["Step"], eventKey: "StepNormalEvent" },
+    { prefixes: ["DrawGUIBegin"], eventKey: "DrawGUIBegin" },
+    { prefixes: ["DrawGUIEnd"], eventKey: "DrawGUIEnd" },
+    { prefixes: ["DrawGUI"], eventKey: "DrawGUI" },
+    { prefixes: ["DrawEventBegin", "DrawBegin"], eventKey: "DrawEventBegin" },
+    { prefixes: ["DrawEventEnd", "DrawEnd"], eventKey: "DrawEventEnd" },
+    { prefixes: ["Draw"], eventKey: "DrawEvent" }
+]);
+
+// Cached reverse-lookup from script name → index in JSON_game.ScriptNames.
+// The GameMaker HTML5 runtime populates ScriptNames exactly once at startup and
+// never mutates it after that, so caching on the array reference is safe.
+// This avoids two O(n) linear scans (Array#includes + Array#indexOf) per
+// hot-reload cycle, which can be significant for games with hundreds of scripts.
+let _scriptNamesRef: Array<string> | null = null;
+let _scriptNameIndex: Map<string, number> | null = null;
+
+/**
+ * Returns (or builds) a name→index Map for the given scriptNames array.
+ * The result is memoised by the array reference: if the caller passes the same
+ * array on repeated calls (the normal case) the Map is reused without allocation.
+ * A new Map is built only when the reference changes (e.g. after a full reload).
+ */
+function resolveScriptNameIndex(scriptNames: Array<string>): ReadonlyMap<string, number> {
+    if (_scriptNamesRef === scriptNames && _scriptNameIndex !== null) {
+        return _scriptNameIndex;
+    }
+
+    _scriptNamesRef = scriptNames;
+    _scriptNameIndex = new Map(scriptNames.map((name, index) => [name, index]));
+    return _scriptNameIndex;
+}
 
 function resolveInstanceStore(globalScope: RuntimeBindingGlobals): Record<string, unknown> | undefined {
     if (globalScope._cx?._dx) {
@@ -138,52 +183,10 @@ function resolveNamedFunctionId(runtimeId: string): string | null {
 function resolveObjectEventKey(eventName: string): string | null {
     // More specific prefixes must be checked before their general prefix
     // to avoid incorrect matches (e.g. "StepBegin_0" must not match "Step").
-
-    // Create / PreCreate
-    if (eventName.startsWith("PreCreate")) {
-        return "PreCreateEvent";
-    }
-    if (eventName.startsWith("Create")) {
-        return "CreateEvent";
-    }
-
-    // Destroy / CleanUp
-    if (eventName.startsWith("CleanUp")) {
-        return "CleanUpEvent";
-    }
-    if (eventName.startsWith("Destroy")) {
-        return "DestroyEvent";
-    }
-
-    // Step variants (most specific first)
-    if (eventName.startsWith("StepBegin")) {
-        return "StepBeginEvent";
-    }
-    if (eventName.startsWith("StepEnd")) {
-        return "StepEndEvent";
-    }
-    if (eventName.startsWith("Step")) {
-        return "StepNormalEvent";
-    }
-
-    // Draw variants (most specific first to avoid false "DrawEvent" matches)
-    if (eventName.startsWith("DrawGUIBegin")) {
-        return "DrawGUIBegin";
-    }
-    if (eventName.startsWith("DrawGUIEnd")) {
-        return "DrawGUIEnd";
-    }
-    if (eventName.startsWith("DrawGUI")) {
-        return "DrawGUI";
-    }
-    if (eventName.startsWith("DrawEventBegin") || eventName.startsWith("DrawBegin")) {
-        return "DrawEventBegin";
-    }
-    if (eventName.startsWith("DrawEventEnd") || eventName.startsWith("DrawEnd")) {
-        return "DrawEventEnd";
-    }
-    if (eventName.startsWith("Draw")) {
-        return "DrawEvent";
+    for (const { prefixes, eventKey } of OBJECT_EVENT_PREFIX_MAPPINGS) {
+        if (prefixes.some((prefix) => eventName.startsWith(prefix))) {
+            return eventKey;
+        }
     }
 
     return null;
@@ -223,6 +226,19 @@ function createNamedRuntimeFunction(runtimeId: string, rawFn: RuntimeFunction): 
     return wrapperFactory(rawFn);
 }
 
+function visitNamedFunctionProperties(
+    record: Record<string, unknown>,
+    visitProperty: (propertyName: string, functionValue: RuntimeFunction) => void
+): void {
+    for (const [propertyName, propertyValue] of Object.entries(record)) {
+        if (typeof propertyValue !== "function") {
+            continue;
+        }
+
+        visitProperty(propertyName, propertyValue as RuntimeFunction);
+    }
+}
+
 function updateGMObjects(
     gmObjects: Array<Record<string, unknown>>,
     objectRuntime: { objectName: string; eventName: string } | null,
@@ -246,16 +262,18 @@ function updateGMObjects(
             }
         }
 
-        for (const [key, value] of Object.entries(objectEntry)) {
-            if (typeof value === "function" && value.name === name) {
-                objectEntry[key] = fn;
-                instanceKeysToUpdate.add(key);
-
-                if (!objectName) {
-                    objectName = typeof objectEntry.pName === "string" ? objectEntry.pName : null;
-                }
+        visitNamedFunctionProperties(objectEntry, (propertyName, propertyFunction) => {
+            if (propertyFunction.name !== name) {
+                return;
             }
-        }
+
+            objectEntry[propertyName] = fn;
+            instanceKeysToUpdate.add(propertyName);
+
+            if (!objectName) {
+                objectName = typeof objectEntry.pName === "string" ? objectEntry.pName : null;
+            }
+        });
     }
     return objectName;
 }
@@ -282,11 +300,13 @@ function updateInstance(
         markEventIndexAsEnabled(pObject?.Event, eventIndex);
     }
 
-    for (const [key, value] of Object.entries(instance)) {
-        if (typeof value === "function" && value.name === name) {
-            instance[key] = fn;
+    visitNamedFunctionProperties(instance, (propertyName, propertyFunction) => {
+        if (propertyFunction.name !== name) {
+            return;
         }
-    }
+
+        instance[propertyName] = fn;
+    });
 }
 
 function updateInstances(
@@ -349,28 +369,30 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
 
     if (fallbackScriptMatch && Array.isArray(gmObjects)) {
         for (const objectEntry of gmObjects) {
-            for (const value of Object.values(objectEntry)) {
+            visitNamedFunctionProperties(objectEntry, (_propertyName, propertyFunction) => {
                 if (
-                    typeof value === "function" &&
-                    value.name.startsWith("gml_Object_") &&
-                    value.name.endsWith(`_${fallbackScriptMatch}`)
+                    propertyFunction.name.startsWith("gml_Object_") &&
+                    propertyFunction.name.endsWith(`_${fallbackScriptMatch}`)
                 ) {
-                    resolvedNames.add(value.name);
+                    resolvedNames.add(propertyFunction.name);
                 }
-            }
+            });
         }
     }
 
+    // Build the reverse-lookup map once per patch application so that all
+    // names in resolvedNames are looked up in O(1) rather than O(n).
+    const scriptNameIndex = Array.isArray(scriptNames) ? resolveScriptNameIndex(scriptNames) : null;
+
     for (const name of resolvedNames) {
-        if (typeof globalScope[name] === "function" || (Array.isArray(scriptNames) && scriptNames.includes(name))) {
+        const scriptIdx = scriptNameIndex?.get(name) ?? -1;
+
+        if (typeof globalScope[name] === "function" || scriptIdx !== -1) {
             globalScope[name] = fn;
         }
 
-        if (Array.isArray(scriptNames) && Array.isArray(scripts)) {
-            const scriptIndex = scriptNames.indexOf(name);
-            if (scriptIndex !== -1 && scriptIndex < scripts.length) {
-                scripts[scriptIndex] = fn;
-            }
+        if (scriptIdx !== -1 && Array.isArray(scripts) && scriptIdx < scripts.length) {
+            scripts[scriptIdx] = fn;
         }
 
         if (Array.isArray(gmObjects)) {

@@ -4,11 +4,11 @@
  * operations before applying them, essential for IDE integrations and CLI tools.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { groupOccurrencesByFile } from "./occurrence-analysis.js";
+import { extractSymbolName } from "./rename/index.js";
 import type { BatchRenamePlanSummary, RenamePlanSummary, SymbolOccurrence } from "./types.js";
-import { extractSymbolName } from "./validation-utils.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 
 /**

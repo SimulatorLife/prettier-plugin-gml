@@ -1,48 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
-import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
+import { runGmlRule } from "./rule-test-harness.js";
 
 function runNormalizeDocCommentsRule(code: string): string {
-    const rule = LintWorkspace.Lint.plugin.rules["normalize-doc-comments"];
-    const fixes: Array<ReplaceTextRangeFixOperation> = [];
-    const getLocFromIndex = createLocResolver(code);
-
-    const context = {
-        options: [{}],
-        sourceCode: {
-            text: code,
-            getLocFromIndex
-        },
-        report(payload: {
-            fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
-            }) => ReplaceTextRangeFixOperation | null;
-        }) {
-            if (!payload.fix) {
-                return;
-            }
-
-            const fixer = {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
-                    return { kind: "replace", range, text };
-                }
-            };
-
-            const fix = payload.fix(fixer);
-            if (fix) {
-                fixes.push(fix);
-            }
-        }
-    } as never;
-
-    const listeners = rule.create(context);
-    listeners.Program?.({ type: "Program" } as never);
-
-    return applyFixOperations(code, fixes);
+    return runGmlRule({
+        rule: LintWorkspace.Lint.plugin.rules["normalize-doc-comments"],
+        code,
+        programNode: { type: "Program" }
+    }).output;
 }
 
 void test("normalize-doc-comments promotes leading summary lines into @description", () => {
@@ -429,4 +398,47 @@ void test("normalize-doc-comments removes existing @returns tags for constructor
 
     assertEquals(output, expected);
     assert.doesNotMatch(output, /^\/\/\/ @returns/m);
+});
+
+void test("normalize-doc-comments remaps wrong param names to correct function parameter names", () => {
+    // When doc comment has parameter lines whose names don't match the function
+    // signature, they are paired with the missing function params in order.
+    const input = [
+        "/// @param wrong_a First param description.",
+        "/// @param wrong_b Second param description.",
+        "function paired_remap(correct_a, correct_b) {",
+        "    return;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+    const expected = [
+        "/// @param correct_a First param description.",
+        "/// @param correct_b Second param description.",
+        "/// @returns {undefined}",
+        "function paired_remap(correct_a, correct_b) {",
+        "    return;",
+        "}"
+    ].join("\n");
+
+    assertEquals(output, expected);
+});
+
+void test("normalize-doc-comments remaps excess unmatched param lines only up to missing params count", () => {
+    // When there are more unmatched doc param lines than missing function params,
+    // only the first N are remapped (N = number of missing params), and excess
+    // lines that cannot be paired are removed by the subsequent prune pass.
+    const input = [
+        "/// @param wrong_a",
+        "/// @param wrong_b",
+        "/// @param wrong_c",
+        "function partial_remap(correct_a, correct_b) {",
+        "    return;",
+        "}"
+    ].join("\n");
+    const output = runNormalizeDocCommentsRule(input);
+
+    assert.match(output, /\/\/\/ @param correct_a/);
+    assert.match(output, /\/\/\/ @param correct_b/);
+    // wrong_c had no corresponding function param and must not appear in output
+    assert.doesNotMatch(output, /wrong_c/);
 });

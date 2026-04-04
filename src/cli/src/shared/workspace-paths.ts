@@ -1,8 +1,9 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
+import { getPackageJsonStringField, parsePackageJsonContents } from "./package-resolution.js";
 import { findRepoRootSync } from "./repo-root.js";
 
 const { readTextFileSync } = Core;
@@ -22,8 +23,8 @@ function readPackageName(candidateDirectory: string): string | null {
     try {
         const packageJsonPath = path.resolve(candidateDirectory, "package.json");
         const contents = readTextFileSync(packageJsonPath);
-        const parsed = JSON.parse(contents) as { name?: string };
-        return typeof parsed.name === "string" ? parsed.name : null;
+        const packageJson = parsePackageJsonContents(contents, packageJsonPath);
+        return getPackageJsonStringField(packageJson, "name");
     } catch {
         return null;
     }
@@ -34,7 +35,7 @@ function resolveCliPackageDirectory(startDirectory: string): string {
 
     for (let depth = 0; depth < 6; depth += 1) {
         const packageName = readPackageName(current);
-        if (packageName === "@gml-modules/cli") {
+        if (packageName === "@gmloop/cli") {
             return current;
         }
 

@@ -1,48 +1,9 @@
-// TODO: Is this duplicating lint's logic?
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gmloop/core";
 import { type Doc } from "prettier";
 
 import { align, concat, group, hardline, join } from "../printer/prettier-doc-builders.js";
 
 const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
-function getDocCommentIndentSpaces(line: string): number {
-    const match = line.match(/^\s*\/\/\/([ \t]*)/);
-    if (!match) {
-        return 0;
-    }
-
-    return match[1].replaceAll("\t", "    ").length;
-}
-
-function collectDescriptionContinuations(lines: MutableDocCommentLines, startIndex: number, baseIndentSpaces: number) {
-    const continuations: string[] = [];
-    let lookahead = startIndex + 1;
-
-    while (lookahead < lines.length) {
-        const candidate = lines[lookahead];
-        const classification = Core.classifyDescriptionContinuationLine(candidate);
-        if (classification.kind === "stop") {
-            break;
-        }
-
-        if (classification.kind === "empty") {
-            continuations.push("");
-            lookahead += 1;
-            continue;
-        }
-
-        if (typeof candidate === "string") {
-            const indentSpaces = getDocCommentIndentSpaces(candidate);
-            const extraIndent = Math.max(0, indentSpaces - baseIndentSpaces);
-            continuations.push(`${" ".repeat(extraIndent)}${classification.suffix}`);
-        } else {
-            continuations.push(classification.suffix);
-        }
-        lookahead += 1;
-    }
-
-    return { continuations, linesConsumed: lookahead - startIndex };
-}
 
 function buildDescriptionDoc(lineText: string, continuations: string[]): Doc {
     const trimmedLine = lineText.trim();
@@ -61,14 +22,6 @@ function coerceDocCommentEntriesToRawLines(docCommentDocs: MutableDocCommentLine
         const entry = docCommentDocs[index];
         if (typeof entry === "string") {
             continue;
-        }
-
-        if (Core.isObjectLike(entry)) {
-            const docText = (entry as { _gmlDocText?: unknown })._gmlDocText;
-            if (typeof docText === "string") {
-                docCommentDocs[index] = docText;
-                continue;
-            }
         }
 
         const rawText = Core.getLineCommentRawText(entry, {});
@@ -110,7 +63,7 @@ export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentL
 
         const { prefix } = Core.resolveDescriptionIndentation(entry);
         const baseIndentSpaces = Math.max(prefix.length - 3, 0);
-        const { continuations, linesConsumed } = collectDescriptionContinuations(
+        const { continuations, linesConsumed } = Core.collectDescriptionContinuationText(
             docCommentDocs,
             index,
             baseIndentSpaces

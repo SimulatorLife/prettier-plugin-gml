@@ -4,9 +4,9 @@ import http from "node:http";
 import type { Socket } from "node:net";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
-import type { ServerEndpoint, ServerLifecycle } from "../server/shared-server-types.js";
+import type { ServerEndpoint, ServerLifecycle } from "../server/index.js";
 
 const { isFsErrorCode, getErrorMessage } = Core;
 

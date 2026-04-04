@@ -2,26 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function declareAt(tracker: ScopeTracker, name: string, line: number = 1): void {
-    tracker.declare(name, {
-        name,
-        start: { line, column: 0, index: 0 },
-        end: { line, column: name.length, index: name.length }
-    });
-}
-
-function referenceAt(tracker: ScopeTracker, name: string, line: number = 2): void {
-    tracker.reference(name, {
-        name,
-        start: { line, column: 0, index: 0 },
-        end: { line, column: name.length, index: name.length }
-    });
-}
+import { declareAt, referenceAt } from "./scope-tracker-helpers.js";
 
 // ---------------------------------------------------------------------------
 // clearScopesForPath
@@ -137,6 +118,55 @@ void describe("ScopeTracker: clearScopesForPath", () => {
 
         // Unused variable suppression — we used globalScope to enter the scope
         void globalScope;
+    });
+
+    void it("invalidates each declared symbol cache key only once when removing multiple scopes", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        const invalidateCalls: string[] = [];
+        const identifierCache = (
+            tracker as unknown as {
+                identifierCache: {
+                    invalidate: (name: string, scopeIds?: Iterable<string> | null) => void;
+                };
+            }
+        ).identifierCache;
+        const originalInvalidate = identifierCache.invalidate.bind(identifierCache);
+        identifierCache.invalidate = (name: string, scopeIds?: Iterable<string> | null): void => {
+            invalidateCalls.push(name);
+            originalInvalidate(name, scopeIds);
+        };
+
+        tracker.enterScope("file", { path: "/project/repeated.gml" });
+        declareAt(tracker, "shared");
+
+        tracker.enterScope("function");
+        declareAt(tracker, "shared");
+        tracker.exitScope();
+
+        tracker.enterScope("function");
+        declareAt(tracker, "shared");
+        tracker.exitScope();
+
+        tracker.enterScope("function");
+        declareAt(tracker, "unique");
+        tracker.exitScope();
+
+        tracker.exitScope();
+        invalidateCalls.length = 0;
+
+        tracker.clearScopesForPath("/project/repeated.gml");
+
+        assert.equal(
+            invalidateCalls.filter((name) => name === "shared").length,
+            1,
+            "shared should be invalidated once even when declared by multiple removed scopes"
+        );
+        assert.equal(
+            invalidateCalls.filter((name) => name === "unique").length,
+            1,
+            "unique should still be invalidated once"
+        );
     });
 
     void it("does not disturb sibling scopes registered under a different path", () => {
@@ -346,6 +376,25 @@ void describe("ScopeTracker: getImpactedFilePaths", () => {
         assert.ok(result.has("/project/b.gml"));
         assert.equal(result.size, 2);
         assert.equal(traversalCount, 2, "Each unique scope should traverse dependents only once");
+    });
+
+    void it("normalizes impacted paths to avoid duplicate slash variants", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: String.raw`C:\project\helpers.gml` });
+        declareAt(tracker, "sharedUtil");
+
+        tracker.enterScope("file", { path: String.raw`C:\project\player.gml` });
+        referenceAt(tracker, "sharedUtil");
+        tracker.exitScope();
+
+        tracker.exitScope();
+
+        const result = tracker.getImpactedFilePaths(["C:/project/helpers.gml", String.raw`C:\project\helpers.gml`]);
+
+        assert.ok(result.has("C:/project/helpers.gml"));
+        assert.ok(result.has("C:/project/player.gml"));
+        assert.equal(result.size, 2, "Impacted set should not include backslash duplicates");
     });
 
     void it("ignores null and empty strings in the input iterable", () => {

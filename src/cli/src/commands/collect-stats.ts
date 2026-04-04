@@ -2,89 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
 import { Command } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
-import { formatByteSizeDisplay } from "../shared/byte-format.js";
-import { traverseDirectoryEntries } from "../shared/directory-traversal.js";
+import { scanProjectHealth } from "../modules/quality-report/project-health.js";
 import { ensureDirSync } from "../shared/ensure-dir.js";
-
-const { readTextFileSync } = Core;
-
-const ignoredDirectories = new Set(["node_modules", "dist", "generated", "vendor", "tmp"]);
-
-function getSourceFiles(dir: string) {
-    const fileList: string[] = [];
-    traverseDirectoryEntries(dir, {
-        shouldDescend: (fullPath) => !ignoredDirectories.has(path.basename(fullPath)),
-        onFile: (filePath) => {
-            if (filePath.endsWith(".ts") && !filePath.endsWith(".d.ts")) {
-                fileList.push(filePath);
-            }
-        },
-        continueOnReadError: false,
-        ignoreDotEntries: false
-    });
-    return fileList;
-}
-
-function getBuildSize(dir: string) {
-    let size = 0;
-    traverseDirectoryEntries(dir, {
-        onFile: (filePath) => {
-            if (filePath.endsWith(".js")) {
-                size += fs.statSync(filePath).size;
-            }
-        },
-        shouldDescend: () => true,
-        continueOnReadError: false,
-        ignoreDotEntries: false
-    });
-    return size;
-}
-
-function scanProjectHealth(rootDir: string) {
-    const srcDir = path.join(rootDir, "src");
-    const srcFiles = getSourceFiles(srcDir);
-
-    let largeFiles = 0;
-    let todos = 0;
-
-    for (const file of srcFiles) {
-        const content = readTextFileSync(file);
-        const lines = content.split("\n");
-
-        if (lines.length > 1000) {
-            largeFiles += 1;
-        }
-
-        todos += (content.match(/\b(?:TODO|FIXME|HACK)\b/g) || []).length;
-    }
-
-    let totalBuildSize = 0;
-    if (fs.existsSync(srcDir)) {
-        const packages = fs.readdirSync(srcDir);
-        for (const pkg of packages) {
-            const pkgDir = path.join(srcDir, pkg);
-            if (fs.statSync(pkgDir).isDirectory()) {
-                const distPath = path.join(pkgDir, "dist");
-                totalBuildSize += getBuildSize(distPath);
-            }
-        }
-    }
-
-    return {
-        largeFiles,
-        todos,
-        buildSize: formatByteSizeDisplay(totalBuildSize, {
-            decimals: 2,
-            separator: " ",
-            invalidValue: "Invalid"
-        })
-    };
-}
 
 export function createCollectStatsCommand() {
     return applyStandardCommandOptions(

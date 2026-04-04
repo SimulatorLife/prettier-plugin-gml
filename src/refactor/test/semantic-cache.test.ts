@@ -41,6 +41,32 @@ void describe("SemanticQueryCache", () => {
             assert.equal(result2[0].path, "enemy.gml");
         });
 
+        void it("treats same-name queries with different symbol IDs as distinct cache entries", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getSymbolOccurrences: async (_name: string, symbolId?: string | null) => {
+                    callCount++;
+                    return [
+                        {
+                            path: symbolId === "gml/scripts/DemoLibrary" ? "resource.gml" : "callable.gml",
+                            start: 0,
+                            end: 10
+                        }
+                    ] as Array<SymbolOccurrence>;
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic);
+            const resourceResult = await cache.getSymbolOccurrences("DemoLibrary", "gml/scripts/DemoLibrary");
+            const callableResult = await cache.getSymbolOccurrences("DemoLibrary", "gml/script/DemoLibrary");
+            const repeatedResourceResult = await cache.getSymbolOccurrences("DemoLibrary", "gml/scripts/DemoLibrary");
+
+            assert.equal(callCount, 2, "Distinct symbol IDs should not share the same occurrence cache entry");
+            assert.equal(resourceResult[0].path, "resource.gml");
+            assert.equal(callableResult[0].path, "callable.gml");
+            assert.deepEqual(repeatedResourceResult, resourceResult);
+        });
+
         void it("bypasses cache when disabled", async () => {
             let callCount = 0;
             const semantic: PartialSemanticAnalyzer = {
@@ -83,6 +109,30 @@ void describe("SemanticQueryCache", () => {
             await cache.getSymbolOccurrences("test");
 
             assert.equal(callCount, 2, "Expired entry should trigger new query");
+        });
+
+        void it("does not retain oversized occurrence arrays in cache", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getSymbolOccurrences: async () => {
+                    callCount++;
+                    return Array.from({ length: 4 }, (_, index) => ({
+                        path: `file-${index}.gml`,
+                        start: index,
+                        end: index + 1,
+                        kind: "reference"
+                    })) as Array<SymbolOccurrence>;
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic, {
+                maxOccurrenceCacheEntries: 3
+            });
+
+            await cache.getSymbolOccurrences("oversized_symbol");
+            await cache.getSymbolOccurrences("oversized_symbol");
+
+            assert.equal(callCount, 2, "Oversized occurrence sets should be fetched each time");
         });
     });
 
@@ -383,6 +433,24 @@ void describe("SemanticQueryCache", () => {
 
             const stats = cache.getStats();
             assert.equal(stats.size, 2, "Cache should not exceed maxSize");
+        });
+        void it("treats maxSize of 0 as a zero-capacity cache", async () => {
+            let callCount = 0;
+            const semantic: PartialSemanticAnalyzer = {
+                getSymbolOccurrences: async () => {
+                    callCount++;
+                    return [];
+                }
+            };
+
+            const cache = new SemanticQueryCache(semantic, { maxSize: 0 });
+            await cache.getSymbolOccurrences("a");
+            await cache.getSymbolOccurrences("a");
+
+            const stats = cache.getStats();
+            assert.equal(callCount, 2, "A zero-capacity cache should refetch every time");
+            assert.equal(stats.size, 0, "A zero-capacity cache should not retain entries");
+            assert.equal(stats.evictions, 2, "Skipped stores should still count as immediate evictions");
         });
 
         void it("uses default configuration values", () => {

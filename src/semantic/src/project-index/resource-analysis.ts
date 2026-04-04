@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { isProjectMetadataParseError, parseProjectMetadataDocumentWithSchema } from "../project-metadata/yy-adapter.js";
 import {

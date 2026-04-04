@@ -1,29 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    ensureStatementTerminated,
-    evaluateStatementTerminationPolicy
-} from "../src/emitter/statement-termination-policy.js";
+import { ensureStatementTerminated, isStatementTerminated } from "../src/emitter/statement-termination-policy.js";
 
-void test("append terminator for unterminated expression statements", () => {
-    const evaluation = evaluateStatementTerminationPolicy("foo(bar)");
-    assert.equal(evaluation.shouldAppendTerminator, true);
+void test("isStatementTerminated returns false for unterminated expression statements", () => {
+    assert.equal(isStatementTerminated("foo(bar)"), false);
 });
 
-void test("respect existing statement terminators", () => {
-    const evaluation = evaluateStatementTerminationPolicy("foo();");
-    assert.equal(evaluation.shouldAppendTerminator, false);
+void test("isStatementTerminated returns true for existing statement terminators", () => {
+    assert.equal(isStatementTerminated("foo();"), true);
+    assert.equal(isStatementTerminated("foo();   "), true);
 });
 
-void test("skip terminator for control flow prefixes", () => {
-    const evaluation = evaluateStatementTerminationPolicy("    if (ready) { doThing(); }");
-    assert.equal(evaluation.shouldAppendTerminator, false);
+void test("isStatementTerminated returns true for control flow prefixes", () => {
+    assert.equal(isStatementTerminated("    if (ready) { doThing(); }"), true);
 });
 
-void test("leave empty output untouched", () => {
-    const evaluation = evaluateStatementTerminationPolicy("");
-    assert.equal(evaluation.shouldAppendTerminator, false);
+void test("isStatementTerminated returns false for empty string", () => {
+    assert.equal(isStatementTerminated(""), false);
 });
 
 void test("append semicolon when policy requires terminator", () => {
@@ -32,6 +26,8 @@ void test("append semicolon when policy requires terminator", () => {
 
 void test("keep existing terminators unchanged", () => {
     assert.equal(ensureStatementTerminated("foo();"), "foo();");
+    assert.equal(ensureStatementTerminated("foo();   "), "foo();   ");
     assert.equal(ensureStatementTerminated("if (ready) { doThing(); }"), "if (ready) { doThing(); }");
     assert.equal(ensureStatementTerminated("{\n  doThing();\n}"), "{\n  doThing();\n}");
+    assert.equal(ensureStatementTerminated("{\n  doThing();\n}   "), "{\n  doThing();\n}   ");
 });

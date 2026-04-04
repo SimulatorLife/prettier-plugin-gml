@@ -2,7 +2,7 @@
  * Consolidates `if` statements that guard assignments with `undefined` into concise `??=` or ternary expressions.
  * This keeps downstream printers from emitting bloated conditionals when the intent is a fallback assignment.
  */
-import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode, type ParserTransform } from "@gmloop/core";
 
 const { isObjectLike } = Core;
 

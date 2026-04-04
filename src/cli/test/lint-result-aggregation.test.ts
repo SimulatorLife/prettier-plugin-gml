@@ -5,6 +5,7 @@ import { __lintCommandTest__ } from "../src/commands/lint.js";
 
 const {
     aggregateLintTotals,
+    createRetainedLintResult,
     collectOutOfRootFilePaths,
     formatPathSample,
     formatOutOfRootWarning,
@@ -55,6 +56,94 @@ void test("aggregateLintTotals handles mixed errors, fatal errors, and warnings"
     const totals = aggregateLintTotals(results);
     assert.equal(totals.errorCount, 5); // 1+1 + 0+3
     assert.equal(totals.warningCount, 3); // 2 + 1
+});
+
+void test("createRetainedLintResult drops heavyweight source payloads while preserving reporting fields", () => {
+    const retained = createRetainedLintResult({
+        filePath: "/tmp/example.gml",
+        messages: [
+            {
+                ruleId: "gml/example",
+                severity: 1,
+                message: "example",
+                line: 1,
+                column: 1,
+                nodeType: "Identifier",
+                fix: {
+                    range: [0, 1],
+                    text: "x".repeat(10_000)
+                },
+                suggestions: [
+                    {
+                        desc: "replace",
+                        fix: {
+                            range: [0, 1],
+                            text: "y".repeat(10_000)
+                        }
+                    }
+                ]
+            }
+        ],
+        suppressedMessages: [
+            {
+                ruleId: "gml/example-suppressed",
+                severity: 1,
+                message: "suppressed",
+                line: 1,
+                column: 1,
+                nodeType: "Identifier",
+                fix: {
+                    range: [0, 1],
+                    text: "z".repeat(10_000)
+                },
+                suggestions: []
+            }
+        ],
+        errorCount: 1,
+        fatalErrorCount: 0,
+        warningCount: 2,
+        fixableErrorCount: 1,
+        fixableWarningCount: 2,
+        usedDeprecatedRules: [],
+        source: "var value = 1;",
+        output: "var value = 2;"
+    } as unknown as import("eslint").ESLint.LintResult);
+
+    assert.deepEqual(retained, {
+        filePath: "/tmp/example.gml",
+        messages: [
+            {
+                ruleId: "gml/example",
+                severity: 1,
+                message: "example",
+                line: 1,
+                column: 1,
+                nodeType: "Identifier"
+            }
+        ],
+        suppressedMessages: [
+            {
+                ruleId: "gml/example-suppressed",
+                severity: 1,
+                message: "suppressed",
+                line: 1,
+                column: 1,
+                nodeType: "Identifier"
+            }
+        ],
+        errorCount: 1,
+        fatalErrorCount: 0,
+        warningCount: 2,
+        fixableErrorCount: 1,
+        fixableWarningCount: 2,
+        usedDeprecatedRules: []
+    });
+    assert.equal("source" in retained, false);
+    assert.equal("output" in retained, false);
+    assert.equal("fix" in retained.messages[0], false);
+    assert.equal("suggestions" in retained.messages[0], false);
+    assert.equal("fix" in retained.suppressedMessages[0], false);
+    assert.equal("suggestions" in retained.suppressedMessages[0], false);
 });
 
 // ---------------------------------------------------------------------------

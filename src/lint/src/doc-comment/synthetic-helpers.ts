@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const {
     getIdentifierText,
@@ -63,7 +63,7 @@ export function getArgumentIndexFromIdentifier(name: unknown) {
 
     const match = (name as string).match(/^argument([0-9]+)$/);
     if (match) {
-        return Number.parseInt(match[1], 10);
+        return Number.parseInt(match[1]);
     }
     return null;
 }
@@ -86,7 +86,7 @@ function getArgumentIndexFromNode(node: any) {
         node.property[0]?.type === "Literal"
     ) {
         const literal = node.property[0];
-        const parsed = Number.parseInt(literal.value, 10);
+        const parsed = Number.parseInt(literal.value);
         return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
     }
 
@@ -101,6 +101,21 @@ function getArgumentIndexFromNode(node: any) {
     }
 
     return null;
+}
+
+/**
+ * Resolve an implicit `argumentN` reference index from a node.
+ *
+ * Supports the three parser shapes used across lint transforms:
+ * - `Identifier` (`argument0`)
+ * - `MemberIndexExpression` (`argument[0]`)
+ * - `MemberExpression` (`argument.0`)
+ *
+ * @param {any} node Candidate AST node.
+ * @returns {number | null} Zero-based argument index when recognized.
+ */
+export function getArgumentIndexFromReferenceNode(node: any): number | null {
+    return getArgumentIndexFromNode(node);
 }
 
 export function getSourceTextForNode(node: any, options: SyntheticDocGenerationOptions) {
@@ -290,7 +305,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
             }
         }
 
-        for (const key in node) {
+        for (const key of Object.keys(node)) {
             if (key === "parent" || key === "enclosingNode" || key === "precedingNode" || key === "followingNode")
                 continue;
             const child = node[key];

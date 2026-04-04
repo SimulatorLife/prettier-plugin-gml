@@ -158,7 +158,7 @@ void describe("formatter boundaries ownership", () => {
         // Content rewrites — tag-alias normalization (@func → @function,
         // @desc → @description, @return → @returns, @arg → @param) and
         // parameter-list stripping (/// @function name(args) → name) — are
-        // owned exclusively by `gml/normalize-doc-comments` in @gml-modules/lint.
+        // owned exclusively by `gml/normalize-doc-comments` in @gmloop/lint.
         // (target-state.md §2.2, §3.2)
         const source = [
             "var x = 1;",
@@ -194,6 +194,27 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves canonical top-level doc-block comment body verbatim", async () => {
+        const source = [
+            "/**",
+            " *   @description   Keep    exact   spacing.",
+            " * @param value   spaced",
+            " */",
+            "function keep_doc(value) {",
+            "    return value;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /\*\*[\s\S]*\* {3}@description {3}Keep {4}exact {3}spacing\.[\s\S]*\* @param value {3}spaced[\s\S]*\*\//,
+            "Formatter must preserve canonical doc-block content verbatim; text normalization belongs to lint rules."
+        );
+    });
+
     void it("does not upgrade legacy double-slash @function to triple-slash (normalization belongs in lint)", async () => {
         // Legacy double-slash `// @function` doc comments are normalised by the
         // lint rule `gml/normalize-doc-comments`, not the formatter. The formatter
@@ -213,7 +234,7 @@ void describe("formatter boundaries ownership", () => {
         const formatted = await Format.format(source);
 
         // The formatter must NOT silently upgrade the double-slash format.
-        // That conversion belongs exclusively to @gml-modules/lint.
+        // That conversion belongs exclusively to @gmloop/lint.
         assert.doesNotMatch(
             formatted,
             /^\/\/\/ @function legacy_func/m,
@@ -304,7 +325,7 @@ void describe("formatter boundaries ownership", () => {
 
     void it("does not remove duplicate doc-comment lines (deduplication belongs in lint)", async () => {
         // Formatter must not perform content rewrites. Removing duplicate doc
-        // comment lines is a semantic operation owned by `@gml-modules/lint`
+        // comment lines is a semantic operation owned by `@gmloop/lint`
         // (target-state.md §2.2, §3.2).
         const source = [
             "/// @description Updates the ground distance",
@@ -366,7 +387,7 @@ void describe("formatter boundaries ownership", () => {
 
     void it("does not rename argumentN parameters based on @function doc-comment tags", async () => {
         // Renaming `argument0`-style parameters to their doc-comment preferred names is a
-        // semantic content rewrite that belongs in `@gml-modules/lint`, not the formatter.
+        // semantic content rewrite that belongs in `@gmloop/lint`, not the formatter.
         // The formatter must preserve the original identifier names verbatim.
         // (target-state.md §2.2, §3.2 — "Formatter must not perform semantic/content rewrites")
         const source = [
@@ -397,7 +418,7 @@ void describe("formatter boundaries ownership", () => {
     void it("does not simplify if/else boolean returns (semantic rewrites belong in lint)", async () => {
         // The formatter must not transform `if (cond) { return true; } else { return false; }`
         // into `return cond;`. That is a semantic/structural content rewrite owned exclusively
-        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        // by the `@gmloop/lint` `gml/optimize-logical-flow` rule.
         // (target-state.md §2.2, §3.2 — "Format must not perform semantic/content rewrites")
         const source = [
             "function bool_passthrough(condition) {",
@@ -425,7 +446,7 @@ void describe("formatter boundaries ownership", () => {
     void it("does not simplify negated if/else boolean returns (semantic rewrites belong in lint)", async () => {
         // The formatter must not transform `if (cond) { return false; } else { return true; }`
         // into `return !cond;`. That is a semantic/structural content rewrite owned exclusively
-        // by the `@gml-modules/lint` `gml/optimize-logical-flow` rule.
+        // by the `@gmloop/lint` `gml/optimize-logical-flow` rule.
         const source = [
             "function bool_negated(condition) {",
             "    if (condition) {",
@@ -447,6 +468,31 @@ void describe("formatter boundaries ownership", () => {
         assert.match(formatted, /if \(condition\)/);
         assert.match(formatted, /return false;/);
         assert.match(formatted, /return true;/);
+    });
+
+    void it("does not add semantic blank-line padding between boolean return paths", async () => {
+        // Inserting an extra blank line between `if (...) { return true; }` and a
+        // following `return false;` depends on interpreting the control-flow
+        // meaning of the statements. That semantic presentation choice belongs in
+        // lint, not in the formatter's statement-spacing policy.
+        const source = [
+            "function bool_guard(condition) {",
+            "    if (condition) {",
+            "        return true;",
+            "    }",
+            "    return false;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.equal(
+            formatted.includes("return true;\n    }\n\n    return false;"),
+            false,
+            "Formatter must not insert semantic blank-line padding between opposing boolean returns."
+        );
+        assert.equal(formatted.includes("return true;\n    }\n    return false;"), true);
     });
 
     void it("does not apply math optimizations during formatting", async () => {
@@ -512,7 +558,7 @@ void describe("formatter boundaries ownership", () => {
 
     void it("does not strip empty /// @description doc-comment lines (cleanup belongs in lint)", async () => {
         // Removing empty `/// @description` tags is a doc-comment content rewrite
-        // owned by `@gml-modules/lint`'s `gml/normalize-doc-comments` rule
+        // owned by `@gmloop/lint`'s `gml/normalize-doc-comments` rule
         // (target-state.md §2.2 — "Lint owns `@description` promotion/cleanup").
         // The formatter must preserve empty @description lines verbatim so that
         // lint can make an intentional, auditable decision about whether to remove them.
@@ -547,6 +593,27 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
+    void it("preserves multiline @description continuation indentation while reusing shared core parsing", async () => {
+        const source = [
+            "/// @description Build packet metadata",
+            "/// first line",
+            "///   nested details",
+            "///",
+            "/// @param value",
+            "function build_packet(value) {",
+            "    return value;",
+            "}"
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description Build packet metadata\n\/\/\/ {14}first line\n\/\/\/ {14}nested details\n\/\/\/\n\/\/\/ @param value/m,
+            "Formatter must preserve multiline @description continuation layout without introducing formatter-owned doc-comment normalization."
+        );
+    });
+
     void it("does not move top-of-file empty /// @description onto plain variable declarations", async () => {
         const source = [
             "/// @description",
@@ -565,6 +632,27 @@ void describe("formatter boundaries ownership", () => {
         assert.doesNotMatch(
             formatted,
             /^\/\/ Cast a ray from high above to the ground so that the coin is placed onto the ground\s*\n\/\/\/ @description\s*\nvar ray/m
+        );
+    });
+
+    void it("preserves blank lines between doc tags instead of inferring description/function grouping", async () => {
+        const source = [
+            "/// @description Build a packet",
+            "",
+            "/// @function build_packet(value)",
+            "/// @param value",
+            "function build_packet(value) {",
+            "    return value;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /^\/\/\/ @description Build a packet\s*\n\n\/\/\/ @function build_packet\(value\)/m,
+            "Formatter must preserve source blank lines between doc tags; grouping @description with @function is lint-owned doc normalization."
         );
     });
 
@@ -599,5 +687,78 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not strip `global.` from `global.score` in expressions."
         );
         assert.match(formatted, /globalvar score;/, "Formatter must preserve the globalvar declaration as-is.");
+    });
+
+    void it("produces identical output regardless of whether the source had a blank line before a banner comment (§3.2)", async () => {
+        // preserveBannerSpacingGaps was a post-Prettier patch that inspected `source`
+        // to conditionally add blank lines before banner-comment patterns.  This made
+        // the formatter non-deterministic: two files with identical logical structure
+        // but different surrounding whitespace would produce different output.
+        // The function has been removed; blank-line placement before top-level comments
+        // is now handled deterministically by `normalizeFormattedOutput` (called
+        // downstream by the CLI).  target-state.md §3.2: "Formatter must not perform
+        // semantic/content rewrites or syntax repair."
+        const sourceWithGap = [
+            "var a = 1;",
+            "",
+            "////////////////////////////////////////",
+            "// Section header",
+            "////////////////////////////////////////",
+            "var b = 2;",
+            ""
+        ].join("\n");
+
+        const sourceWithoutGap = [
+            "var a = 1;",
+            "////////////////////////////////////////",
+            "// Section header",
+            "////////////////////////////////////////",
+            "var b = 2;",
+            ""
+        ].join("\n");
+
+        const formattedWithGap = await Format.format(sourceWithGap);
+        const formattedWithoutGap = await Format.format(sourceWithoutGap);
+
+        assert.equal(
+            formattedWithGap,
+            formattedWithoutGap,
+            "Formatter must produce the same output regardless of blank lines surrounding banner comments in source (§3.2)."
+        );
+    });
+
+    void it("does not return source verbatim for files without trailing newline — formatter always normalises (§3.2)", async () => {
+        // preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment was a
+        // recovery fallback that returned `source` unchanged when Prettier's only
+        // change was adding a trailing newline to a top-level block comment file.
+        // Returning the raw source violates target-state.md §3.2: "The formatter
+        // must never attempt recovery or fallback printing."
+        //
+        // The function has been removed; `format()` now delegates entirely to
+        // `prettier.format()` without inspecting source to patch the result.
+        const sourceWithoutTrailingNewline = ["/*", " * Top-level file header.", " */", "", "var x = 1"].join("\n");
+
+        // Confirm the source does not end with a newline
+        assert.equal(
+            sourceWithoutTrailingNewline.endsWith("\n"),
+            false,
+            "Test precondition: source must not end with a newline."
+        );
+
+        const formatted = await Format.format(sourceWithoutTrailingNewline);
+
+        // The formatter must add a trailing newline
+        assert.equal(
+            formatted.endsWith("\n"),
+            true,
+            "Formatter must produce output with a trailing newline, not return source verbatim (§3.2)."
+        );
+
+        // The formatted output must differ from the raw source (normalisation was applied)
+        assert.notEqual(
+            formatted,
+            sourceWithoutTrailingNewline,
+            "Formatter must not return source verbatim as a recovery fallback (§3.2)."
+        );
     });
 });

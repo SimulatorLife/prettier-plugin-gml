@@ -1,17 +1,14 @@
+import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import { createMeta, findMatchingBraceEndIndex } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 type RepeatLoopCandidate = Readonly<{
     limitExpression: string;
     loopStartIndex: number;
     loopHeaderEndIndex: number;
 }>;
-
-function escapeRegularExpressionPattern(text: string): string {
-    return text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-}
 
 function usesUnitIncrement(iteratorName: string, updateExpression: string): boolean {
     const compactExpression = updateExpression.replaceAll(/\s+/g, "");
@@ -43,7 +40,7 @@ function collectRepeatLoopCandidates(sourceText: string): Array<RepeatLoopCandid
             continue;
         }
 
-        const iteratorPattern = new RegExp(String.raw`\b${escapeRegularExpressionPattern(iteratorName)}\b`, "u");
+        const iteratorPattern = new RegExp(String.raw`\b${Core.escapeRegExp(iteratorName)}\b`, "u");
         if (iteratorPattern.test(limitExpression)) {
             continue;
         }

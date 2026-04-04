@@ -1,6 +1,6 @@
 // Comment handling helpers relocated to the format workspace so Prettier can format comments directly.
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 
@@ -42,10 +42,6 @@ const EMPTY_LITERAL_TARGETS = [
     { type: "StructExpression", property: "properties" },
     { type: "EnumDeclaration", property: "members" }
 ];
-
-const LEGACY_LINE_DOC_TAG_PATTERN =
-    /^\s*\/\/\s*@(?:arg|args|argument|parameter|param|returns?|description|function|func)\b/i;
-const BLOCK_DOC_TAG_PATTERN = /^\s*@(?:arg|args|argument|parameter|param|returns?|description|function|func)\b/i;
 
 function attachDanglingCommentToEmptyNode(
     comment: PrinterComment,
@@ -981,15 +977,11 @@ function findFollowingNodeForComment(ast, comment) {
             }
         }
 
-        // Use for...in instead of Object.entries to avoid allocating intermediate
+        // Use Object.keys instead of Object.entries to avoid allocating intermediate
         // [key, value] tuple arrays on every visited node. Benchmarked at ~16% faster
-        // in AST traversals. Mirrors the optimization in collectCommentNodes
-        // (src/core/src/comments/comment-utils.ts).
-        for (const key in node) {
-            if (!Object.hasOwn(node, key)) {
-                continue;
-            }
-
+        // in AST traversals versus Object.entries. Mirrors the optimization in
+        // collectCommentNodes (src/core/src/comments/comment-utils.ts).
+        for (const key of Object.keys(node)) {
             if (key === "comments" || key === "docComments") {
                 continue;
             }
@@ -1295,14 +1287,8 @@ function attachDocCommentToFollowingNode(comment, options, ast) {
         originalText: options?.originalText
     });
     const shouldAttachTripleSlashContinuation = shouldAttachDocTripleSlashContinuation(comment, rawText, options);
-    const shouldAttachLegacyLineDocTag = shouldAttachLegacyLineDocTagComment(rawText);
-    const shouldAttachBlockDocTag = shouldAttachBlockDocTagComment(comment);
-
     const shouldAttachAsDocComment =
-        (formatted && formatted.trimStart().startsWith("///")) ||
-        shouldAttachTripleSlashContinuation ||
-        shouldAttachLegacyLineDocTag ||
-        shouldAttachBlockDocTag;
+        (formatted && formatted.trimStart().startsWith("///")) || shouldAttachTripleSlashContinuation;
 
     if (!shouldAttachAsDocComment) {
         return false;
@@ -1312,40 +1298,10 @@ function attachDocCommentToFollowingNode(comment, options, ast) {
         followingNode.docComments = [];
     }
 
-    if (shouldAttachBlockDocTag) {
-        comment._gmlDocText = resolveRawBlockCommentText(comment, options?.originalText);
-    }
-
     followingNode.docComments.push(comment);
     comment._gmlAttachedDocComment = true;
     comment.printed = true;
     return true;
-}
-
-function shouldAttachLegacyLineDocTagComment(rawText: string | null): boolean {
-    if (typeof rawText !== "string") {
-        return false;
-    }
-
-    return LEGACY_LINE_DOC_TAG_PATTERN.test(rawText);
-}
-
-function shouldAttachBlockDocTagComment(comment: PrinterComment): boolean {
-    if (comment?.type !== "CommentBlock" || typeof comment.value !== "string") {
-        return false;
-    }
-
-    return BLOCK_DOC_TAG_PATTERN.test(comment.value.trimStart());
-}
-
-function resolveRawBlockCommentText(comment: PrinterComment, originalText: string | null | undefined): string {
-    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
-    if (sourceSpan !== null) {
-        return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
-    }
-
-    const value = typeof comment.value === "string" ? comment.value : "";
-    return `/*${value}*/`;
 }
 
 function shouldAttachDocTripleSlashContinuation(comment, rawText, options) {
@@ -1622,17 +1578,19 @@ function formatCanonicalTopLevelBlockComment(comment, originalText): string | nu
         return null;
     }
 
-    if (isCanonicalTopLevelDocBlockComment(comment, originalText)) {
-        const docBlockTextLines = normalizeCanonicalDocBlockTextLines(significantLines);
-        if (docBlockTextLines !== null) {
-            return ["/**", ...docBlockTextLines.map(formatCanonicalDocBlockTextLine), " */"].join("\n");
-        }
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+
+    if (isCanonicalTopLevelDocBlockComment(comment, originalText) && sourceSpan !== null) {
+        // Boundary contract: comment-content normalization is lint-owned
+        // (`gml/normalize-doc-comments` / `gml/normalize-banner-comments`).
+        // The formatter must keep top-level doc-block text verbatim and only
+        // control layout around the comment.
+        return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
     }
 
     const interiorLines = lines.slice(1, -1);
     const hasInteriorBlankLines = interiorLines.some((line) => line.trim().length === 0);
     if (!hasInteriorBlankLines) {
-        const sourceSpan = resolveCommentSourceSpan(comment, originalText);
         if (sourceSpan !== null) {
             return sourceSpan.originalText.slice(sourceSpan.startIndex, sourceSpan.endIndex + 1);
         }
@@ -1651,29 +1609,6 @@ function isCanonicalTopLevelDocBlockComment(comment, originalText): boolean {
 
     const { startIndex } = sourceSpan;
     return originalText.startsWith("/**", startIndex);
-}
-
-function normalizeCanonicalDocBlockTextLines(lines: string[]): string[] | null {
-    const normalizedLines = [];
-
-    for (const line of lines) {
-        const trimmedStartLine = line.trimStart();
-        if (!trimmedStartLine.startsWith("*")) {
-            return null;
-        }
-
-        normalizedLines.push(trimmedStartLine.slice(1).trim());
-    }
-
-    if (normalizedLines.length > 1 && normalizedLines[0] === "") {
-        normalizedLines.shift();
-    }
-
-    return normalizedLines;
-}
-
-function formatCanonicalDocBlockTextLine(line: string): string {
-    return line.length === 0 ? " *" : ` * ${line}`;
 }
 
 function hasAdjacentBlockCommentInSource(comment, originalText): boolean {

@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Transpiler } from "@gml-modules/transpiler";
+import { Transpiler } from "@gmloop/transpiler";
 
 import { type TranspilationContext, transpileFile } from "../src/modules/transpilation/coordinator.js";
 

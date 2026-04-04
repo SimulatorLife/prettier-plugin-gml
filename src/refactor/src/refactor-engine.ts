@@ -7,11 +7,15 @@
 
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
+import { createTempFileStorageBackend, type StorageBackend } from "./backends/index.js";
+import { executeRegisteredCodemods } from "./codemod-registry.js";
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
+import { planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 import * as HotReload from "./hot-reload.js";
 import { DEFAULT_PROJECT_ANALYSIS_PROVIDER } from "./project-analysis-provider.js";
+import { assertRenameRequest, assertValidIdentifierName, extractSymbolName } from "./rename/index.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
 import { SemanticQueryCache } from "./semantic-cache.js";
 import * as SymbolQueries from "./symbol-queries.js";
@@ -19,6 +23,9 @@ import {
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
+    type CodemodExecutionTelemetry,
+    type ConfiguredCodemodRunRequest,
+    type ConfiguredCodemodRunResult,
     type ConflictEntry,
     ConflictType,
     type ExecuteBatchRenameRequest,
@@ -30,9 +37,11 @@ import {
     type HotReloadSafetySummary,
     type HotReloadUpdate,
     type HotReloadValidationOptions,
+    type NamingConventionCodemodPlan,
     OccurrenceKind,
     type ParserBridge,
     type PartialSemanticAnalyzer,
+    type PrepareBatchRenamePlanOptions,
     type PrepareRenamePlanOptions,
     type RefactorEngineDependencies,
     type RefactorProjectAnalysisProvider,
@@ -56,14 +65,151 @@ import {
     detectRenameConflicts,
     validateCrossFileConsistency
 } from "./validation.js";
-import { assertRenameRequest, assertValidIdentifierName, extractSymbolName } from "./validation-utils.js";
 import {
     getWorkspaceArrays,
+    getWorkspaceEditRevision,
     type GroupedTextEdits,
     isWorkspaceEditLike,
     type TextEdit,
+    validateFileRenameOperations,
     WorkspaceEdit
 } from "./workspace-edit.js";
+
+const RENAME_VALIDATION_CACHE_MAX_SIZE = 4096;
+const validatedWorkspaceRevisions = new WeakMap<object, number>();
+
+function hasCurrentValidatedWorkspaceRevision(workspace: object): boolean {
+    const currentRevision = getWorkspaceEditRevision(workspace);
+    if (currentRevision === null) {
+        return false;
+    }
+
+    return validatedWorkspaceRevisions.get(workspace) === currentRevision;
+}
+
+function rememberValidatedWorkspaceRevision(workspace: object): void {
+    const currentRevision = getWorkspaceEditRevision(workspace);
+    if (currentRevision === null) {
+        return;
+    }
+
+    validatedWorkspaceRevisions.set(workspace, currentRevision);
+}
+
+function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Array<SymbolOccurrence> {
+    if (occurrences.length <= 1) {
+        return [...occurrences];
+    }
+
+    if (occurrences.length <= 8) {
+        const deduplicated: Array<SymbolOccurrence> = [];
+
+        for (const occurrence of occurrences) {
+            const existingIndex = deduplicated.findIndex(
+                (candidate) => candidate.path === occurrence.path && candidate.start === occurrence.start
+            );
+
+            if (existingIndex === -1) {
+                deduplicated.push(occurrence);
+                continue;
+            }
+
+            // Replace the entire entry when the incoming occurrence covers a wider span so
+            // that all fields (including `kind`) come from the dominant occurrence rather
+            // than forming a hybrid with stale metadata from the first entry seen.
+            if (occurrence.end > deduplicated[existingIndex].end) {
+                deduplicated[existingIndex] = occurrence;
+            }
+        }
+
+        return deduplicated;
+    }
+
+    const deduplicatedByStart = new Map<string, SymbolOccurrence>();
+
+    for (const occurrence of occurrences) {
+        // Use a template literal instead of array+join to avoid the intermediate
+        // array allocation on every iteration of the deduplication hot loop.
+        const key = `${occurrence.path ?? ""}:${occurrence.start}`;
+        const existing = deduplicatedByStart.get(key);
+
+        if (!existing || occurrence.end > existing.end) {
+            deduplicatedByStart.set(key, occurrence);
+        }
+    }
+
+    return [...deduplicatedByStart.values()];
+}
+
+function deduplicateStableValues(values: ReadonlyArray<string>): Array<string> {
+    return [...new Set(values)];
+}
+
+function semanticSupportsBatchWorkspaceOverlay(
+    semantic: PartialSemanticAnalyzer | null
+): semantic is PartialSemanticAnalyzer &
+    Required<Pick<NonNullable<PartialSemanticAnalyzer>, "clearWorkspaceOverlay" | "stageWorkspaceEdit">> {
+    return Core.hasMethods(semantic, ["clearWorkspaceOverlay", "stageWorkspaceEdit"]);
+}
+
+function dropRedundantTextEditsForMetadataRewrites(workspace: WorkspaceEdit): WorkspaceEdit {
+    const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
+    if (metadataEdits.length === 0) {
+        return workspace;
+    }
+
+    const metadataPaths = new Set(metadataEdits.map((metadataEdit) => metadataEdit.path));
+    const hasRedundantTextEdits = workspace.edits.some((edit) => metadataPaths.has(edit.path));
+    if (!hasRedundantTextEdits) {
+        return workspace;
+    }
+
+    const normalizedWorkspace = new WorkspaceEdit();
+
+    for (const edit of workspace.edits) {
+        if (metadataPaths.has(edit.path)) {
+            continue;
+        }
+
+        normalizedWorkspace.addEdit(edit.path, edit.start, edit.end, edit.newText);
+    }
+
+    for (const metadataEdit of metadataEdits) {
+        normalizedWorkspace.addMetadataEdit(metadataEdit.path, metadataEdit.content);
+    }
+
+    for (const fileRename of fileRenames) {
+        normalizedWorkspace.addFileRename(fileRename.oldPath, fileRename.newPath);
+    }
+
+    return normalizedWorkspace;
+}
+
+function applyGroupedTextEditsToContent(
+    originalContent: string,
+    edits: ReadonlyArray<Pick<TextEdit, "end" | "newText" | "start">>
+): string {
+    if (edits.length === 0) {
+        return originalContent;
+    }
+
+    const fragments = Array.from<string>({
+        length: edits.length * 2 + 1
+    });
+    let cursor = originalContent.length;
+    let fragmentIndex = fragments.length - 1;
+
+    for (const edit of edits) {
+        fragments[fragmentIndex] = originalContent.slice(edit.end, cursor);
+        fragmentIndex -= 1;
+        fragments[fragmentIndex] = edit.newText;
+        fragmentIndex -= 1;
+        cursor = edit.start;
+    }
+
+    fragments[fragmentIndex] = originalContent.slice(0, cursor);
+    return fragments.join("");
+}
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -88,8 +234,22 @@ export class RefactorEngine {
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
         this.projectAnalysisProvider = projectAnalysisProvider ?? DEFAULT_PROJECT_ANALYSIS_PROVIDER;
-        this.renameValidationCache = new RenameValidationCache();
-        this.semanticCache = new SemanticQueryCache(semantic);
+        this.renameValidationCache = new RenameValidationCache({
+            maxSize: RENAME_VALIDATION_CACHE_MAX_SIZE
+        });
+        this.semanticCache = new SemanticQueryCache(semantic, {
+            // Batch codemods can validate and then plan several thousand symbol
+            // queries in one run. Keep enough room for those session-local
+            // results so the planning phase can reuse the validation lookups.
+            maxSize: 8192,
+            ttlMs: 300_000,
+            maxOccurrenceCacheEntries: 4000
+        });
+    }
+
+    clearQueryCaches(): void {
+        this.renameValidationCache.invalidateAll();
+        this.semanticCache.invalidateAll();
     }
 
     /**
@@ -104,14 +264,26 @@ export class RefactorEngine {
      * Validate symbol exists in the semantic index.
      */
     validateSymbolExists(symbolId: string): Promise<boolean> {
-        return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        if (this.semantic === null) {
+            return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        }
+
+        return this.semanticCache.hasSymbol(symbolId);
     }
 
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
-    gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return this.semanticCache.getSymbolOccurrences(symbolName);
+    gatherSymbolOccurrences(symbolName: string, symbolId: string | null = null): Promise<Array<SymbolOccurrence>> {
+        return this.semanticCache.getSymbolOccurrences(symbolName, symbolId).then((occurrences) => {
+            const deduplicated = deduplicateSymbolOccurrences(occurrences);
+            // Replace the raw occurrence cache entry with the deduped+range-merged
+            // result so that every subsequent cache hit for the same symbol skips
+            // the deduplication work entirely.  The prime is a no-op when the entry
+            // exceeds maxOccurrenceCacheEntries or when caching is disabled.
+            this.semanticCache.primeOccurrenceCache(symbolName, symbolId, deduplicated);
+            return deduplicated;
+        });
     }
 
     /**
@@ -140,7 +312,7 @@ export class RefactorEngine {
 
     /**
      * Check if an identifier name is already occupied in the project.
-     * This is used by @gml-modules/lint and @gml-modules/refactor to
+     * This is used by @gmloop/lint and @gmloop/refactor to
      * determine if a proposed variable name or identifier is safe to use.
      */
     isIdentifierOccupied(identifierName: string): Promise<boolean> {
@@ -152,7 +324,7 @@ export class RefactorEngine {
 
     /**
      * List all files where an identifier occurs.
-     * This is used by @gml-modules/lint and @gml-modules/refactor to
+     * This is used by @gmloop/lint and @gmloop/refactor to
      * determine if a rename or refactor would affect multiple files.
      */
     listIdentifierOccurrences(identifierName: string): Promise<Set<string>> {
@@ -272,7 +444,7 @@ export class RefactorEngine {
         }
 
         // Gather occurrences to check for conflicts
-        const occurrences = await this.gatherSymbolOccurrences(symbolName);
+        const occurrences = await this.gatherSymbolOccurrences(symbolName, symbolId);
 
         if (occurrences.length === 0) {
             warnings.push(`No occurrences found for symbol '${symbolName}' - rename will have no effect`);
@@ -295,11 +467,14 @@ export class RefactorEngine {
             }
         }
 
+        // Route through the semantic cache so repeated getFileSymbols lookups
+        // for the same file across multiple symbol validations in a batch are
+        // served from memory rather than re-queried from the semantic bridge.
         const crossFileConflicts = await validateCrossFileConsistency(
             symbolId,
             normalizedNewName,
             occurrences,
-            this.semantic
+            this.semanticCache
         );
 
         for (const conflict of crossFileConflicts) {
@@ -484,22 +659,26 @@ export class RefactorEngine {
         const { symbolId, newName } = request;
 
         const normalizedNewName = assertValidIdentifierName(newName);
+        const cachedValidation = this.renameValidationCache.peek(symbolId, newName);
+        const hasReusableValidation = cachedValidation?.valid === true;
 
         // Confirm the symbol exists in the semantic index before proceeding. This
         // prevents wasted work gathering occurrences for non-existent symbols and
         // provides a clear error message when the user mistypes a symbol name.
-        const exists = await this.validateSymbolExists(symbolId);
-        if (!exists) {
-            throw new Error(
-                `Symbol '${symbolId}' not found in semantic index. ` +
-                    `Ensure the project has been analyzed before attempting renames.`
-            );
+        if (!hasReusableValidation) {
+            const exists = await this.validateSymbolExists(symbolId);
+            if (!exists) {
+                throw new Error(
+                    `Symbol '${symbolId}' not found in semantic index. ` +
+                        `Ensure the project has been analyzed before attempting renames.`
+                );
+            }
         }
 
         // Extract the symbol's base name from its fully-qualified ID by taking the
         // last path component. For example, "gml/script/scr_foo" becomes "scr_foo",
         // which we use to search for all occurrences in the codebase.
-        const symbolName = extractSymbolName(symbolId);
+        const symbolName = cachedValidation?.symbolName ?? extractSymbolName(symbolId);
 
         if (symbolName === normalizedNewName) {
             throw new Error(`The new name '${normalizedNewName}' matches the existing identifier`);
@@ -508,22 +687,24 @@ export class RefactorEngine {
         // Collect all occurrences (definitions and references) of the symbol across
         // the workspace. This includes every location where the symbol appears, so
         // the rename operation can update all references simultaneously.
-        const occurrences = await this.gatherSymbolOccurrences(symbolName);
+        const occurrences = await this.gatherSymbolOccurrences(symbolName, symbolId);
 
         // Detect potential conflicts (shadowing, reserved keywords, etc.) before
         // applying edits. If conflicts exist, we abort the rename to prevent
         // introducing scope errors or breaking existing code.
-        const conflicts = await detectRenameConflicts(
-            symbolName,
-            normalizedNewName,
-            occurrences,
-            this.semantic,
-            this.semantic
-        );
+        if (!hasReusableValidation) {
+            const conflicts = await detectRenameConflicts(
+                symbolName,
+                normalizedNewName,
+                occurrences,
+                this.semantic,
+                this.semantic
+            );
 
-        if (conflicts.length > 0) {
-            const messages = conflicts.map((c) => c.message).join("; ");
-            throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
+            if (conflicts.length > 0) {
+                const messages = conflicts.map((c) => c.message).join("; ");
+                throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
+            }
         }
 
         // Build a workspace edit containing text edits for every occurrence. Each
@@ -555,7 +736,7 @@ export class RefactorEngine {
             }
         }
 
-        return workspace;
+        return dropRedundantTextEditsForMetadataRewrites(workspace);
     }
 
     /**
@@ -639,6 +820,8 @@ export class RefactorEngine {
             }
         }
 
+        errors.push(...validateFileRenameOperations(fileRenames));
+
         // If semantic analyzer is available, perform deeper validation
         const semantic = this.semantic;
         if (Core.hasMethods(semantic, "validateEdits")) {
@@ -653,7 +836,17 @@ export class RefactorEngine {
             }
         }
 
-        return { valid: errors.length === 0, errors, warnings };
+        const validationSummary = {
+            valid: errors.length === 0,
+            errors,
+            warnings
+        };
+
+        if (validationSummary.valid) {
+            rememberValidatedWorkspaceRevision(workspace);
+        }
+
+        return validationSummary;
     }
 
     /**
@@ -671,7 +864,7 @@ export class RefactorEngine {
         options?: ApplyWorkspaceEditOptions
     ): Promise<Map<string, string>> {
         const opts: ApplyWorkspaceEditOptions = options ?? ({} as ApplyWorkspaceEditOptions);
-        const { dryRun = false, readFile, writeFile } = opts;
+        const { dryRun = false, includeResultContent = true, readFile, writeFile } = opts;
 
         if (!workspace || !isWorkspaceEditLike(workspace)) {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
@@ -690,8 +883,10 @@ export class RefactorEngine {
         // Verify the workspace edit is structurally sound and free of conflicts
         // before modifying any files. This prevents partial application of invalid
         // edits that could leave the codebase in an inconsistent state.
-        const validation = await this.validateRename(workspace);
-        throwIfValidationFailed(validation, "Cannot apply workspace edit");
+        if (!hasCurrentValidatedWorkspaceRevision(workspace)) {
+            const validation = await this.validateRename(workspace);
+            throwIfValidationFailed(validation, "Cannot apply workspace edit");
+        }
 
         // Organize edits by file so we can process each file independently. This
         // allows us to load, edit, and save one file at a time, reducing memory
@@ -703,17 +898,9 @@ export class RefactorEngine {
         // that file, and optionally writing the modified content back to disk.
         await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
             const originalContent = await readFile(filePath);
+            const newContent = applyGroupedTextEditsToContent(originalContent, edits);
 
-            // Apply edits from high to low offset (reverse order) so that earlier
-            // edits don't invalidate the offsets of later edits. When edits are
-            // sorted descending, modifying the end of the file first keeps positions
-            // at the beginning stable, eliminating the need to recalculate offsets.
-            let newContent = originalContent;
-            for (const edit of edits) {
-                newContent = newContent.slice(0, edit.start) + edit.newText + newContent.slice(edit.end);
-            }
-
-            results.set(filePath, newContent);
+            results.set(filePath, includeResultContent ? newContent : "");
 
             // Write the modified content to disk unless we're in dry-run mode, which
             // lets callers preview changes before committing them.
@@ -724,7 +911,7 @@ export class RefactorEngine {
 
         const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
         await Core.runSequentially(metadataEdits, async (metadataEdit) => {
-            results.set(metadataEdit.path, metadataEdit.content);
+            results.set(metadataEdit.path, includeResultContent ? metadataEdit.content : "");
 
             if (!dryRun) {
                 await writeFile(metadataEdit.path, metadataEdit.content);
@@ -753,7 +940,10 @@ export class RefactorEngine {
      * @param {Array<{symbolId: string, newName: string}>} renames - Array of rename operations
      * @returns {Promise<WorkspaceEdit>} Combined workspace edit for all renames
      */
-    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
+    private async planValidatedBatchRename(renames: Array<RenameRequest>): Promise<{
+        validation: ValidationSummary;
+        workspace: WorkspaceEdit;
+    }> {
         Core.assertArray(renames, {
             errorMessage: "planBatchRename requires an array of renames"
         });
@@ -802,37 +992,62 @@ export class RefactorEngine {
             );
         }
 
-        // Plan each rename independently, collecting the resulting workspace edits.
-        // We defer merging until all renames are validated so that a single invalid
-        // rename doesn't invalidate the entire batch.
-        const workspaces: Array<WorkspaceEdit> = [];
-        await Core.runSequentially(renames, async (rename) => {
-            const workspace = await this.planRename(rename);
-            workspaces.push(workspace);
-        });
-
-        // Combine all workspace edits into a single merged edit that can be applied
-        // atomically. This ensures either all renames succeed together or none are
-        // applied, maintaining consistency.
+        // Plan each rename independently and merge immediately to avoid retaining
+        // every intermediate workspace in memory for large rename batches.
         const merged = new WorkspaceEdit();
-        for (const workspace of workspaces) {
-            for (const edit of workspace.edits) {
-                merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
+        const mergedMetadataEditsByPath = new Map<string, string>();
+        const semantic = this.semantic;
+        const supportsBatchWorkspaceOverlay = semanticSupportsBatchWorkspaceOverlay(semantic);
+
+        if (supportsBatchWorkspaceOverlay) {
+            await semantic.clearWorkspaceOverlay();
+        }
+
+        try {
+            await Core.runSequentially(renames, async (rename) => {
+                const workspace = await this.planRename(rename);
+                for (const edit of workspace.edits) {
+                    merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
+                }
+                const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
+                for (const metadataEdit of metadataEdits) {
+                    mergedMetadataEditsByPath.set(metadataEdit.path, metadataEdit.content);
+                }
+                for (const fileRename of fileRenames) {
+                    merged.addFileRename(fileRename.oldPath, fileRename.newPath);
+                }
+
+                if (supportsBatchWorkspaceOverlay) {
+                    await (semantic as any).stageWorkspaceEdit(workspace);
+                    // Metadata overlays affect subsequent metadata planning, but
+                    // they do not mutate the semantic source index itself. Keep
+                    // the semantic query cache warm so large batch codemods can
+                    // reuse symbol existence and occurrence lookups.
+                }
+            });
+        } finally {
+            if (supportsBatchWorkspaceOverlay) {
+                await semantic.clearWorkspaceOverlay();
             }
-            const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
-            for (const metadataEdit of metadataEdits) {
-                merged.addMetadataEdit(metadataEdit.path, metadataEdit.content);
-            }
-            for (const fileRename of fileRenames) {
-                merged.addFileRename(fileRename.oldPath, fileRename.newPath);
-            }
+        }
+
+        for (const [metadataPath, metadataContent] of mergedMetadataEditsByPath.entries()) {
+            merged.addMetadataEdit(metadataPath, metadataContent);
         }
 
         // Validate the merged result for overlapping edits
         const validation = await this.validateRename(merged);
         throwIfValidationFailed(validation, "Batch rename validation failed");
 
-        return merged;
+        return {
+            validation,
+            workspace: merged
+        };
+    }
+
+    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
+        const preparedBatchRename = await this.planValidatedBatchRename(renames);
+        return preparedBatchRename.workspace;
     }
 
     /**
@@ -852,6 +1067,7 @@ export class RefactorEngine {
             newName,
             readFile,
             writeFile,
+            includeResultContent = true,
             prepareHotReload = false
         } = request ?? ({} as ExecuteRenameRequest);
 
@@ -876,6 +1092,7 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent,
             renameFile: request.renameFile,
             deleteFile: request.deleteFile,
             dryRun: false
@@ -906,7 +1123,13 @@ export class RefactorEngine {
      * @returns {Promise<{workspace: WorkspaceEdit, applied: Map<string, string>, hotReloadUpdates: Array}>}
      */
     async executeBatchRename(request: ExecuteBatchRenameRequest): Promise<ExecuteRenameResult> {
-        const { renames, readFile, writeFile, prepareHotReload = false } = request ?? ({} as ExecuteBatchRenameRequest);
+        const {
+            renames,
+            readFile,
+            writeFile,
+            includeResultContent = true,
+            prepareHotReload = false
+        } = request ?? ({} as ExecuteBatchRenameRequest);
 
         Core.assertArray(renames, {
             errorMessage: "executeBatchRename requires renames array"
@@ -925,6 +1148,7 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent,
             renameFile: request.renameFile,
             deleteFile: request.deleteFile,
             dryRun: false
@@ -968,24 +1192,16 @@ export class RefactorEngine {
         const workspace = new WorkspaceEdit();
         const changedFiles: ExecuteLoopLengthHoistingCodemodResult["changedFiles"] = [];
 
-        const codemodResults = await Promise.all(
-            uniqueFilePaths.map(async (filePath) => {
-                Core.assertNonEmptyString(filePath, {
-                    errorMessage: "executeLoopLengthHoistingCodemod file paths must be non-empty strings"
-                });
+        await Core.runSequentially(uniqueFilePaths, async (filePath) => {
+            Core.assertNonEmptyString(filePath, {
+                errorMessage: "executeLoopLengthHoistingCodemod file paths must be non-empty strings"
+            });
 
-                const sourceText = await readFile(filePath);
-                return {
-                    filePath,
-                    sourceText,
-                    result: applyLoopLengthHoistingCodemod(sourceText, options)
-                };
-            })
-        );
+            const sourceText = await readFile(filePath);
+            const result = applyLoopLengthHoistingCodemod(sourceText, options);
 
-        for (const { filePath, sourceText, result } of codemodResults) {
             if (!result.changed) {
-                continue;
+                return;
             }
 
             workspace.addEdit(filePath, 0, sourceText.length, result.outputText);
@@ -994,7 +1210,7 @@ export class RefactorEngine {
                 appliedEditCount: result.appliedEdits.length,
                 diagnosticOffsets: [...result.diagnosticOffsets]
             });
-        }
+        });
 
         if (workspace.edits.length === 0) {
             return {
@@ -1013,10 +1229,227 @@ export class RefactorEngine {
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
             writeFile,
+            includeResultContent: dryRun,
             dryRun
         });
 
         return { workspace, applied, changedFiles };
+    }
+
+    /**
+     * Plan naming-policy-driven edits for the selected project paths.
+     */
+    async planNamingConventionCodemod(parameters: {
+        projectRoot: string;
+        config: ConfiguredCodemodRunRequest["config"];
+        targetPaths: Array<string>;
+    }): Promise<NamingConventionCodemodPlan> {
+        return await planNamingConventionCodemod(this, parameters);
+    }
+
+    /**
+     * Execute codemods selected from normalized project configuration.
+     *
+     * Codemods run in a stable order and share an in-memory overlay so later
+     * codemods observe edits produced by earlier ones during the same run.
+     */
+    async executeConfiguredCodemods(request: ConfiguredCodemodRunRequest): Promise<ConfiguredCodemodRunResult> {
+        const {
+            projectRoot,
+            config,
+            readFile,
+            writeFile,
+            dryRun = true,
+            onlyCodemods = [],
+            onTelemetry,
+            dryRunOverlaySpillThresholdBytes = 4 * 1024 * 1024,
+            dryRunOverlayReadCacheMaxEntries = 32,
+            dryRunOverlayStorageBackend
+        } = request;
+        const targetPaths = deduplicateStableValues(request.targetPaths);
+        const gmlFilePaths = deduplicateStableValues(request.gmlFilePaths);
+
+        Core.assertNonEmptyString(projectRoot, {
+            errorMessage: "executeConfiguredCodemods requires a projectRoot"
+        });
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeConfiguredCodemods requires a readFile function"
+        });
+        if (!dryRun) {
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "executeConfiguredCodemods requires a writeFile function when dryRun is false"
+            });
+        }
+
+        const requestedCodemods = new Set(onlyCodemods);
+        const configuredCodemods = config.codemods ?? {};
+        const useInMemoryOverlay = dryRun;
+        const overlay = new Map<string, string>();
+        const overlayByteSizeByPath = new Map<string, number>();
+        const overlaySpillIndex = new Set<string>();
+        const appliedFiles = new Map<string, string>();
+        let overlayBytes = 0;
+        let overlayHighWaterBytes = 0;
+        const startTime = process.hrtime.bigint();
+        const spillThresholdBytes =
+            typeof dryRunOverlaySpillThresholdBytes === "number" && Number.isFinite(dryRunOverlaySpillThresholdBytes)
+                ? Math.max(0, Math.floor(dryRunOverlaySpillThresholdBytes))
+                : 4 * 1024 * 1024;
+        const spillBackend: StorageBackend | null =
+            useInMemoryOverlay && spillThresholdBytes > 0
+                ? (dryRunOverlayStorageBackend ??
+                  createTempFileStorageBackend({ readCacheMaxEntries: dryRunOverlayReadCacheMaxEntries }))
+                : null;
+
+        const spillEntryToBackend = async (filePath: string): Promise<void> => {
+            if (!spillBackend) {
+                return;
+            }
+
+            const inMemoryContent = overlay.get(filePath);
+            if (inMemoryContent === undefined) {
+                return;
+            }
+
+            await spillBackend.writeEntry(filePath, inMemoryContent);
+            overlaySpillIndex.add(filePath);
+            overlay.delete(filePath);
+            const contentSize = overlayByteSizeByPath.get(filePath) ?? Buffer.byteLength(inMemoryContent, "utf8");
+            overlayByteSizeByPath.delete(filePath);
+            overlayBytes -= contentSize;
+        };
+
+        const enforceOverlayLimit = async (): Promise<void> => {
+            if (!spillBackend || spillThresholdBytes <= 0) {
+                return;
+            }
+
+            if (overlayBytes <= spillThresholdBytes) {
+                return;
+            }
+
+            const pathsToSpill: Array<string> = [];
+            let projectedBytes = overlayBytes;
+
+            for (const [filePath, inMemoryContent] of overlay.entries()) {
+                if (projectedBytes <= spillThresholdBytes) {
+                    break;
+                }
+
+                pathsToSpill.push(filePath);
+                const contentSize = overlayByteSizeByPath.get(filePath) ?? Buffer.byteLength(inMemoryContent, "utf8");
+                projectedBytes -= contentSize;
+            }
+
+            await Core.runSequentially(pathsToSpill, spillEntryToBackend);
+        };
+
+        const recordOverlayValue = async (filePath: string, content: string): Promise<void> => {
+            const previousContent = overlay.get(filePath);
+            if (previousContent !== undefined) {
+                const previousSize = overlayByteSizeByPath.get(filePath) ?? Buffer.byteLength(previousContent, "utf8");
+                overlayByteSizeByPath.delete(filePath);
+                overlayBytes -= previousSize;
+            } else if (overlaySpillIndex.has(filePath) && spillBackend) {
+                overlaySpillIndex.delete(filePath);
+                await spillBackend.deleteEntry(filePath);
+            }
+
+            overlay.set(filePath, content);
+            const contentSize = Buffer.byteLength(content, "utf8");
+            overlayByteSizeByPath.set(filePath, contentSize);
+            overlayBytes += contentSize;
+            overlayHighWaterBytes = Math.max(overlayHighWaterBytes, overlayBytes);
+
+            await enforceOverlayLimit();
+        };
+
+        const readThroughOverlay = async (filePath: string): Promise<string> => {
+            if (useInMemoryOverlay && overlay.has(filePath)) {
+                return overlay.get(filePath) ?? "";
+            }
+
+            if (useInMemoryOverlay && overlaySpillIndex.has(filePath) && spillBackend) {
+                const spilledContent = await spillBackend.readEntry(filePath);
+                if (typeof spilledContent === "string") {
+                    return spilledContent;
+                }
+
+                overlaySpillIndex.delete(filePath);
+            }
+
+            return await readFile(filePath);
+        };
+
+        const writeWithOverlay = async (filePath: string, content: string): Promise<void> => {
+            if (useInMemoryOverlay) {
+                await recordOverlayValue(filePath, content);
+                appliedFiles.set(filePath, content);
+            } else {
+                appliedFiles.set(filePath, "");
+            }
+
+            if (!dryRun && writeFile) {
+                await writeFile(filePath, content);
+            }
+        };
+
+        try {
+            const result = await executeRegisteredCodemods(this, {
+                ...request,
+                targetPaths,
+                gmlFilePaths,
+                config: {
+                    ...request.config,
+                    codemods: configuredCodemods
+                },
+                readFile: readThroughOverlay,
+                writeFile: dryRun ? undefined : writeWithOverlay,
+                dryRun,
+                onlyCodemods: [...requestedCodemods]
+            });
+
+            await Core.runSequentially(result.appliedFiles.entries(), async ([filePath, content]) => {
+                if (useInMemoryOverlay) {
+                    await recordOverlayValue(filePath, content);
+                    appliedFiles.set(filePath, content);
+                } else {
+                    appliedFiles.set(filePath, "");
+                }
+            });
+
+            const backendStats = spillBackend?.getStats() ?? {
+                writes: 0,
+                reads: 0,
+                cacheHits: 0,
+                cacheMisses: 0,
+                spilledEntries: 0
+            };
+
+            const telemetry: CodemodExecutionTelemetry = {
+                queueCount: result.summaries.length,
+                requestedCodemodCount: requestedCodemods.size,
+                durationMs: Number(process.hrtime.bigint() - startTime) / 1_000_000,
+                overlayEntryCount: overlay.size + overlaySpillIndex.size,
+                overlayBytes,
+                overlayHighWaterBytes,
+                overlaySpillWrites: backendStats.writes,
+                overlaySpilledEntries: backendStats.spilledEntries,
+                overlayCacheHits: backendStats.cacheHits,
+                overlayCacheMisses: backendStats.cacheMisses,
+                appliedFileCount: appliedFiles.size
+            };
+            onTelemetry?.(telemetry);
+
+            return {
+                dryRun,
+                summaries: result.summaries,
+                appliedFiles,
+                telemetry
+            };
+        } finally {
+            await spillBackend?.dispose();
+        }
     }
 
     /**
@@ -1151,19 +1584,26 @@ export class RefactorEngine {
      */
     async prepareBatchRenamePlan(
         renames: Array<RenameRequest>,
-        options?: PrepareRenamePlanOptions
+        options?: PrepareBatchRenamePlanOptions
     ): Promise<BatchRenamePlanSummary> {
         const opts = options ?? {};
-        const { validateHotReload = false, hotReloadOptions: rawHotOptions } = opts;
+        const {
+            validateHotReload = false,
+            hotReloadOptions: rawHotOptions,
+            includeImpactAnalyses = true,
+            batchValidation: providedBatchValidation
+        } = opts;
         const hotReloadOptions: HotReloadValidationOptions = rawHotOptions ?? {};
 
         // Validate the batch structure and individual renames up front, detecting
         // conflicts like duplicate target names or circular rename chains before
         // planning any workspace edits. This prevents wasted work when the batch
         // is malformed.
-        const batchValidation = await this.validateBatchRenameRequest(renames, {
-            includeHotReload: validateHotReload
-        });
+        const batchValidation =
+            providedBatchValidation ??
+            (await this.validateBatchRenameRequest(renames, {
+                includeHotReload: validateHotReload
+            }));
 
         // Try to plan the batch rename to capture all edits across all symbols in a
         // single merged workspace edit. If planning fails (e.g., due to conflicts),
@@ -1174,8 +1614,9 @@ export class RefactorEngine {
         let planningSucceeded = false;
 
         try {
-            workspace = await this.planBatchRename(renames);
-            validation = await this.validateRename(workspace);
+            const preparedBatchRename = await this.planValidatedBatchRename(renames);
+            workspace = preparedBatchRename.workspace;
+            validation = preparedBatchRename.validation;
             planningSucceeded = true;
 
             // Perform hot reload compatibility checks if requested
@@ -1209,36 +1650,38 @@ export class RefactorEngine {
         // Analyze the impact of each individual rename so callers can show
         // per-symbol statistics (files affected, occurrence counts, conflicts).
         const impactAnalyses = new Map<string, RenameImpactAnalysis>();
-        await Core.runSequentially(renames, async (rename) => {
-            try {
-                const analysis = await this.analyzeRenameImpact(rename);
-                impactAnalyses.set(rename.symbolId, analysis);
-            } catch (error) {
-                // If analysis fails for one rename, record a minimal error result
-                // so the caller still receives feedback about what went wrong.
-                impactAnalyses.set(rename.symbolId, {
-                    valid: false,
-                    summary: {
-                        symbolId: rename.symbolId,
-                        oldName: extractSymbolName(rename.symbolId),
-                        newName: rename.newName,
-                        affectedFiles: [],
-                        totalOccurrences: 0,
-                        definitionCount: 0,
-                        referenceCount: 0,
-                        hotReloadRequired: false,
-                        dependentSymbols: []
-                    },
-                    conflicts: [
-                        {
-                            type: ConflictType.ANALYSIS_ERROR,
-                            message: `Failed to analyze ${rename.symbolId}: ${Core.getErrorMessage(error)}`
-                        }
-                    ],
-                    warnings: []
-                });
-            }
-        });
+        if (includeImpactAnalyses) {
+            await Core.runSequentially(renames, async (rename) => {
+                try {
+                    const analysis = await this.analyzeRenameImpact(rename);
+                    impactAnalyses.set(rename.symbolId, analysis);
+                } catch (error) {
+                    // If analysis fails for one rename, record a minimal error result
+                    // so the caller still receives feedback about what went wrong.
+                    impactAnalyses.set(rename.symbolId, {
+                        valid: false,
+                        summary: {
+                            symbolId: rename.symbolId,
+                            oldName: extractSymbolName(rename.symbolId),
+                            newName: rename.newName,
+                            affectedFiles: [],
+                            totalOccurrences: 0,
+                            definitionCount: 0,
+                            referenceCount: 0,
+                            hotReloadRequired: false,
+                            dependentSymbols: []
+                        },
+                        conflicts: [
+                            {
+                                type: ConflictType.ANALYSIS_ERROR,
+                                message: `Failed to analyze ${rename.symbolId}: ${Core.getErrorMessage(error)}`
+                            }
+                        ],
+                        warnings: []
+                    });
+                }
+            });
+        }
 
         // Compute the full hot reload dependency cascade for all changed symbols
         // to determine which other symbols need reloading and in what order.
@@ -1554,7 +1997,7 @@ export class RefactorEngine {
             }
 
             // Gather occurrences
-            const occurrences = await this.gatherSymbolOccurrences(summary.oldName);
+            const occurrences = await this.gatherSymbolOccurrences(summary.oldName, symbolId);
             totalOccurrences = occurrences.length;
 
             // Record which files will be modified by this rename so the user can
@@ -1805,7 +2248,7 @@ export class RefactorEngine {
         if (Core.hasMethods(this.semantic, "getSymbolOccurrences")) {
             try {
                 // Query occurrences of the new name to detect any potential conflicts
-                const newOccurrences = await this.semantic.getSymbolOccurrences(newName);
+                const newOccurrences = await this.semantic.getSymbolOccurrences(newName, null);
 
                 // Look for occurrences outside our edited files - these could be conflicts
                 const unexpectedOccurrences = newOccurrences.filter((occ) => !affectedFiles.includes(occ.path));

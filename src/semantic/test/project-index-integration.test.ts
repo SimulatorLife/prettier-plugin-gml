@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { promises as fs } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
+import { createTempProjectWorkspace, recordValues } from "./test-project-helpers.js";
 
 type IdentifierIndexEntry = {
     name?: string;
@@ -52,24 +50,13 @@ type ProjectIndexSnapshot = {
     >;
 };
 
-function valuesAs<T>(record: Record<string, T>): T[] {
-    return Object.values(record);
-}
-
-async function writeFile(rootDir: string, relativePath: string, contents: string) {
-    const absolutePath = path.join(rootDir, relativePath);
-    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-    await fs.writeFile(absolutePath, contents, "utf8");
-}
-
 void test("buildProjectIndex collects symbols and relationships across project files", async () => {
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-project-"));
+    const { projectRoot, writeProjectFile, cleanup } = await createTempProjectWorkspace("gml-project-");
 
     try {
-        await writeFile(tempRoot, "MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
+        await writeProjectFile("MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
 
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "sprites/spr_enemy/spr_enemy.yy",
             JSON.stringify({
                 resourceType: "GMSprite",
@@ -77,30 +64,26 @@ void test("buildProjectIndex collects symbols and relationships across project f
             })
         );
 
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "scripts/calc_damage/calc_damage.yy",
             JSON.stringify({
                 resourceType: "GMScript",
                 name: "calc_damage"
             })
         );
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "scripts/calc_damage/calc_damage.gml",
             "function calc_damage(target) {\n    return max(0, target.hp - target.armor);\n}\n"
         );
 
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "scripts/meta/meta.yy",
             JSON.stringify({
                 resourceType: "GMScript",
                 name: "meta"
             })
         );
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "scripts/meta/meta.gml",
             [
                 "#macro MAX_ENEMIES 3",
@@ -117,24 +100,21 @@ void test("buildProjectIndex collects symbols and relationships across project f
             ].join("\n")
         );
 
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "scripts/attack/attack.yy",
             JSON.stringify({
                 resourceType: "GMScript",
                 name: "attack"
             })
         );
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "scripts/attack/attack.gml",
             ["function attack(target) {", "    var damage = calc_damage(target);", "    return damage;", "}", ""].join(
                 "\n"
             )
         );
 
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "objects/obj_enemy/obj_enemy.yy",
             JSON.stringify({
                 resourceType: "GMObject",
@@ -166,19 +146,17 @@ void test("buildProjectIndex collects symbols and relationships across project f
             })
         );
 
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "objects/obj_enemy/obj_enemy_Create_0.gml",
             ["hp = 100;", "attack(other);", "sprite_index = spr_enemy;", "enemy_limit = enemy_limit + 1;"].join("\n")
         );
 
-        await writeFile(
-            tempRoot,
+        await writeProjectFile(
             "objects/obj_enemy/obj_enemy_Step_0.gml",
             ["if (hp <= 0) {", "    instance_destroy();", "}"].join("\n")
         );
 
-        const index = (await buildProjectIndex(tempRoot)) as ProjectIndexSnapshot;
+        const index = (await buildProjectIndex(projectRoot)) as ProjectIndexSnapshot;
 
         assert.ok(index.resources["scripts/attack/attack.yy"], "expected attack resource to be indexed");
         assert.ok(index.resources["objects/obj_enemy/obj_enemy.yy"], "expected object resource to be indexed");
@@ -214,13 +192,13 @@ void test("buildProjectIndex collects symbols and relationships across project f
         assert.equal(globalIdentifiers.declarations.length, 1);
         assert.ok(globalIdentifiers.references.length > 0);
 
-        const enumEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.enums);
+        const enumEntries = recordValues<IdentifierIndexEntry>(index.identifiers.enums);
         const difficultyEnum = enumEntries.find((entry) => entry.name === "Difficulty");
         assert.ok(difficultyEnum, "expected Difficulty enum to be indexed");
         assert.equal(difficultyEnum.declarations.length, 1);
         assert.ok(difficultyEnum.references.length > 0);
 
-        const enumMemberEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.enumMembers);
+        const enumMemberEntries = recordValues<IdentifierIndexEntry>(index.identifiers.enumMembers);
         const hardMember = enumMemberEntries.find((entry) => entry.name === "Hard");
         assert.ok(hardMember, "expected enum member Hard to be indexed");
         assert.equal(hardMember.declarations.length, 1);
@@ -232,7 +210,7 @@ void test("buildProjectIndex collects symbols and relationships across project f
         assert.equal(createFile.scriptCalls[0].target.name, "attack");
         assert.equal(createFile.scriptCalls[0].isResolved, true);
 
-        const instanceEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.instanceVariables);
+        const instanceEntries = recordValues<IdentifierIndexEntry>(index.identifiers.instanceVariables);
         const hpInstance = instanceEntries.find((entry) => entry.name === "hp");
         assert.ok(hpInstance, "expected hp instance assignment to be tracked");
         assert.ok(hpInstance.declarations.length > 0);
@@ -267,6 +245,6 @@ void test("buildProjectIndex collects symbols and relationships across project f
         assert.ok(spriteReference, "expected sprite asset reference to be recorded");
         assert.equal(spriteReference.fromResourcePath, "objects/obj_enemy/obj_enemy.yy");
     } finally {
-        await fs.rm(tempRoot, { recursive: true, force: true });
+        await cleanup();
     }
 });

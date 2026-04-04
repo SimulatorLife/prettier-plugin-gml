@@ -1,5 +1,5 @@
 /**
- * @gml-modules/lint
+ * @gmloop/lint
  *
  * Prettier core options include many knobs that are either:
  * 1) Invalid for GML (would generate non-GML syntax or change semantics)
@@ -28,7 +28,7 @@
  * (or attempt to remove forced keys).
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { assertTrailingCommaValue, TRAILING_COMMA } from "./trailing-comma-option.js";
 

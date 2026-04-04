@@ -1,8 +1,9 @@
 import path from "node:path";
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
+import { getPackageJsonStringField, parsePackageJsonContents } from "../shared/package-resolution.js";
 import { CLI_PACKAGE_DIRECTORY, REPO_ROOT } from "../shared/workspace-paths.js";
 
 const { getNonEmptyTrimmedString, readTextFileSync } = Core;
@@ -22,8 +23,8 @@ function normalizeVersionValue(value: unknown): string | null {
 function readPackageVersion(candidate: string): string | null {
     try {
         const contents = readTextFileSync(candidate);
-        const packageJson = JSON.parse(contents) as { version?: unknown };
-        return normalizeVersionValue(packageJson?.version);
+        const packageJson = parsePackageJsonContents(contents, candidate);
+        return getPackageJsonStringField(packageJson, "version");
     } catch {
         return null;
     }

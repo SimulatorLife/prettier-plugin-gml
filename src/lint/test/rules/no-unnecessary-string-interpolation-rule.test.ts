@@ -1,80 +1,17 @@
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
-import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
-
-function parseProgramNode(code: string): Record<string, unknown> {
-    const language = LintWorkspace.Lint.plugin.languages.gml as {
-        parse: (
-            file: { body: string; path: string; physicalPath: string; bom: boolean },
-            context: { languageOptions: { recovery: "none" | "limited" } }
-        ) => { ok: true; ast: Record<string, unknown> } | { ok: false };
-    };
-
-    const parseResult = language.parse(
-        {
-            body: code,
-            path: "test.gml",
-            physicalPath: "test.gml",
-            bom: false
-        },
-        {
-            languageOptions: { recovery: "limited" }
-        }
-    );
-
-    if (parseResult.ok) {
-        return parseResult.ast;
-    }
-
-    return { type: "Program", body: [] };
-}
+import { parseProgramNode } from "./lint-rule-test-harness.js";
+import { runGmlRule } from "./rule-test-harness.js";
 
 function runNoUnnecessaryStringInterpolationRule(code: string): { messageCount: number; output: string } {
-    const rule = LintWorkspace.Lint.plugin.rules["no-unnecessary-string-interpolation"];
-    const fixes: Array<ReplaceTextRangeFixOperation> = [];
-    let messageCount = 0;
-    const getLocFromIndex = createLocResolver(code);
-
-    const context = {
-        options: [{}],
-        sourceCode: {
-            text: code,
-            getLocFromIndex
-        },
-        report(payload: {
-            fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
-            }) => ReplaceTextRangeFixOperation | null;
-        }) {
-            messageCount += 1;
-
-            if (!payload.fix) {
-                return;
-            }
-
-            const fixer = {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
-                    return { kind: "replace", range, text };
-                }
-            };
-
-            const fix = payload.fix(fixer);
-            if (fix) {
-                fixes.push(fix);
-            }
-        }
-    } as never;
-
-    const listeners = rule.create(context);
-    listeners.Program?.(parseProgramNode(code) as never);
-
-    return {
-        messageCount,
-        output: applyFixOperations(code, fixes)
-    };
+    return runGmlRule({
+        rule: LintWorkspace.Lint.plugin.rules["no-unnecessary-string-interpolation"],
+        code,
+        programNode: parseProgramNode(code)
+    });
 }
 
 void test("no-unnecessary-string-interpolation removes unnecessary template marker", () => {

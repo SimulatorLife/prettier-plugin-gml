@@ -1,52 +1,93 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-/**
- * Fallback resource path resolution.
- *
- * DESIGN PROBLEM: This array contains hardcoded relative paths that attempt to locate
- * the shared `resources/` directory from different build output locations. The paths
- * vary depending on whether code is running from:
- *   - src/ (during development with ts-node or similar)
- *   - dist/ (after compilation)
- *   - nested subdirectories (e.g., dist/core/src/ vs dist/cli/src/)
- *
- * CURRENT STATE: The locator tries each path in sequence until it finds one that exists,
- * then uses that to resolve resource files. This is fragile and breaks if the build
- * structure changes or if new packages are added with different nesting levels.
- *
- * TODO: BETTER APPROACH: Compute the resource directory at build time or installation time
- * using one of these strategies:
- *   1. Define an environment variable (e.g., GML_RESOURCES_DIR) and read it at runtime.
- *   2. Use a build step to generate a config file with the absolute path to resources/.
- *   3. Walk upward from import.meta.url until a marker file (e.g., package.json with
- *      "name": "prettier-plugin-gml") is found, then resolve resources/ relative to that.
- *
- * WHAT WOULD BREAK: Removing these hardcoded paths without replacing them would cause
- * resource loading to fail in some build configurations. Implement one of the alternatives
- * above before removing this fallback array.
- */
-const RESOURCE_BASE_PATHS = Object.freeze(["../../../../resources/", "../../../../../resources/"]);
+const RESOURCE_DIRECTORY_CONFIG_FILE_NAME = "resource-directory.json";
+const PACKAGE_JSON_FILE_NAME = "package.json";
+const CORE_PACKAGE_NAME = "@gmloop/core";
 
-function resolveResourceUrlForExistingBase(resourceName: string): URL {
-    for (const basePath of RESOURCE_BASE_PATHS) {
-        const candidateBaseUrl = new URL(basePath, import.meta.url);
-        const candidateResourceUrl = new URL(resourceName, candidateBaseUrl);
-        const candidatePath = fileURLToPath(candidateResourceUrl);
+type ResourceDirectoryConfig = Readonly<{
+    resourceDirectory: string;
+}>;
 
-        if (existsSync(candidatePath)) {
-            return candidateResourceUrl;
-        }
+function isResourceDirectoryConfig(value: unknown): value is ResourceDirectoryConfig {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        "resourceDirectory" in value &&
+        typeof value.resourceDirectory === "string" &&
+        value.resourceDirectory.trim().length > 0
+    );
+}
+
+function tryReadConfiguredResourceDirectory(packageDirectoryPath: string): string | null {
+    const configPath = path.resolve(packageDirectoryPath, RESOURCE_DIRECTORY_CONFIG_FILE_NAME);
+    if (!existsSync(configPath)) {
+        return null;
     }
 
-    return new URL(resourceName, new URL(RESOURCE_BASE_PATHS[0], import.meta.url));
+    const configContents = readFileSync(configPath, "utf8");
+    const configValue = JSON.parse(configContents) as unknown;
+    if (!isResourceDirectoryConfig(configValue)) {
+        throw new TypeError(
+            `Resource directory config at ${configPath} must define a non-empty "resourceDirectory" string.`
+        );
+    }
+
+    return configValue.resourceDirectory;
+}
+
+function findCorePackageDirectory(moduleDirectoryPath: string): string {
+    let currentDirectoryPath = moduleDirectoryPath;
+
+    while (true) {
+        const packageJsonPath = path.resolve(currentDirectoryPath, PACKAGE_JSON_FILE_NAME);
+        if (existsSync(packageJsonPath)) {
+            const packageContents = readFileSync(packageJsonPath, "utf8");
+            const packageValue = JSON.parse(packageContents) as unknown;
+
+            if (
+                typeof packageValue === "object" &&
+                packageValue !== null &&
+                "name" in packageValue &&
+                packageValue.name === CORE_PACKAGE_NAME
+            ) {
+                return currentDirectoryPath;
+            }
+        }
+
+        const parentDirectoryPath = path.dirname(currentDirectoryPath);
+        if (parentDirectoryPath === currentDirectoryPath) {
+            throw new Error(`Unable to locate the ${CORE_PACKAGE_NAME} package directory from ${moduleDirectoryPath}.`);
+        }
+
+        currentDirectoryPath = parentDirectoryPath;
+    }
+}
+
+function resolveResourceBaseDirectory(moduleDirectoryPath: string): string {
+    const packageDirectoryPath = findCorePackageDirectory(moduleDirectoryPath);
+    const configuredResourceDirectory = tryReadConfiguredResourceDirectory(packageDirectoryPath);
+    if (configuredResourceDirectory) {
+        return configuredResourceDirectory;
+    }
+
+    return path.resolve(packageDirectoryPath, "../../resources");
+}
+
+function resolveResourceUrl(resourceName: string): URL {
+    const moduleDirectoryPath = path.dirname(fileURLToPath(import.meta.url));
+    const resourceBaseDirectory = resolveResourceBaseDirectory(moduleDirectoryPath);
+    return new URL(resourceName, new URL(`${resourceBaseDirectory}/`, "file:"));
 }
 
 /**
  * Resolve a URL pointing at a bundled resource artefact.
  *
- * Centralizing the resolution protects call sites from relying on directory
- * depth or package layout, making it easier to relocate resource assets.
+ * Resource lookup now anchors itself at the `@gmloop/core` package directory.
+ * When present, the build/install-time `resource-directory.json` manifest wins;
+ * otherwise local development falls back to the repository `resources/` folder
+ * relative to the package root instead of probing multiple hard-coded depths.
  *
  * @param {string} resourceName Name of the resource file to resolve.
  * @returns {URL} Absolute file URL referencing the bundled artefact.
@@ -56,7 +97,7 @@ export function resolveBundledResourceUrl(resourceName: string): URL {
         throw new TypeError("Resource name must be a non-empty string.");
     }
 
-    return resolveResourceUrlForExistingBase(resourceName);
+    return resolveResourceUrl(resourceName);
 }
 
 /**
@@ -67,4 +108,21 @@ export function resolveBundledResourceUrl(resourceName: string): URL {
  */
 export function resolveBundledResourcePath(resourceName: string): string {
     return fileURLToPath(resolveBundledResourceUrl(resourceName));
+}
+
+/**
+ * Resolve the base resource directory for a caller-supplied module directory.
+ *
+ * This test-only seam validates the package-root lookup and generated manifest
+ * handling without coupling unit tests to the real repository layout.
+ *
+ * @param {string} moduleDirectoryPath Directory containing the calling module.
+ * @returns {string} Absolute resource directory for the package installation.
+ */
+export function __resolveBundledResourceBaseDirectoryForTests(moduleDirectoryPath: string): string {
+    if (typeof moduleDirectoryPath !== "string" || moduleDirectoryPath.length === 0) {
+        throw new TypeError("Module directory path must be a non-empty string.");
+    }
+
+    return resolveResourceBaseDirectory(moduleDirectoryPath);
 }

@@ -24,14 +24,15 @@ void test("lint services no longer expose project-aware analysis helpers", () =>
         "createMissingContextSettings",
         "defaultProjectIndexExcludes",
         "resolveNearestProjectRoot",
-        "resolveForcedProjectRoot"
+        "resolveForcedProjectRoot",
+        "projectConfig"
     ];
 
     for (const serviceName of forbiddenServiceNames) {
         assert.equal(
             serviceName in LintWorkspace.Lint.services,
             false,
-            `Lint.services must not expose ${serviceName}; project-aware analysis belongs in @gml-modules/refactor.`
+            `Lint.services must not expose ${serviceName}; project-aware analysis belongs in @gmloop/refactor.`
         );
     }
 });

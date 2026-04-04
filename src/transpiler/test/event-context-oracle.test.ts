@@ -2,8 +2,8 @@ import { strictEqual } from "node:assert";
 import { describe, it } from "node:test";
 
 import type { CallExpressionNode, IdentifierMetadata } from "../src/emitter/ast.js";
-import { EventContextOracle } from "../src/emitter/event-context-oracle.js";
 import { createSemanticOracle } from "../src/emitter/semantic-factory.js";
+import { EventContextOracle } from "../src/event-context/event-context-oracle.js";
 
 function makeIdent(name: string, isGlobal = false): IdentifierMetadata {
     return { name, isGlobalIdentifier: isGlobal };

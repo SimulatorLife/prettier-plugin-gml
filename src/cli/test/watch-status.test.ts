@@ -38,8 +38,8 @@ void describe("watch-status command", () => {
                     async () => {
                         try {
                             await runWatchStatusCommand({
-                                host: "127.0.0.1",
-                                port: 54_321 // unlikely to be in use
+                                statusHost: "127.0.0.1",
+                                statusPort: 54_321 // unlikely to be in use
                             });
                         } catch {
                             // Expected to throw when process.exit is called
@@ -57,6 +57,10 @@ void describe("watch-status command", () => {
             errorMessages.some((msg) => msg.includes("Is the watch command running?")),
             "Should suggest watch command is not running"
         );
+        assert.ok(
+            errorMessages.some((msg) => msg.includes("pnpm run cli -- watch-status --status-host")),
+            "Should explain how to target a custom status host and port"
+        );
     });
 
     void it("should accept format option", () => {
@@ -73,5 +77,21 @@ void describe("watch-status command", () => {
 
         assert.ok(endpointOption, "Should have --endpoint option");
         assert.deepStrictEqual(endpointOption?.argChoices, ["status", "health", "ping", "ready"]);
+    });
+
+    void it("should have --status-port option matching watch command naming", () => {
+        const command = createWatchStatusCommand();
+        const portOption = command.options.find((opt) => opt.long === "--status-port");
+
+        assert.ok(portOption, "Should have --status-port option (not --port) to match watch --status-port");
+        assert.strictEqual(portOption?.envVar, "WATCH_STATUS_PORT");
+    });
+
+    void it("should have --status-host option matching watch command naming", () => {
+        const command = createWatchStatusCommand();
+        const hostOption = command.options.find((opt) => opt.long === "--status-host");
+
+        assert.ok(hostOption, "Should have --status-host option (not --host) to match watch --status-host");
+        assert.strictEqual(hostOption?.envVar, "WATCH_STATUS_HOST");
     });
 });

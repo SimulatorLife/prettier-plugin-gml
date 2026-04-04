@@ -4,22 +4,9 @@
  * rename planning, hot reload coordination, and impact preview.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { OccurrenceKind, type SymbolOccurrence } from "./types.js";
-
-/**
- * Returns true when `o` is a non-null occurrence object with a non-empty path string.
- * Used to guard any operation that must bucket occurrences by file.
- */
-function hasValidOccurrencePath(o: unknown): o is SymbolOccurrence {
-    return (
-        o != null &&
-        typeof o === "object" &&
-        typeof (o as SymbolOccurrence).path === "string" &&
-        (o as SymbolOccurrence).path.length > 0
-    );
-}
 
 /**
  * Classification result for symbol occurrences.
@@ -75,11 +62,11 @@ export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): Occur
         }
 
         // Track occurrences by kind
-        classification.byKind.set(kind, (classification.byKind.get(kind) ?? 0) + 1);
+        Core.incrementMapValue(classification.byKind, kind);
 
         // Track occurrences by file (skip occurrences without valid paths)
-        if (hasValidOccurrencePath(occurrence)) {
-            classification.byFile.set(occurrence.path, (classification.byFile.get(occurrence.path) ?? 0) + 1);
+        if (occurrence.path) {
+            Core.incrementMapValue(classification.byFile, occurrence.path);
         }
     }
 
@@ -111,7 +98,7 @@ export function filterOccurrencesByKind(
     });
 
     const kindSet = new Set(kinds);
-    return occurrences.filter((occ) => occ != null && typeof occ === "object" && kindSet.has(occ.kind ?? "unknown"));
+    return occurrences.filter((occ) => occ != null && kindSet.has(occ.kind ?? "unknown"));
 }
 
 /**
@@ -136,13 +123,11 @@ export function groupOccurrencesByFile(occurrences: Array<SymbolOccurrence>): Ma
     const grouped = new Map<string, Array<SymbolOccurrence>>();
 
     for (const occurrence of occurrences) {
-        if (!hasValidOccurrencePath(occurrence)) {
+        const path = occurrence?.path;
+        if (!path) {
             continue;
         }
-
-        const existing = grouped.get(occurrence.path) ?? [];
-        existing.push(occurrence);
-        grouped.set(occurrence.path, existing);
+        Core.getOrCreateMapEntry(grouped, path, () => []).push(occurrence);
     }
 
     return grouped;
@@ -170,7 +155,7 @@ export function findOccurrencesInFile(occurrences: Array<SymbolOccurrence>, file
         throw new TypeError("findOccurrencesInFile requires a non-empty file path string");
     }
 
-    return occurrences.filter((occ) => occ != null && typeof occ === "object" && occ.path === filePath);
+    return occurrences.filter((occ) => occ?.path === filePath);
 }
 
 /**
@@ -189,5 +174,12 @@ export function countAffectedFiles(occurrences: Array<SymbolOccurrence>): number
     Core.assertArray(occurrences, {
         errorMessage: "countAffectedFiles requires an array of occurrences"
     });
-    return groupOccurrencesByFile(occurrences).size;
+    const files = new Set<string>();
+    for (const occurrence of occurrences) {
+        const path = occurrence?.path;
+        if (path) {
+            files.add(path);
+        }
+    }
+    return files.size;
 }

@@ -1,43 +1,26 @@
-# Prettier Plugin GML - CLI Package
+# GMLoop CLI Package
 
-Command-line interface for the prettier-plugin-gml project. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
+Command-line interface for the GMLoop toolchain. Provides utilities for formatting GameMaker Language files, watching for changes, generating metadata, and coordinating the hot-reload development pipeline.
 
-## Formatter/Linter contract
+## Formatter/Linter/Refactor contract
 
-- Run `format` for layout-only formatting.
-- Run `lint` for semantic/content rewrites and syntax repairs.
-- Recommended migration flow for existing formatter-heavy usage: `lint --fix` first, then `format`.
-
-Contract migration mapping:
-
-- `globalvar` rewrite => `gml/no-globalvar` (diagnostic only, no autofix)
-- loop-length hoist / hoistable loop accessors => `gml/prefer-hoistable-loop-accessors`
-- missing separators => `gml/require-argument-separators`
-- doc comment text normalization => `gml/normalize-doc-comments`
-
-## Architecture Role: Composition Root
-
-The CLI wires formatter-only runtime integration and lint execution.
-
-- `format` wires identifier-case integration for formatter parsing/printing.
-- `lint` applies local single-file ESLint diagnostics/fixes through `@gml-modules/lint`.
-- Semantic/content rewrites are lint-owned and run through `lint --fix`, not formatter runtime adapters.
-
-Ownership summary:
-
-- `@gml-modules/format`: formatter-only AST normalization + printing
-- `@gml-modules/lint`: diagnostics + semantic/content rewrites + language plugin
-- `@gml-modules/refactor`: global transactions (Codemods), atomic cross-file edits, and metadata updates via a native Collection API.
-- Domain boundary: lint rules report/fix issues per lint run; refactor plans/applies explicit rename/refactor transactions requested by the user.
+- Run `refactor` to execute global transactions (Codemods), atomic cross-file edits (e.g. rename transactions), and metadata updates via a native Collection API through `@gmloop/refactor`.
+- Run `lint` for and syntax repairs/rewrites (applies local single-file ESLint diagnostics/fixes through `@gmloop/lint`).
+- Run `format` for layout-only formatting (formatter-only AST normalization + printing through `@gmloop/format`).
+- Run `fix` to execute all three in one pass: project codemods, lint autofixes, and formatting.
 
 ## Commands
 
 ### `format` - Format GML Files
 
-Wraps the Prettier plugin to format GameMaker Language files with enhanced diagnostics and error handling.
+Wraps the Prettier plugin to format GameMaker Language files with enhanced diagnostics and error handling (targets `.gml` files only).
 
 ```bash
 pnpm run cli -- format path/to/project
+# Implicit format mode with path-only input
+pnpm run cli -- path/to/project
+# Show format command options while using path-only invocation style
+pnpm run cli -- path/to/project --help
 ```
 
 **Options:**
@@ -48,17 +31,13 @@ pnpm run cli -- format path/to/project
 - `--ignored-file-sample-limit <n>` - Limit ignored file samples in output
 - `--unsupported-extension-sample-limit <n>` - Limit unsupported extension samples
 
-`format` now targets `.gml` files only. Extension overrides were removed to keep
-the formatter aligned with GameMaker's canonical source extension and avoid
-inconsistent multi-extension formatting behavior.
-
 **Environment Variables:**
 - `PRETTIER_PLUGIN_GML_LOG_LEVEL` - Default log level
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` - Default parse error strategy
 
 ### `lint` - Lint and Auto-Fix GML Files
 
-Runs `@gml-modules/lint` over one or more paths, with optional ESLint autofix support.
+Runs `@gmloop/lint` over one or more paths, with optional ESLint autofix support.
 
 ```bash
 pnpm run cli -- lint path/to/project
@@ -67,6 +46,7 @@ pnpm run cli -- lint --fix path/to/project
 
 **Options:**
 - `--fix` - Apply automatic fixes
+- `--warn-ignored` - Include ignored-file warnings from ESLint (disabled by default to reduce noisy output)
 - `--formatter <name>` - Formatter output (`stylish|json|checkstyle`)
 - `--max-warnings <count>` - Fail when warning count exceeds limit
 - `--config <path>` - Use an explicit flat config
@@ -78,7 +58,42 @@ pnpm run cli -- lint --fix path/to/project
 
 `lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
-`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gml-modules/refactor`.
+Post-lint config inspections (overlay wiring and processor policy enforcement) also run sequentially per file to bound peak memory usage on very large project scans.
+
+If you use a custom ESLint flat config and enable Feather or performance
+overlay rules, make sure the matching config entry also wires the canonical GML
+plugin and language (`plugins: { gml: Lint.plugin }` and
+`language: "gml/gml"`). Otherwise the CLI now emits an actionable
+`GML_OVERLAY_WITHOUT_LANGUAGE_WIRING` warning that points back to the affected
+files.
+
+`lint` does not build project-wide semantic indexes or coordinate cross-file fixes. `--project` only scopes out-of-root warnings and `--project-strict` enforcement for the current invocation. Project-wide identifier indexing, rename safety, codemods, and hoist-name generation belong in `@gmloop/refactor`.
+
+If a target does not contain any `.gml` files, `lint` now prints an explicit
+guidance message explaining that only `.gml` sources are processed and includes
+an example invocation.
+
+### `fix` - Project-Wide Fix Workflow
+
+Runs the project-wide write workflow in one command:
+
+1. `refactor codemod --write`
+2. `lint --fix`
+3. `format`
+
+```bash
+pnpm run cli -- fix path/to/project
+pnpm run cli -- fix --only namingConvention
+```
+
+**Options:**
+- `[projectPath]` - Project directory or `.yyp` path (default: current project)
+- `--project-root <path>` - Explicit GameMaker project root directory or `.yyp` path
+- `--config <path>` - Explicit `gmloop.json` path for the refactor stage
+- `--only <ids>` - Comma-separated list of configured refactor codemod ids to run
+- `--verbose` - Enable verbose diagnostics for all three stages
+
+`fix` is intentionally project-scoped and write-only. It runs the configured codemod set first so cross-file/project-aware edits happen before single-file lint fixes and final formatting normalization.
 
 ### `watch` - Monitor Files for Hot-Reload Pipeline
 
@@ -216,6 +231,8 @@ The watch command is optimized for fast startup, especially when working with la
 - **Parallel file scanning** - Script names and symbols are collected using concurrent file I/O, significantly reducing startup time for projects with hundreds of files
 - **Efficient directory traversal** - Files in each directory are processed in parallel while directory traversal happens sequentially to avoid overwhelming the file system
 - **Lazy transpilation** - Initial scan only collects script names; full transpilation happens in the background after the watcher is ready
+- **Targeted dependent invalidation** - When exported symbols change, only files that reference the changed symbol names are retranspiled, avoiding unnecessary downstream work during hot reload
+- **Bounded dependent retranspilation fan-out** - Dependent retranspiles run concurrently but respect the watch concurrency cap, reducing latency spikes and filesystem contention when a change impacts many scripts
 
 For projects with 50+ GML files, these optimizations reduce watch command startup time by 3-5x compared to sequential processing. The startup time scales linearly with the number of files rather than exponentially, making the watcher practical for even the largest GameMaker projects.
 
@@ -480,12 +497,12 @@ pnpm run cli -- watch-status --endpoint ready
 pnpm run cli -- watch-status --format json
 
 # Query custom host/port
-pnpm run cli -- watch-status --host 127.0.0.1 --port 18000
+pnpm run cli -- watch-status --status-host 127.0.0.1 --status-port 18000
 ```
 
 **Options:**
-- `--host <host>` - Status server host (default: 127.0.0.1, env: WATCH_STATUS_HOST)
-- `--port <port>` - Status server port (default: 17891, env: WATCH_STATUS_PORT)
+- `--status-host <host>` - Status server host (default: 127.0.0.1, env: WATCH_STATUS_HOST)
+- `--status-port <port>` - Status server port (default: 17891, env: WATCH_STATUS_PORT)
 - `--format <format>` - Output format: `pretty` (default) or `json`
 - `--endpoint <endpoint>` - Endpoint to query: `status` (default), `health`, `ping`, or `ready`
 
@@ -545,6 +562,21 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --check-ho
 
 # Verbose output with diagnostics
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
+
+# List configured gmloop.json codemods and effective config
+pnpm run cli -- refactor codemod --list
+
+# Dry-run configured codemods inferred from the project config
+pnpm run cli -- refactor --project-root path/to/project
+
+# Dry-run configured codemods
+pnpm run cli -- refactor codemod
+
+# Apply configured codemods to selected paths only
+pnpm run cli -- refactor codemod scripts/player --write
+
+# Apply only one configured codemod
+pnpm run cli -- refactor codemod --only namingConvention --write
 ```
 
 **Options:**
@@ -555,6 +587,42 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 - `--dry-run` - Show what would be changed without modifying files
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
+
+**Codemod options (`refactor codemod`):**
+- `--config <path>` - Explicit path to `gmloop.json`
+- `--write` - Apply configured codemods (default is dry-run)
+- `--only <ids>` - Comma-separated list of configured codemod ids to run
+- `--list` - Print discovered codemods and their effective normalized config
+
+When no rename target is provided, `refactor` will automatically run configured codemods if it can resolve a `gmloop.json` for the project.
+
+**`gmloop.json` refactor config:**
+
+```json
+{
+    "printWidth": 95,
+    "lintRules": {
+        "gml/no-globalvar": "error"
+    },
+    "refactor": {
+        "namingConventionPolicy": {
+            "rules": {
+                "localVariable": {
+                    "caseStyle": "camel"
+                }
+            }
+        },
+        "codemods": {
+            "namingConvention": {},
+            "loopLengthHoisting": {
+                "functionSuffixes": {
+                    "array_length": "len"
+                }
+            }
+        }
+    }
+}
+```
 
 **Ownership note:** `refactor` is a separate domain from lint.
 - Use `lint --fix` for lint-owned diagnostics/content rewrites.
@@ -569,6 +637,7 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 
 **Current scope:**
 - Safe rename planning/execution
+- Configured codemod execution via `gmloop.json`
 - Dry-run preview support
 - Hot-reload validation integration
 - Verbose diagnostics for conflict/impact review
@@ -587,14 +656,6 @@ Generates Feather metadata for GameMaker's static analysis.
 
 ```bash
 pnpm run cli -- generate-feather-metadata
-```
-
-### `memory` - Run Memory Benchmarks
-
-Measures memory usage across various operations.
-
-```bash
-pnpm run cli -- memory
 ```
 
 ## Architecture
@@ -655,7 +716,6 @@ The CLI package is organized into focused, single-responsibility modules:
 - `format.ts` - GML code formatting
 - `generate-gml-identifiers.ts` - Identifier metadata generation
 - `generate-feather-metadata.ts` - Feather metadata generation
-- `memory.ts` - Memory profiling
 
 **Modules** (`src/modules/`)
 - `transpilation/` - Transpilation coordination and metrics tracking
@@ -664,7 +724,6 @@ The CLI package is organized into focused, single-responsibility modules:
 - `runtime/` - HTML5 runtime integration
 - `manual/` - GameMaker manual processing
 - `feather/` - Feather metadata handling
-- `memory/` - Memory profiling utilities
 
 ## Development
 
@@ -726,7 +785,7 @@ The transpilation coordinator module (`src/modules/transpilation/coordinator.ts`
 **API:**
 
 ```typescript
-import { transpileFile, displayTranspilationStatistics } from "@gml-modules/cli/modules/transpilation";
+import { transpileFile, displayTranspilationStatistics } from "/cli/modules/transpilation";
 
 // Transpile a single file with lifecycle management
 const result = transpileFile(

@@ -1,13 +1,14 @@
-import { Core } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
+import { Core } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
 import { SourceCode } from "eslint";
 
-import { normalizeLintFilePath } from "../services/path-normalization.js";
+import { normalizeLintFilePath } from "./path-normalization.js";
 import {
     createLimitedRecoveryProjection,
     type InsertedArgumentSeparatorRecovery,
     mapRecoveredIndexToOriginal,
-    type RecoveryMode
+    type RecoveryMode,
+    type RecoveryTextInsertion
 } from "./recovery.js";
 
 type GMLAstNode = {
@@ -217,7 +218,7 @@ function readFilename(context: GMLLanguageContext): string {
 
 function normalizeRecoveryOption(languageOptions: unknown): GMLLanguageOptions {
     if (!languageOptions || typeof languageOptions !== "object") {
-        return { recovery: "limited" };
+        return { recovery: "none" };
     }
 
     const options = languageOptions as Record<string, unknown>;
@@ -227,7 +228,7 @@ function normalizeRecoveryOption(languageOptions: unknown): GMLLanguageOptions {
         return { recovery };
     }
 
-    return { recovery: "limited" };
+    return { recovery: "none" };
 }
 
 function readRecoveryMode(parseContext: { languageOptions?: unknown }): RecoveryMode {
@@ -283,7 +284,7 @@ function mapIndexToLoc(
     lineStartMap: LineStartIndexMap,
     index: number
 ): { line: number; column: number } {
-    const boundedIndex = Math.max(0, Math.min(index, sourceText.length));
+    const boundedIndex = Core.clamp(index, 0, sourceText.length);
     const lineStartIndex = resolveLineStartIndexForOffset(lineStartMap, boundedIndex);
     const lineStart = lineStartMap.lineStarts[lineStartIndex] ?? 0;
 
@@ -348,7 +349,7 @@ function assignRangesRecursively(node: unknown): void {
 function projectLocationsToOriginalSource(
     ast: unknown,
     sourceText: string,
-    insertions: ReadonlyArray<InsertedArgumentSeparatorRecovery>
+    insertions: ReadonlyArray<RecoveryTextInsertion>
 ): void {
     const lineStartMap = createLineStartIndexMap(sourceText);
     const skippedChildKeys = new Set(["start", "end", "loc", "range", "parent", "next", "prev", "previous"]);
@@ -483,7 +484,10 @@ export const gmlLanguage = Object.freeze({
     lineStart: 1,
     columnStart: 0,
     nodeTypeKey: "type",
-    defaultLanguageOptions: Object.freeze({ recovery: "limited" }),
+    // Default to strict parsing so AST-based lint rules never run on recovered
+    // syntax unless callers explicitly opt into limited recovery.
+    // This enforces target-state.md §3.1 (two-tier malformed-code strategy).
+    defaultLanguageOptions: Object.freeze({ recovery: "none" }),
     visitorKeys: GML_VISITOR_KEYS,
     parse(file: GMLLanguageContext, parseContext: { languageOptions?: unknown }) {
         const sourceText = readSourceText(file);
@@ -516,8 +520,12 @@ export const gmlLanguage = Object.freeze({
                 };
             }
 
-            const recoveryProjection = createLimitedRecoveryProjection(sourceText);
-            if (recoveryProjection.insertions.length === 0 && recoveryProjection.parseSource === sourceText) {
+            const recoveryProjection = createLimitedRecoveryProjection(sourceText, strictParseError);
+            if (
+                recoveryProjection.insertions.length === 0 &&
+                recoveryProjection.textInsertions.length === 0 &&
+                recoveryProjection.parseSource === sourceText
+            ) {
                 const details = getErrorLineColumn(strictParseError);
                 return {
                     ok: false,
@@ -534,7 +542,7 @@ export const gmlLanguage = Object.freeze({
             try {
                 const ast = parseAst(recoveryProjection.parseSource);
                 normalizeSwitchCaseConsequentShape(ast);
-                projectLocationsToOriginalSource(ast, sourceText, recoveryProjection.insertions);
+                projectLocationsToOriginalSource(ast, sourceText, recoveryProjection.textInsertions);
                 assignRangesRecursively(ast);
                 return {
                     ok: true,

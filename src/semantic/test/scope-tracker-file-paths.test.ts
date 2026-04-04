@@ -159,6 +159,51 @@ void describe("ScopeTracker: getFilePathsReferencingSymbol", () => {
     });
 });
 
+void describe("ScopeTracker: getBatchFilePathsReferencingSymbols", () => {
+    void it("returns referencing paths for multiple symbols and omits non-referenced symbols", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "/project/lib.gml" });
+        tracker.declare("alpha", { name: "alpha" });
+        tracker.declare("beta", { name: "beta" });
+        tracker.exitScope();
+
+        tracker.enterScope("program", { path: "/project/a.gml" });
+        tracker.reference("alpha", { name: "alpha" });
+        tracker.exitScope();
+
+        tracker.enterScope("program", { path: "/project/b.gml" });
+        tracker.reference("alpha", { name: "alpha" });
+        tracker.reference("beta", { name: "beta" });
+        tracker.exitScope();
+
+        const results = tracker.getBatchFilePathsReferencingSymbols(["alpha", "beta", "gamma"]);
+
+        assert.deepEqual([...(results.get("alpha") ?? [])], ["/project/a.gml", "/project/b.gml"]);
+        assert.deepEqual([...(results.get("beta") ?? [])], ["/project/b.gml"]);
+        assert.equal(results.has("gamma"), false);
+    });
+
+    void it("deduplicates repeated symbol names and respects disabled trackers", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "/project/lib.gml" });
+        tracker.declare("shared", { name: "shared" });
+        tracker.exitScope();
+
+        tracker.enterScope("program", { path: String.raw`project\consumer.gml` });
+        tracker.reference("shared", { name: "shared" });
+        tracker.exitScope();
+
+        const enabledResults = tracker.getBatchFilePathsReferencingSymbols(["shared", "shared", ""]);
+        assert.deepEqual([...(enabledResults.get("shared") ?? [])], ["project/consumer.gml"]);
+
+        const disabledTracker = new ScopeTracker({ enabled: false });
+        const disabledResults = disabledTracker.getBatchFilePathsReferencingSymbols(["shared"]);
+        assert.equal(disabledResults.size, 0);
+    });
+});
+
 void describe("ScopeTracker: getChangedFilePaths", () => {
     void it("returns empty set when tracker is disabled", () => {
         const tracker = new ScopeTracker({ enabled: false });
@@ -302,6 +347,41 @@ void describe("ScopeTracker: getChangedFilePaths", () => {
         assert.equal(changedPaths.size, 1, "Only player.gml should be detected as changed");
         assert.ok(changedPaths.has("/project/player.gml"));
         assert.ok(!changedPaths.has("/project/config.gml"));
+    });
+
+    void it("drops a previous path from changed-file results after metadata path moves", async () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        const scope = tracker.enterScope("program", { path: "/project/old.gml" });
+        tracker.declare("x", { name: "x" });
+        tracker.exitScope();
+
+        const snapshotTimestamp = Date.now();
+        await delay();
+
+        tracker.updateScopeMetadata(scope.id, { path: "/project/new.gml" });
+
+        const changedPaths = tracker.getChangedFilePaths(snapshotTimestamp);
+        assert.equal(changedPaths.size, 1);
+        assert.ok(changedPaths.has("/project/new.gml"));
+        assert.ok(!changedPaths.has("/project/old.gml"));
+    });
+
+    void it("removes cleared file paths from changed-file exports", async () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        tracker.enterScope("program", { path: "/project/removed.gml" });
+        tracker.declare("x", { name: "x" });
+        tracker.exitScope();
+
+        const snapshotTimestamp = Date.now();
+        await delay();
+
+        const removedCount = tracker.clearScopesForPath("/project/removed.gml");
+        assert.ok(removedCount > 0);
+
+        const changedPaths = tracker.getChangedFilePaths(snapshotTimestamp);
+        assert.equal(changedPaths.size, 0);
     });
 });
 

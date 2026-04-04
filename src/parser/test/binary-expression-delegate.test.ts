@@ -108,5 +108,36 @@ void describe("BinaryExpressionDelegate", () => {
             assert.strictEqual(result.left.name, "a");
             assert.strictEqual(result.right.name, "b");
         });
+
+        void it("should not recurse indefinitely when a child expression references the same context", () => {
+            const delegate = new BinaryExpressionDelegate({
+                operators: {
+                    "+": { prec: 10, assoc: "left" }
+                }
+            });
+
+            const selfReferentialCtx: any = {
+                children: [{ getText: () => "a" }, { getText: () => "+" }, { getText: () => "b" }]
+            };
+
+            selfReferentialCtx.expression = () => [selfReferentialCtx, { name: "right", getText: () => "b" }];
+
+            assert.doesNotThrow(() => {
+                const result = delegate.handle(selfReferentialCtx, {
+                    visit: (node: any) => {
+                        if (node === selfReferentialCtx) {
+                            return { type: "Identifier", name: "a" };
+                        }
+
+                        return { type: "Identifier", name: "b" };
+                    },
+                    astNode: mockAstNode
+                });
+
+                assert.equal(result.type, "BinaryExpression");
+                assert.equal(result.left.name, "a");
+                assert.equal(result.right.name, "b");
+            });
+        });
     });
 });

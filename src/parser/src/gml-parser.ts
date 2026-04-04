@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import antlr4 from "antlr4";
 
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
@@ -7,7 +7,6 @@ import { convertToESTree } from "./ast/estree-converter.js";
 import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
 import createGameMakerParseErrorListener, { createGameMakerLexerErrorListener } from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
-import { normalizeFunctionDocCommentAttachments } from "./ast/normalize-function-doc-comment-attachments.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import { defaultParserOptions, type ParserOptions } from "./types/index.js";
 
@@ -43,6 +42,21 @@ function getNodeIndex(node: Record<string, unknown>, prop: "start" | "end"): num
         return (value as { index: number }).index;
     }
     return undefined;
+}
+
+function getPredictionMode(modeName: "SLL" | "LL"): unknown {
+    const mode = (PredictionMode as Record<string, unknown> | undefined)?.[modeName];
+    if (mode === undefined) {
+        throw new Error(`ANTLR prediction mode '${modeName}' is unavailable.`);
+    }
+
+    return mode;
+}
+
+const MAX_SOURCE_LENGTH_FOR_SLL_PARSING = 8000;
+
+function shouldUseSllPredictionMode(sourceText: string): boolean {
+    return sourceText.length <= MAX_SOURCE_LENGTH_FOR_SLL_PARSING;
 }
 
 /**
@@ -193,7 +207,7 @@ export class GMLParser {
      * @remarks
      * The parse process follows these steps:
      * 1. Tokenize the preprocessed source using the ANTLR lexer.
-     * 2. Parse tokens into a parse tree using SLL prediction mode for speed.
+     * 2. Parse tokens using SLL prediction mode for speed, then retry in LL mode when needed.
      * 3. If getComments is enabled, re-lex to extract hidden tokens (comments, whitespace).
      * 4. Build the AST from the parse tree.
      * 5. Attach comments to the AST if requested.
@@ -205,8 +219,8 @@ export class GMLParser {
      * Edge cases:
      * - If the source is empty, returns a program node with an empty body.
      * - Syntax errors trigger an exception with details from the error listener.
-     * - The parser uses SLL prediction mode by default; if parsing fails, the error
-     *   propagates immediately rather than retrying with LL mode.
+     * - The parser starts in SLL mode for performance and retries in LL mode when
+     *   the first pass cannot decide between valid alternatives.
      */
     parse() {
         const chars = new antlr4.InputStream(this.text);
@@ -217,23 +231,65 @@ export class GMLParser {
         const tokens = new antlr4.CommonTokenStream(lexer);
         const parser = new GameMakerLanguageParser(tokens);
 
-        parser._interp.predictionMode = PredictionMode.SLL;
         parser.removeErrorListeners();
         parser.addErrorListener(createGameMakerParseErrorListener());
 
         let tree;
-        try {
-            tree = parser.program();
-        } catch (error) {
-            if (!error) {
-                throw new Error("Unknown syntax error while parsing GML source.");
-            }
+        if (shouldUseSllPredictionMode(this.text)) {
+            try {
+                parser._interp.predictionMode = getPredictionMode("SLL");
+                tree = parser.program();
+            } catch (error) {
+                try {
+                    const llChars = new antlr4.InputStream(this.text);
+                    const llLexer = new GameMakerLanguageLexer(llChars);
+                    llLexer.removeErrorListeners();
+                    llLexer.addErrorListener(createGameMakerLexerErrorListener());
+                    llLexer.strictMode = false;
 
-            if (Core.isErrorLike(error)) {
-                throw error;
-            }
+                    const llTokens = new antlr4.CommonTokenStream(llLexer);
+                    const llParser = new GameMakerLanguageParser(llTokens);
+                    llParser.removeErrorListeners();
+                    llParser.addErrorListener(createGameMakerParseErrorListener());
+                    llParser._interp.predictionMode = getPredictionMode("LL");
+                    tree = llParser.program();
+                } catch {
+                    if (!error) {
+                        throw new Error("Unknown syntax error while parsing GML source.");
+                    }
 
-            throw new Error(String(error));
+                    if (Core.isErrorLike(error)) {
+                        throw error;
+                    }
+
+                    throw new Error(String(error));
+                }
+            }
+        } else {
+            try {
+                const llChars = new antlr4.InputStream(this.text);
+                const llLexer = new GameMakerLanguageLexer(llChars);
+                llLexer.removeErrorListeners();
+                llLexer.addErrorListener(createGameMakerLexerErrorListener());
+                llLexer.strictMode = false;
+
+                const llTokens = new antlr4.CommonTokenStream(llLexer);
+                const llParser = new GameMakerLanguageParser(llTokens);
+                llParser.removeErrorListeners();
+                llParser.addErrorListener(createGameMakerParseErrorListener());
+                llParser._interp.predictionMode = getPredictionMode("LL");
+                tree = llParser.program();
+            } catch (error) {
+                if (!error) {
+                    throw new Error("Unknown syntax error while parsing GML source.");
+                }
+
+                if (Core.isErrorLike(error)) {
+                    throw error;
+                }
+
+                throw new Error(String(error));
+            }
         }
 
         if (this.options.getComments) {
@@ -260,7 +316,10 @@ export class GMLParser {
 
         if (this.options.getComments) {
             astTree.comments = this.comments;
-            normalizeFunctionDocCommentAttachments(astTree, this.comments, this.text);
+
+            if (this.options.attachFunctionDocComments) {
+                Core.normalizeFunctionDocCommentAttachments(astTree, this.comments, this.text);
+            }
         }
 
         const shouldConvertToESTree =
@@ -413,7 +472,7 @@ export class GMLParser {
  *
  * @remarks
  * This convenience export allows consumers to access Core.getLineBreakCount
- * directly from the parser module without importing @gml-modules/core.
+ * directly from the parser module without importing @gmloop/core.
  * Useful for calculating line metrics or validating source spans.
  */
 export const getLineBreakCount: typeof Core.getLineBreakCount = Core.getLineBreakCount;

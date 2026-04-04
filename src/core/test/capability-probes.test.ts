@@ -110,6 +110,30 @@ void describe("capability probes", () => {
         assert.equal(getIterableSize(iterable), 2);
     });
 
+    void it("treats invalid iterator results as empty iterables", () => {
+        const invalidIteratorResult = {
+            [Symbol.iterator]() {
+                return {};
+            }
+        };
+
+        assert.equal(hasIterableItems(invalidIteratorResult), false);
+        assert.equal(getIterableSize(invalidIteratorResult), 0);
+        assert.equal(ensureMap(invalidIteratorResult).size, 0);
+    });
+
+    void it("treats iterator factory failures as empty iterables", () => {
+        const throwingIterable = {
+            [Symbol.iterator]() {
+                throw new Error("boom");
+            }
+        };
+
+        assert.equal(hasIterableItems(throwingIterable), false);
+        assert.equal(getIterableSize(throwingIterable), 0);
+        assert.equal(ensureMap(throwingIterable).size, 0);
+    });
+
     void it("ensures set-like collaborators remain writable", () => {
         const existing = new Set(["macro"]);
         assert.equal(ensureSet(existing), existing);

@@ -3,13 +3,17 @@
 // knowledge of the parser's option shape and location metadata across the
 // rest of the formatter configuration.
 
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
 
 const PARSER_OPTIONS = {
     getLocations: true,
     simplifyLocations: false,
-    getComments: true
+    getComments: true,
+    // Keep formatter parsing strictly layout-focused: do not opt into parser
+    // doc-tag attachment heuristics. Lint owns content-aware doc normalization
+    // and attachment interpretation (target-state.md §2.2, §3.2).
+    attachFunctionDocComments: false
 } as const;
 
 function parse(text: string): MutableGameMakerAstNode {

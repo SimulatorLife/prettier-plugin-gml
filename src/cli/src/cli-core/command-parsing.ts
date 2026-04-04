@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { InvalidArgumentError } from "commander";
 
 import { isCommanderErrorLike, isCommanderHelpDisplayedError } from "./commander-error-utils.js";

@@ -10,7 +10,7 @@
  * when the underlying source files change.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { DependentSymbol, FileSymbol, PartialSemanticAnalyzer, SymbolOccurrence } from "./types.js";
 
@@ -29,6 +29,8 @@ export interface SemanticCacheConfig {
     /**
      * Maximum number of entries to store per cache type.
      * When exceeded, oldest entries are evicted (FIFO).
+     * A value of `0` keeps the cache active but gives it zero capacity, so
+     * fetched results are returned without being retained.
      * Default: 100
      */
     maxSize?: number;
@@ -46,6 +48,13 @@ export interface SemanticCacheConfig {
      * Default: true
      */
     enabled?: boolean;
+
+    /**
+     * Maximum number of occurrences that can be retained in-cache for a single
+     * symbol query result. Results exceeding this size are returned but not cached.
+     * Default: 10_000
+     */
+    maxOccurrenceCacheEntries?: number;
 }
 
 /**
@@ -99,15 +108,41 @@ export class SemanticQueryCache {
         this.config = {
             maxSize: config.maxSize ?? 100,
             ttlMs: config.ttlMs ?? 60_000,
-            enabled: config.enabled ?? true
+            enabled: config.enabled ?? true,
+            maxOccurrenceCacheEntries: config.maxOccurrenceCacheEntries ?? 10_000
         };
     }
 
     /**
      * Get all occurrences of a symbol, using cached results if available.
      */
-    getSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return this.getOrFetch(this.occurrenceCache, symbolName, () => this.fetchSymbolOccurrences(symbolName));
+    getSymbolOccurrences(symbolName: string, symbolId: string | null = null): Promise<Array<SymbolOccurrence>> {
+        const cacheKey = symbolId === null ? symbolName : `${symbolId}::${symbolName}`;
+        return this.getOrFetch(this.occurrenceCache, cacheKey, () => this.fetchSymbolOccurrences(symbolName, symbolId));
+    }
+
+    /**
+     * Replace the occurrence cache entry for the given symbol with an already-processed
+     * (deduplicated and range-merged) array. This prevents repeated deduplication work
+     * on every subsequent cache hit for the same symbol.
+     *
+     * Call this once after the first `getSymbolOccurrences` fetch has been deduplicated
+     * so that all future lookups in the same session return the clean array directly.
+     *
+     * Entries exceeding `maxOccurrenceCacheEntries` are silently skipped, matching the
+     * same skip-cache policy that `getOrFetch` applies on the initial miss.
+     */
+    primeOccurrenceCache(symbolName: string, symbolId: string | null, deduplicated: Array<SymbolOccurrence>): void {
+        if (!this.config.enabled) {
+            return;
+        }
+
+        if (this.shouldSkipOccurrenceCacheStore(deduplicated)) {
+            return;
+        }
+
+        const cacheKey = symbolId === null ? symbolName : `${symbolId}::${symbolName}`;
+        this.setCached(this.occurrenceCache, cacheKey, deduplicated);
     }
 
     /**
@@ -275,8 +310,19 @@ export class SemanticQueryCache {
 
         this.stats.misses++;
         const result = await fetcher();
+        if (cache === this.occurrenceCache && this.shouldSkipOccurrenceCacheStore(result)) {
+            return result;
+        }
         this.setCached(cache, key, result);
         return result;
+    }
+
+    private shouldSkipOccurrenceCacheStore(value: unknown): boolean {
+        if (!Array.isArray(value)) {
+            return false;
+        }
+
+        return value.length > this.config.maxOccurrenceCacheEntries;
     }
 
     /**
@@ -299,10 +345,15 @@ export class SemanticQueryCache {
     }
 
     /**
-     * Store a value in the cache with LRU eviction.
+     * Store a value in the cache while respecting the configured capacity.
      * @private
      */
     private setCached<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T): void {
+        if (this.config.maxSize <= 0) {
+            this.stats.evictions++;
+            return;
+        }
+
         // Evict oldest entry if cache is full (simple FIFO, not true LRU)
         if (cache.size >= this.config.maxSize) {
             const firstKey = cache.keys().next().value as string | undefined;
@@ -322,12 +373,12 @@ export class SemanticQueryCache {
      * Fetch symbol occurrences from the semantic analyzer.
      * @private
      */
-    private fetchSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
+    private fetchSymbolOccurrences(symbolName: string, symbolId: string | null): Promise<Array<SymbolOccurrence>> {
         if (!this.semantic || !Core.hasMethods(this.semantic, "getSymbolOccurrences")) {
             return Promise.resolve<Array<SymbolOccurrence>>([]);
         }
 
-        return Promise.resolve(this.semantic.getSymbolOccurrences(symbolName));
+        return Promise.resolve(this.semantic.getSymbolOccurrences(symbolName, symbolId));
     }
 
     /**

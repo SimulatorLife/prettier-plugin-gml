@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type {
     ArrayExpressionNode,
@@ -9,6 +9,7 @@ import type {
     CallTargetAnalyzer,
     CatchClauseNode,
     ConstructorDeclarationNode,
+    ConstructorParentClauseNode,
     DefaultParameterNode,
     DefineStatementNode,
     DeleteStatementNode,
@@ -54,6 +55,7 @@ import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "./constant-folding.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { escapeTemplateText, stringifyStructKey } from "./js-string-utils.js";
 import { normalizeGmlNumericLiteral } from "./literal-normalization.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { ensureStatementTerminated } from "./statement-termination-policy.js";
@@ -236,6 +238,9 @@ export class GmlToJsEmitter {
             case "ConstructorDeclaration": {
                 return this.visitConstructorDeclaration(ast);
             }
+            case "ConstructorParentClause": {
+                return "";
+            }
             case "RegionStatement": {
                 return this.visitRegionStatement(ast);
             }
@@ -386,16 +391,17 @@ export class GmlToJsEmitter {
 
     private visitCallExpression(ast: CallExpressionNode): string {
         const kind = this.callTargetAnalyzer.callTargetKind(ast);
-        const argsList = this.joinArguments(ast.arguments);
 
-        // Fast path: builtin functions
+        // Fast path: builtin functions. Avoid eagerly joining arguments here so
+        // the builtin path only visits each argument once.
         if (kind === "builtin") {
             const builtinName = this.resolveIdentifierName(ast.object);
             if (builtinName && isBuiltinFunction(builtinName)) {
-                const args = this.visitArguments(ast.arguments);
-                return emitBuiltinFunction(builtinName, args);
+                return emitBuiltinFunction(builtinName, this.visitArguments(ast.arguments));
             }
         }
+
+        const argsList = this.joinArguments(ast.arguments);
 
         if (kind === "script") {
             const scriptSymbol = this.callTargetAnalyzer.callTargetSymbol(ast);
@@ -668,7 +674,7 @@ export class GmlToJsEmitter {
         }
         // Fast path: single static text
         if (atoms.length === 1 && atoms[0]?.type === "TemplateStringText") {
-            return `\`${Core.escapeTemplateText(atoms[0].value)}\``;
+            return `\`${escapeTemplateText(atoms[0].value)}\``;
         }
         // Build template string with StringBuilder to avoid O(n²) string concatenation
         const builder = new StringBuilder(atoms.length + 2);
@@ -678,7 +684,7 @@ export class GmlToJsEmitter {
                 continue;
             }
             builder.append(
-                atom.type === "TemplateStringText" ? Core.escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`
+                atom.type === "TemplateStringText" ? escapeTemplateText(atom.value) : `\${${this.visit(atom)}}`
             );
         }
         builder.append("`");
@@ -686,7 +692,7 @@ export class GmlToJsEmitter {
     }
 
     private visitTemplateStringText(ast: TemplateStringTextNode): string {
-        return Core.escapeTemplateText(ast.value);
+        return escapeTemplateText(ast.value);
     }
 
     private visitStructExpression(ast: StructExpressionNode): string {
@@ -737,7 +743,8 @@ export class GmlToJsEmitter {
 
     private visitConstructorDeclaration(ast: ConstructorDeclarationNode): string {
         const id = ast.id ?? "";
-        return this.emitFunctionLike("function", id, ast.params, ast.body);
+        const parentConstructorCall = this.emitConstructorParentCall(ast.parent ?? null);
+        return this.emitFunctionLike("function", id, ast.params, ast.body, parentConstructorCall);
     }
 
     /**
@@ -785,18 +792,63 @@ export class GmlToJsEmitter {
         keyword: string,
         id: string,
         params: ReadonlyArray<GmlNode | string>,
-        body: GmlNode
+        body: GmlNode,
+        prologueStatement = ""
     ): string {
+        const printedBody = this.wrapFunctionLikeBody(body, prologueStatement);
         // Fast path: no parameters
         if (!params || params.length === 0) {
-            return `${keyword} ${id}()${wrapConditionalBody(body, this.visitNode)}`;
+            return `${keyword} ${id}()${printedBody}`;
         }
         // Build parameter list with StringBuilder to avoid sparse array allocation
         const builder = new StringBuilder(params.length);
         for (const param of params) {
             builder.append(typeof param === "string" ? param : this.visit(param));
         }
-        return `${keyword} ${id}(${builder.toString(", ")})${wrapConditionalBody(body, this.visitNode)}`;
+        return `${keyword} ${id}(${builder.toString(", ")})${printedBody}`;
+    }
+
+    private wrapFunctionLikeBody(body: GmlNode, prologueStatement: string): string {
+        if (!prologueStatement) {
+            return wrapConditionalBody(body, this.visitNode);
+        }
+
+        if (body.type !== "BlockStatement") {
+            return `{\n${prologueStatement};\n${this.ensureStatementTermination(this.visit(body))}\n}`;
+        }
+
+        const statements = body.body ?? [];
+        if (statements.length === 0) {
+            return `{\n${prologueStatement};\n}`;
+        }
+
+        const builder = new StringBuilder(statements.length + 2);
+        builder.append("{\n");
+        builder.append(`${prologueStatement};\n`);
+        for (const statement of statements) {
+            const code = this.emit(statement);
+            if (!code) {
+                continue;
+            }
+            builder.append(`${this.ensureStatementTermination(code)}\n`);
+        }
+        builder.append("}");
+        return builder.toString();
+    }
+
+    private emitConstructorParentCall(parentClause: ConstructorParentClauseNode | null): string {
+        if (!parentClause || !parentClause.id) {
+            return "";
+        }
+
+        const parentConstructorName =
+            typeof parentClause.id === "string" ? parentClause.id : this.visit(parentClause.id);
+        if (!parentConstructorName) {
+            return "";
+        }
+
+        const parentArguments = this.joinArguments(parentClause.params ?? []);
+        return `${parentConstructorName}.call(this${parentArguments ? `, ${parentArguments}` : ""})`;
     }
 
     private ensureStatementTermination(code: string): string {
@@ -822,7 +874,7 @@ export class GmlToJsEmitter {
 
     private resolveStructKey(prop: StructPropertyNode): string {
         if (typeof prop.name === "string") {
-            return Core.stringifyStructKey(prop.name);
+            return stringifyStructKey(prop.name);
         }
         return this.visit(prop.name);
     }

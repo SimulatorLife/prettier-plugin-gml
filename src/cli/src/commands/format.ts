@@ -6,14 +6,13 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
 import { lstat, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type { Options as PrettierOptions } from "prettier";
 
@@ -22,6 +21,11 @@ import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
+import {
+    hasRegisteredIgnorePath,
+    registerIgnorePath,
+    resetRegisteredIgnorePaths
+} from "../format-runtime/ignore-path-registry.js";
 import { importFormatModule, resolveFormatEntryPoint as resolveCliFormatEntryPoint } from "../format-runtime/index.js";
 import {
     hasNegatedIgnoreRules,
@@ -45,26 +49,24 @@ import {
     resolveSkippedDirectorySampleLimit,
     resolveUnsupportedExtensionSampleLimit
 } from "../runtime-options/sample-limits.js";
-import { CLI_COMMAND_NAMES } from "../shared/command-names.js";
 import {
     calculateElapsedNanoseconds,
     formatElapsedNanosecondsAsMilliseconds,
     readMonotonicNanoseconds
 } from "../shared/elapsed-time.js";
-import {
-    hasRegisteredIgnorePath,
-    registerIgnorePath,
-    resetRegisteredIgnorePaths
-} from "../shared/ignore-path-registry.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
+import {
+    isHelpRequest,
+    resolveTargetPathFromInput,
+    resolveTargetStats,
+    validateTargetPathInput
+} from "./format-target-path.js";
 
 const {
     compactArray,
     createEnumeratedOptionHelpers,
     getErrorMessageOrFallback,
-    getObjectTagName,
     isErrorLike,
-    isErrorWithCode,
     isNonEmptyArray,
     isPathInside,
     mergeUniqueValues,
@@ -87,6 +89,7 @@ const ParseErrorAction = Object.freeze({
     SKIP: "skip",
     ABORT: "abort"
 });
+type ParseErrorActionValue = (typeof ParseErrorAction)[keyof typeof ParseErrorAction];
 
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
 const VALID_PRETTIER_LOG_LEVELS = new Set(["debug", "info", "warn", "error", "silent"]);
@@ -240,12 +243,11 @@ async function normalizeFormattedOutputWithFormat(formatted: string, source: str
     return normalizer(formatted, source);
 }
 
-// Default parse error action: abort formatting on parse errors unless the
-// environment override explicitly requests otherwise. Tests and consumers may
-// override this behaviour with PRETTIER_PLUGIN_GML_ON_PARSE_ERROR.
-const DEFAULT_PARSE_ERROR_ACTION =
-    parseErrorActionOption.normalize(process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR, ParseErrorAction.ABORT) ??
-    ParseErrorAction.ABORT;
+// Default parse error action is intentionally hard-coded to "abort" to enforce
+// the target-state malformed-code contract: formatter runs must fail fast when
+// parsing fails and must not silently downgrade behavior via ambient process
+// environment settings.
+const DEFAULT_PARSE_ERROR_ACTION: ParseErrorActionValue = ParseErrorAction.ABORT;
 
 const DEFAULT_PRETTIER_LOG_LEVEL =
     logLevelOption.normalize(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL, "warn") ?? "warn";
@@ -572,7 +574,7 @@ const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
 let formattingErrorCount = 0;
 const NEGATED_IGNORE_RULE_PATTERN = /^\s*!.*\S/m;
-let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
+let parseErrorAction: ParseErrorActionValue = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
 let revertTriggered = false;
 const formattedFileOriginalContents = new Map();
@@ -774,7 +776,7 @@ async function readSnapshotContents(snapshot) {
  *
  * @param {string} onParseError
  */
-async function resetFormattingSession(onParseError) {
+async function resetFormattingSession(onParseError: ParseErrorActionValue) {
     parseErrorAction = onParseError;
     abortRequested = false;
     revertTriggered = false;
@@ -1125,189 +1127,6 @@ async function initializeProjectIgnorePaths(projectRoot) {
     await registerIgnorePaths([IGNORE_PATH, ...projectIgnorePaths]);
 }
 
-const MAX_COMMAND_LENGTH_DIFFERENCE = 2;
-const MAX_COMMAND_CHARACTER_DIFFERENCES = 2;
-const COMMAND_PATTERN = /^[a-z][a-z0-9_-]*$/i;
-
-/**
- * Determine whether the provided target looks like a command name rather than a file path.
- *
- * This function helps the format command provide better error messages when users
- * accidentally provide a command name where a file path is expected. It checks if
- * the input matches the pattern of known CLI commands or is similar enough to be
- * a likely typo.
- *
- * @param target - The target path to check (should be the original input, not resolved)
- * @returns true if the target looks like it might be a command name
- */
-function looksLikeCommandName(target: string): boolean {
-    if (!isCommandInputCandidate(target)) {
-        return false;
-    }
-
-    if (CLI_COMMAND_NAMES.has(target)) {
-        return true;
-    }
-
-    if (!COMMAND_PATTERN.test(target)) {
-        return false;
-    }
-
-    if (hasSimilarKnownCommand(target, CLI_COMMAND_NAMES)) {
-        return true;
-    }
-
-    return true;
-}
-
-/**
- * Check whether input could plausibly be a command rather than a path.
- */
-function isCommandInputCandidate(target: string): boolean {
-    if (target.includes("/") || target.includes("\\")) {
-        return false;
-    }
-
-    return !/\.\w+$/.test(target);
-}
-
-/**
- * Identify likely command typos by comparing character positions.
- */
-function hasSimilarKnownCommand(target: string, knownCommands: Set<string>): boolean {
-    const lowerTarget = target.toLowerCase();
-
-    for (const command of knownCommands) {
-        if (!isWithinCommandLengthThreshold(command, lowerTarget)) {
-            continue;
-        }
-
-        const differences = countCommandCharacterDifferences(command, lowerTarget, MAX_COMMAND_CHARACTER_DIFFERENCES);
-
-        if (isWithinCommandSimilarityThreshold(differences, command.length)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function resolveClosestKnownCommand(target: string, knownCommands: Set<string>): string | null {
-    const normalizedTarget = target.toLowerCase();
-    let closestCommand: string | null = null;
-    let closestScore = Number.POSITIVE_INFINITY;
-
-    for (const command of knownCommands) {
-        if (!isWithinCommandLengthThreshold(command, normalizedTarget)) {
-            continue;
-        }
-
-        const differences = countCommandCharacterDifferences(command, normalizedTarget, Number.POSITIVE_INFINITY);
-
-        if (!isWithinCommandSimilarityThreshold(differences, command.length)) {
-            continue;
-        }
-
-        const score = differences + Math.abs(command.length - normalizedTarget.length);
-
-        if (score < closestScore) {
-            closestScore = score;
-            closestCommand = command;
-        }
-    }
-
-    return closestCommand;
-}
-
-function isWithinCommandLengthThreshold(command: string, target: string): boolean {
-    return Math.abs(command.length - target.length) <= MAX_COMMAND_LENGTH_DIFFERENCE;
-}
-
-function countCommandCharacterDifferences(command: string, target: string, maxDifferences: number): number {
-    let differences = 0;
-    const minLength = Math.min(command.length, target.length);
-
-    for (let i = 0; i < minLength; i++) {
-        if (command[i] !== target[i]) {
-            differences++;
-            if (differences > maxDifferences) {
-                break;
-            }
-        }
-    }
-
-    return differences;
-}
-
-function isWithinCommandSimilarityThreshold(differences: number, commandLength: number): boolean {
-    return differences <= MAX_COMMAND_CHARACTER_DIFFERENCES && differences < commandLength / 2;
-}
-
-async function resolveTargetStats(
-    target: string,
-    { usage, originalInput }: { usage?: string; originalInput?: string } = {}
-) {
-    try {
-        return await stat(target);
-    } catch (error) {
-        const details = getErrorMessageOrFallback(error);
-        const formattedTarget = formatPathForDisplay(target);
-        const guidance = (() => {
-            if (isErrorWithCode(error, "ENOENT")) {
-                // Check if the original input (before path resolution) looks like a command name
-                const inputToCheck = originalInput ?? target;
-                if (looksLikeCommandName(inputToCheck)) {
-                    const isKnownCommand = CLI_COMMAND_NAMES.has(inputToCheck);
-                    const suggestedCommand = isKnownCommand
-                        ? inputToCheck
-                        : resolveClosestKnownCommand(inputToCheck, CLI_COMMAND_NAMES);
-                    const guidanceParts = isKnownCommand
-                        ? [
-                              `Did you mean to run the '${inputToCheck}' command?`,
-                              `If so, do not provide it as an argument to 'format'. Instead, run it directly:`,
-                              `"prettier-plugin-gml ${inputToCheck} --help" for usage information.`,
-                              "If you intended to format a file or directory, verify the path exists relative",
-                              `to the current working directory (${process.cwd()}) or provide an absolute path.`
-                          ]
-                        : [
-                              `Did you mean to run a command? If so, the command '${inputToCheck}' is not recognized.`,
-                              ...(suggestedCommand === null
-                                  ? []
-                                  : [
-                                        `Did you mean '${suggestedCommand}'? Try "prettier-plugin-gml ${suggestedCommand} --help".`
-                                    ]),
-                              'Run "prettier-plugin-gml --help" to see available commands.',
-                              "If you intended to format a file or directory, verify the path exists relative",
-                              `to the current working directory (${process.cwd()}) or provide an absolute path.`
-                          ];
-                    return guidanceParts.join(" ");
-                }
-
-                const guidanceParts = [
-                    "Verify the path exists relative to the current working directory",
-                    `(${process.cwd()}) or provide an absolute path.`,
-                    'Run "prettier-plugin-gml --help" to review available commands and usage examples.'
-                ];
-
-                return guidanceParts.join(" ");
-            }
-
-            if (isErrorWithCode(error, "EACCES")) {
-                return "Check that you have permission to read the path.";
-            }
-
-            return null;
-        })();
-        const messageParts = [`Unable to access ${formattedTarget}: ${details}.`];
-
-        if (guidance) {
-            messageParts.push(guidance);
-        }
-
-        throw new CliUsageError(messageParts.join(" "), { usage });
-    }
-}
-
 async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
     const localIgnorePath = path.join(directory, ".prettierignore");
     let effectiveIgnorePaths = inheritedIgnorePaths;
@@ -1519,126 +1338,6 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
 }
 
 /**
- * Validate command input to ensure the caller supplied a usable target path.
- *
- * @param {{ targetPathProvided: boolean, targetPathInput: unknown, usage: string }} params
- */
-function describeTargetPathInput(value) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    if (typeof value === "string") {
-        return value.length === 0 ? "an empty string" : `string '${value}'`;
-    }
-
-    if (typeof value === "number" || typeof value === "bigint") {
-        return `${typeof value} ${String(value)}`;
-    }
-
-    if (typeof value === "boolean") {
-        return `boolean ${value}`;
-    }
-
-    if (typeof value === "symbol") {
-        return "a symbol";
-    }
-
-    if (typeof value === "function") {
-        return value.name ? `function ${value.name}` : "a function";
-    }
-
-    const tagName = getObjectTagName(value);
-    if (tagName === "Array") {
-        return "an array";
-    }
-
-    if (tagName === "Object" || !tagName) {
-        return "a plain object";
-    }
-
-    const article = /^[aeiou]/i.test(tagName) ? "an" : "a";
-    return `${article} ${tagName} object`;
-}
-
-/**
- * Checks if the given input looks like a help flag or help command.
- *
- * @param {unknown} input - The input to check
- * @returns {boolean} True if the input appears to be a help request
- */
-function isHelpRequest(input: unknown): boolean {
-    if (typeof input !== "string") {
-        return false;
-    }
-
-    const normalized = input.trim().toLowerCase();
-    return normalized === "--help" || normalized === "-h" || normalized === "help";
-}
-
-function validateTargetPathInput({ targetPathProvided, targetPathInput, usage }) {
-    if (!targetPathProvided) {
-        return;
-    }
-
-    if (targetPathInput == null || targetPathInput === "") {
-        throw new CliUsageError(
-            [
-                "Target path cannot be empty. Pass a directory or file to format (relative or absolute) or omit --path to format the current working directory.",
-                "If the path conflicts with a command name, invoke the format subcommand explicitly (prettier-plugin-gml format <path>)."
-            ].join(" "),
-            { usage }
-        );
-    }
-
-    if (typeof targetPathInput !== "string") {
-        const description = describeTargetPathInput(targetPathInput);
-        throw new CliUsageError(`Target path must be provided as a string. Received ${description}.`, { usage });
-    }
-}
-
-/**
- * Resolve the file system path that should be formatted.
- *
- * @param {unknown} targetPathInput
- * @param {string} [options.rawTargetPathInput]
- * @returns {string}
- */
-function resolveTargetPathFromInput(targetPathInput, { rawTargetPathInput }: { rawTargetPathInput?: string } = {}) {
-    const hasExplicitTarget = Core.isNonEmptyString(targetPathInput);
-    const normalizedTarget = hasExplicitTarget ? targetPathInput : ".";
-    const resolvedNormalizedTarget = path.resolve(process.cwd(), normalizedTarget);
-
-    if (hasExplicitTarget && typeof rawTargetPathInput === "string") {
-        const resolvedRawTarget = path.resolve(process.cwd(), rawTargetPathInput);
-
-        if (resolvedRawTarget !== resolvedNormalizedTarget) {
-            if (safeExistsSync(resolvedRawTarget)) {
-                return resolvedRawTarget;
-            }
-
-            if (safeExistsSync(resolvedNormalizedTarget)) {
-                return resolvedNormalizedTarget;
-            }
-        }
-    }
-
-    return resolvedNormalizedTarget;
-}
-
-function safeExistsSync(candidatePath) {
-    try {
-        return existsSync(candidatePath);
-    } catch {
-        return false;
-    }
-}
-
-/**
  * Configure global state for a formatting run based on CLI flags.
  *
  * @param {{
@@ -1662,7 +1361,7 @@ async function prepareFormattingRun({
     skippedDirectorySampleLimitState.configureLimit(skippedDirectorySampleLimit);
     ignoredFileSampleLimitState.configureLimit(ignoredFileSampleLimit);
     unsupportedExtensionSampleLimitState.configureLimit(unsupportedExtensionSampleLimit);
-    const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
+    const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError) as ParseErrorActionValue;
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
     verboseTimingEnabled = verbose;
@@ -2017,7 +1716,7 @@ function logFormattingErrorSummary() {
  * }} summary
  * @returns {string[]}
  */
-function formatSampleSuffix(formattedSamples, totalCount) {
+function formatExampleSuffix(formattedSamples, totalCount) {
     if (formattedSamples.length === 0) {
         return "";
     }
@@ -2052,7 +1751,7 @@ function formatIgnoredDetail({ ignored, ignoredSamples }) {
     }
 
     const formattedSamples = compactArray((ignoredSamples ?? []).map((sample) => formatIgnoredFileSample(sample)));
-    const suffix = formatSampleSuffix(formattedSamples, ignored);
+    const suffix = formatExampleSuffix(formattedSamples, ignored);
 
     return `ignored by .prettierignore (${ignored})${suffix}`;
 }
@@ -2073,7 +1772,7 @@ function formatUnsupportedExtensionDetail({ unsupportedExtension, unsupportedExt
     const formattedSamples = compactArray(
         (unsupportedExtensionSamples ?? []).map((sample) => formatUnsupportedExtensionSample(sample))
     );
-    const suffix = formatSampleSuffix(formattedSamples, unsupportedExtension);
+    const suffix = formatExampleSuffix(formattedSamples, unsupportedExtension);
 
     return `unsupported extensions (${unsupportedExtension})${suffix}`;
 }
@@ -2160,9 +1859,8 @@ function buildSkippedDirectorySummaryMessage() {
         return `Skipped ${ignored} ${label} ignored by .prettierignore.`;
     }
 
-    const sampleList = formattedSamples.join(", ");
-    const suffix = ignored > formattedSamples.length ? ", ..." : "";
-    return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
+    const exampleSuffix = formatExampleSuffix(formattedSamples, ignored);
+    return `Skipped ${ignored} ${label} ignored by .prettierignore${exampleSuffix}.`;
 }
 
 function areIgnoredFileSamplesEqual(existing, candidate) {

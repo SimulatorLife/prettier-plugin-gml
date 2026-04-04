@@ -1,16 +1,17 @@
-import * as CoreWorkspace from "@gml-modules/core";
+import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
     type AstNodeRecord,
     createMeta,
+    getVariableDeclarator,
     isAstNodeRecord,
     reportFullTextRewrite,
     type SourceTextEdit,
     walkAstNodes
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 const { getNodeStartIndex, getNodeEndIndex, unwrapParenthesizedExpression: unwrapParenthesized } = CoreWorkspace.Core;
 
@@ -21,13 +22,6 @@ type LeadingArgumentFallback = Readonly<{
     statement: any;
 }>;
 
-type VariableDeclaratorNode = AstNodeRecord &
-    Readonly<{
-        type: "VariableDeclarator";
-        id: unknown;
-        init: unknown;
-    }>;
-
 type AssignmentExpressionNode = AstNodeRecord &
     Readonly<{
         type: "AssignmentExpression";
@@ -35,10 +29,6 @@ type AssignmentExpressionNode = AstNodeRecord &
         left: unknown;
         right: unknown;
     }>;
-
-function isVariableDeclaratorNode(node: unknown): node is VariableDeclaratorNode {
-    return isAstNodeRecord(node) && node.type === "VariableDeclarator" && "id" in node && "init" in node;
-}
 
 function isAssignmentExpressionNode(node: unknown): node is AssignmentExpressionNode {
     return (
@@ -66,18 +56,6 @@ function isUndefinedValueNode(node: any): boolean {
     return node.value.toLowerCase() === "undefined";
 }
 
-function getVariableDeclarator(statement: unknown): VariableDeclaratorNode | null {
-    if (!isAstNodeRecord(statement) || statement.type !== "VariableDeclaration") {
-        return null;
-    }
-    const declarations = statement.declarations;
-    if (!Array.isArray(declarations) || declarations.length !== 1) {
-        return null;
-    }
-
-    return isVariableDeclaratorNode(declarations[0]) ? declarations[0] : null;
-}
-
 function getMemberArgumentIndex(node: any): number | null {
     if (!node || node.type !== "MemberIndexExpression") {
         return null;
@@ -93,7 +71,7 @@ function getMemberArgumentIndex(node: any): number | null {
         return null;
     }
 
-    const parsed = Number.parseInt(String(property.value), 10);
+    const parsed = Number.parseInt(String(property.value));
     return Number.isInteger(parsed) ? parsed : null;
 }
 
@@ -112,7 +90,7 @@ function getArgumentCountGuardIndex(testNode: any): number | null {
         return null;
     }
 
-    const parsed = Number.parseInt(String(right.value), 10);
+    const parsed = Number.parseInt(String(right.value));
     return Number.isInteger(parsed) ? (testNode.operator === ">" ? parsed : null) : null;
 }
 

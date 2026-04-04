@@ -1,0 +1,11 @@
+{
+  "refactor": {
+    "codemods": {
+      "loopLengthHoisting": {}
+    }
+  },
+  "fixture": {
+    "kind": "refactor",
+    "assertion": "project-tree"
+  }
+}

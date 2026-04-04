@@ -1,3 +1,4 @@
+import { getNodeEndIndex, getNodeStartIndex } from "../ast/locations.js";
 import { isObjectLike } from "../utils/object.js";
 
 /**
@@ -202,6 +203,74 @@ export function getCommentBoundaryIndex(comment: unknown, boundaryName: "start" 
     return normalizeCommentBoundaryIndex(boundary);
 }
 
+type InlineCommentSourceContext = {
+    originalText?: string;
+    sourceText?: string;
+};
+
+function resolveInlineCommentSourceText(sourceContext: string | InlineCommentSourceContext | null | undefined): string {
+    if (typeof sourceContext === "string") {
+        return sourceContext;
+    }
+
+    if (!isObjectLike(sourceContext)) {
+        return "";
+    }
+
+    if (typeof sourceContext.originalText === "string") {
+        return sourceContext.originalText;
+    }
+
+    return typeof sourceContext.sourceText === "string" ? sourceContext.sourceText : "";
+}
+
+function containsTokenBetween(sourceText: string, token: string, startIndex: number, endIndex: number): boolean {
+    const tokenIndex = sourceText.indexOf(token, startIndex);
+    return tokenIndex !== -1 && tokenIndex < endIndex;
+}
+
+/**
+ * Detects whether source text contains an inline comment between two node ranges.
+ *
+ * AST transforms use this helper before rewriting binary expressions so comments
+ * anchored between operands keep their original placement instead of being
+ * dropped or moved. The check stays text-based because parser comment arrays
+ * are attached to nodes, not to every token boundary between sibling nodes.
+ *
+ * @param left Left-side AST node.
+ * @param right Right-side AST node.
+ * @param sourceContext Source text string or object containing `originalText`
+ *        / `sourceText`.
+ * @returns `true` when the text slice between the nodes contains line, block,
+ *          or directive-style comments.
+ */
+export function hasInlineCommentBetween(
+    left: unknown,
+    right: unknown,
+    sourceContext: string | InlineCommentSourceContext | null | undefined
+): boolean {
+    const sourceText = resolveInlineCommentSourceText(sourceContext);
+    if (sourceText.length === 0) {
+        return false;
+    }
+
+    const leftEnd = getNodeEndIndex(left);
+    const rightStart = getNodeStartIndex(right);
+
+    if (leftEnd == undefined || rightStart == undefined || rightStart <= leftEnd || rightStart > sourceText.length) {
+        return false;
+    }
+
+    // Hot-path optimization: avoid allocating an intermediate substring for
+    // every sibling-node check. Direct index scans on the original source text
+    // preserve behavior while reducing allocations during repeated AST walks.
+    return (
+        containsTokenBetween(sourceText, "/*", leftEnd, rightStart) ||
+        containsTokenBetween(sourceText, "//", leftEnd, rightStart) ||
+        containsTokenBetween(sourceText, "#", leftEnd, rightStart)
+    );
+}
+
 /**
  * Resolves the starting line number for a line comment.
  *
@@ -357,32 +426,24 @@ export function collectCommentNodes(root) {
         }
 
         // PERFORMANCE OPTIMIZATION: Inline child value enqueueing instead of calling
-        // a helper function, and use for...in instead of Object.values to avoid
-        // allocating an intermediate array for every visited node.
+        // a helper function, and use Object.keys instead of Object.values/Object.entries
+        // to avoid allocating intermediate value or tuple arrays for every visited node.
         //
         // CONTEXT: This traversal visits every node in the AST to collect comments.
         // The original implementation called `enqueueObjectChildValues(stack, current)`
         // on every object node, which added function call overhead on a hot path.
         //
         // SOLUTION: Inline the logic directly here to eliminate ~12-14% of the runtime
-        // cost in micro-benchmarks with typical AST structures. Additionally, replace
-        // Object.values() with for...in to avoid allocating a temporary array for each
-        // object node's properties, yielding an additional ~32% improvement in tight
-        // traversal loops. The trade-off is slightly more verbose code, but the
-        // performance gain is measurable in large codebases.
-        //
-        // WHAT WOULD BREAK: Reverting to a helper function or Object.values would
-        // reduce performance for large files or projects with many comments. The current
-        // inline for...in approach is worth the extra lines.
+        // cost in micro-benchmarks with typical AST structures. Additionally, use
+        // Object.keys() (which yields only own enumerable property names) rather than
+        // Object.values() or Object.entries() so no intermediate value/tuple arrays are
+        // allocated on each node visit. The trade-off is slightly more verbose code, but
+        // the performance gain is measurable in large codebases.
         //
         // NOTE: The truthy check `if (value && typeof value === "object")` matches the
         // original helper's `!value || typeof value !== "object"` guard (inverted logic).
         // Array items use the stricter `!== null` check to match the original behavior.
-        for (const key in current) {
-            if (!Object.hasOwn(current, key)) {
-                continue;
-            }
-
+        for (const key of Object.keys(current)) {
             const value = current[key];
             if (!value || typeof value !== "object") {
                 continue;

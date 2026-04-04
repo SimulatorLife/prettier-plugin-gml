@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Parser } from "@gml-modules/parser";
+import { Parser } from "@gmloop/parser";
 
 import { Transpiler } from "../index.js";
 
@@ -223,6 +223,19 @@ void describe("GmlTranspiler.transpileEvent", () => {
             );
         });
 
+        void it("throws TypeError when thisName is an empty string", () => {
+            const transpiler = new Transpiler.GmlTranspiler();
+            assert.throws(
+                () =>
+                    transpiler.transpileEvent({
+                        sourceText: "x = 1;",
+                        symbolId: "gml/event/obj/create",
+                        thisName: ""
+                    }),
+                { name: "TypeError", message: /thisName to be a non-empty string/ }
+            );
+        });
+
         void it("wraps transpilation errors with the symbolId in the message", () => {
             const transpiler = new Transpiler.GmlTranspiler();
             assert.throws(
@@ -245,6 +258,22 @@ void describe("GmlTranspiler.transpileEvent", () => {
             const patch = transpiler.transpileEvent({ sourceText, symbolId: "gml/event/x", ast });
             assert.equal(patch.kind, "event");
             assert.match(patch.js_body, /self\.x/);
+        });
+
+        void it("rejects non-Program AST reuse inputs", () => {
+            const transpiler = new Transpiler.GmlTranspiler();
+            assert.throws(
+                () =>
+                    transpiler.transpileEvent({
+                        sourceText: "x = 10;",
+                        symbolId: "gml/event/x",
+                        ast: {
+                            type: "BlockStatement",
+                            body: []
+                        }
+                    }),
+                { name: "Error", message: /ast\.type to be 'Program'/ }
+            );
         });
     });
 });

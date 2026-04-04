@@ -1,5 +1,5 @@
-import { Core } from "@gml-modules/core";
-import { Semantic } from "@gml-modules/semantic";
+import { Core } from "@gmloop/core";
+import { Semantic } from "@gmloop/semantic";
 
 import type { CallTargetAnalyzer, IdentifierAnalyzer } from "./ast.js";
 

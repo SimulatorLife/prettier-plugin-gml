@@ -5,6 +5,10 @@ export { Core } from "./src/index.js";
 export type {
     AbortSignalLike,
     DebouncedFunction,
+    DeprecatedIdentifierDiagnosticOwner,
+    DeprecatedIdentifierLegacyUsage,
+    DeprecatedIdentifierMetadataEntry,
+    DeprecatedIdentifierReplacementKind,
     DocCommentLines,
     DocCommentNodeMetadata,
     EmptyTransformOptions,
@@ -12,15 +16,11 @@ export type {
     FeatherMetadata,
     GameMakerAstLocation,
     GameMakerAstNode,
-    GlobalIdentifierTracker,
-    IdentifierRoleManager,
+    GmloopProjectConfig,
     LiteralNode,
     MutableDocCommentLines,
     MutableGameMakerAstNode,
     ParserTransform,
-    ScopeLifecycle,
-    ScopeTracker,
-    ScopeTrackerOptions,
     StringCommentScanState,
     StripCommentsTransformOptions
 } from "./src/index.js";

@@ -1,4 +1,4 @@
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import {
     applyFixOperations,
@@ -11,7 +11,11 @@ import {
 
 const { Lint } = LintWorkspace;
 
-function parseProgramNode(code: string): Record<string, unknown> {
+/**
+ * Parses GML source text through the lint plugin language parser.
+ * Returns `{ type: "Program", body: [] }` when parsing fails.
+ */
+export function parseProgramNode(code: string): Record<string, unknown> {
     const language = Lint.plugin.languages.gml as {
         parse: (
             file: { body: string; path: string; physicalPath: string; bom: boolean },

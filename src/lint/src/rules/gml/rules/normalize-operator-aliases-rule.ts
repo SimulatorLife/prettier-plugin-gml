@@ -1,7 +1,6 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
     createMeta,
@@ -10,6 +9,7 @@ import {
     reportProgramTextRewrite,
     type SourceTextEdit
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 const LOGICAL_NOT_ALIAS = "not";
 const LOGICAL_NOT_OPERATOR = "!";
@@ -166,6 +166,15 @@ export function createNormalizeOperatorAliasesRule(definition: GmlRuleDefinition
 
                             const operatorStart = start + operatorIndex;
                             const operatorEnd = operatorStart + operator.length;
+                            const originalOperatorText = context.sourceCode.text.slice(operatorStart, operatorEnd);
+                            if (
+                                originalOperatorText.length === operator.length &&
+                                originalOperatorText.toLowerCase() === operator &&
+                                originalOperatorText !== operator
+                            ) {
+                                return;
+                            }
+
                             context.report({
                                 loc: resolveReportLocation(context, operatorStart),
                                 messageId: definition.messageId,

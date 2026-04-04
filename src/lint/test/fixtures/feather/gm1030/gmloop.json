@@ -1,0 +1,11 @@
+{
+  "lintRules": {
+    "feather/gm1030": "error"
+  },
+  "printWidth": 150,
+  "fixture": {
+    "kind": "lint",
+    "assertion": "transform",
+    "comparison": "ignore-whitespace-and-line-endings"
+  }
+}

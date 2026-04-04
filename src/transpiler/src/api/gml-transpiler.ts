@@ -1,17 +1,18 @@
-import { Core } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
+import { Core } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
 
 import {
     type CallTargetAnalyzer,
     collectLocalVariables,
     createSemanticOracle,
     type EmitOptions,
-    EventContextOracle,
+    ensureStatementTerminated,
     type FunctionDeclarationNode,
     GmlToJsEmitter,
     type IdentifierAnalyzer,
     type ProgramNode
 } from "../emitter/index.js";
+import { EventContextOracle } from "../event-context/index.js";
 
 export interface TranspileScriptRequest {
     /**
@@ -52,6 +53,7 @@ export interface TranspileEventRequest {
 export interface PatchMetadata {
     readonly timestamp: number;
     readonly sourcePath?: string;
+    readonly dependencies?: Array<string>;
 }
 
 export interface ScriptPatch {
@@ -102,15 +104,18 @@ export class GmlTranspiler {
         return parser.parse();
     }
 
-    private resolveProgramAst(request: TranspileScriptRequest): ProgramNode {
+    private resolveProgramAst(request: TranspileScriptRequest | TranspileEventRequest): ProgramNode {
         const astCandidate = request.ast ?? this.parseProgram(request.sourceText);
         if (!Core.isObjectLike(astCandidate)) {
-            throw new TypeError("transpileScript requires ast to be a Program-like object when provided");
+            throw new TypeError("transpile request requires ast to be a Program-like object when provided");
         }
 
         const astRecord = astCandidate as Record<string, unknown>;
+        if (astRecord.type !== "Program") {
+            throw new TypeError("transpile request requires ast.type to be 'Program' when ast is provided");
+        }
         if (!Array.isArray(astRecord.body)) {
-            throw new TypeError("transpileScript requires ast.body to be an array when ast is provided");
+            throw new TypeError("transpile request requires ast.body to be an array when ast is provided");
         }
 
         return astCandidate as ProgramNode;
@@ -124,10 +129,8 @@ export class GmlTranspiler {
             let line = "";
 
             if (typeof parameter === "string") {
-                continue;
-            }
-
-            if (parameter.type === "Identifier") {
+                line = `var ${parameter} = args[${index}];`;
+            } else if (parameter.type === "Identifier") {
                 line = `var ${parameter.name} = args[${index}];`;
             } else if (parameter.type === "DefaultParameter" && parameter.left.type === "Identifier") {
                 const name = parameter.left.name;
@@ -147,6 +150,32 @@ export class GmlTranspiler {
         }
 
         return lines.join("\n");
+    }
+
+    private emitUnwrappedFunctionBody(body: ProgramNode["body"][number], emitter: GmlToJsEmitter): string {
+        if (body.type !== "BlockStatement") {
+            return emitter.emit(body).trim();
+        }
+
+        const lines: string[] = [];
+        for (const statement of body.body) {
+            const code = emitter.emit(statement);
+            if (!code) {
+                continue;
+            }
+
+            lines.push(ensureStatementTerminated(code));
+        }
+
+        return lines.join("\n");
+    }
+
+    private createTranspileError(contextLabel: string, error: unknown): Error {
+        const cause = Core.isErrorLike(error) ? error : undefined;
+        const message = cause?.message ?? (Core.isNonEmptyString(error) ? error : "Unknown transpilation error");
+        return new Error(`Failed to transpile ${contextLabel}: ${message}`, {
+            cause
+        });
     }
 
     transpileScript(request: TranspileScriptRequest): ScriptPatch {
@@ -178,11 +207,7 @@ export class GmlTranspiler {
             if (ast.body.length === 1 && ast.body[0].type === "FunctionDeclaration") {
                 const func = ast.body[0] as unknown as FunctionDeclarationNode;
                 const paramUnpacking = this.emitFunctionParameterUnpacking(func, emitter);
-
-                const bodyRaw = emitter.emit(func.body).trim();
-                // Strip surrounding braces if present (BlockStatement)
-                const bodyContent =
-                    bodyRaw.startsWith("{") && bodyRaw.endsWith("}") ? bodyRaw.slice(1, -1).trim() : bodyRaw;
+                const bodyContent = this.emitUnwrappedFunctionBody(func.body, emitter);
 
                 jsBody = paramUnpacking ? `${paramUnpacking}\n${bodyContent}` : bodyContent;
             } else {
@@ -203,10 +228,7 @@ export class GmlTranspiler {
             };
             return patch;
         } catch (error) {
-            const message = Core.isErrorLike(error) ? error.message : String(error);
-            throw new Error(`Failed to transpile script ${symbolId}: ${message}`, {
-                cause: Core.isErrorLike(error) ? error : undefined
-            });
+            throw this.createTranspileError(`script ${symbolId}`, error);
         }
     }
 
@@ -221,10 +243,7 @@ export class GmlTranspiler {
             const emitter = new GmlToJsEmitter(this.getSemanticAnalyzers(), this.emitterOptions);
             return emitter.emit(ast);
         } catch (error) {
-            const message = Core.isErrorLike(error) ? error.message : String(error);
-            throw new Error(`Failed to transpile expression: ${message}`, {
-                cause: Core.isErrorLike(error) ? error : undefined
-            });
+            throw this.createTranspileError("expression", error);
         }
     }
 
@@ -265,6 +284,9 @@ export class GmlTranspiler {
         if (sourcePath !== undefined && (typeof sourcePath !== "string" || sourcePath.length === 0)) {
             throw new TypeError("transpileEvent requires sourcePath to be a non-empty string when provided");
         }
+        if (request.thisName !== undefined && (typeof request.thisName !== "string" || request.thisName.length === 0)) {
+            throw new TypeError("transpileEvent requires thisName to be a non-empty string when provided");
+        }
 
         try {
             const ast = this.resolveProgramAst(request);
@@ -291,10 +313,7 @@ export class GmlTranspiler {
             };
             return patch;
         } catch (error) {
-            const message = Core.isErrorLike(error) ? error.message : String(error);
-            throw new Error(`Failed to transpile event ${symbolId}: ${message}`, {
-                cause: Core.isErrorLike(error) ? error : undefined
-            });
+            throw this.createTranspileError(`event ${symbolId}`, error);
         }
     }
 }

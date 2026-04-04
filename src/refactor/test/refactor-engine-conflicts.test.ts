@@ -308,3 +308,53 @@ void test("checkHotReloadSafety handles valid enum symbol kind", async () => {
     assert.equal(result.safe, false);
     assert.ok(result.reason.includes("Macro/enum renames require"));
 });
+
+void test("checkHotReloadSafety treats script resource symbol ids as script-safe renames", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/scripts/demo_script",
+        newName: "demoScript"
+    });
+
+    assert.equal(result.safe, true);
+    assert.ok(result.reason.includes("Script renames are hot-reload-safe"));
+});
+
+void test("checkHotReloadSafety reports non-script resource renames as restart-required", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/objects/obj_enemy",
+        newName: "objBoss"
+    });
+
+    assert.equal(result.safe, false);
+    assert.equal(result.requiresRestart, true);
+    assert.ok(result.reason.includes("metadata and file updates outside hot reload"));
+});
+
+void test("checkHotReloadSafety reports enum member renames as dependent recompiles", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/enum-member/ready_state",
+        newName: "readyState"
+    });
+
+    assert.equal(result.safe, false);
+    assert.equal(result.requiresRestart, false);
+    assert.ok(result.reason.includes("Enum member renames require dependent script recompilation"));
+});

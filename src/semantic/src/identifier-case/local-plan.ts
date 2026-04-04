@@ -1,8 +1,8 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
-import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
-import { applyAssetRenames, planAssetRenames } from "./asset-renames.js";
+import { applyAssetRenames, planAssetRenames } from "./asset-renames/index.js";
+import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-renames/policy.js";
 import {
     buildPatternMatchers,
     COLLISION_CONFLICT_CODE,
@@ -12,7 +12,7 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { ConflictSeverity } from "./conflict-severity.js";
-import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
+import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { setIdentifierCaseOption } from "./option-store.js";
@@ -118,7 +118,7 @@ function applyAssetRenamesIfEligible({ options, projectIndex, assetRenames, asse
     }
 
     const fsFacade =
-        Core.coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"]) ?? getDefaultIdentifierCaseFsFacade();
+        Core.coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"]) ?? defaultIdentifierCaseFsFacade;
     const logger = options.logger ?? null;
     const result = applyAssetRenames({
         projectIndex,

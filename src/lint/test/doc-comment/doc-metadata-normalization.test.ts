@@ -1,6 +1,6 @@
 import test from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { assertEquals } from "../assertions.js";
 
@@ -18,4 +18,12 @@ void test("normalizeDocMetadataName strips synthetic sentinels", () => {
 void test("getCanonicalParamNameFromText unwraps optional tokens and defaults", () => {
     assertEquals(getCanonicalParamNameFromText("[value]")?.includes("["), false);
     assertEquals(getCanonicalParamNameFromText("[value=10]"), "value");
+});
+
+void test("getCanonicalParamNameFromText preserves malformed optional tokens instead of truncating them", () => {
+    assertEquals(getCanonicalParamNameFromText("[value"), "[value");
+});
+
+void test("getCanonicalParamNameFromText unwraps the outer optional token before stripping defaults", () => {
+    assertEquals(getCanonicalParamNameFromText("[[value]=10]"), "[value]");
 });

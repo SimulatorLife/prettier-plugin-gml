@@ -1,23 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
+import { createTempProjectWorkspace } from "./test-project-helpers.js";
 
 // Use Core.Reporting.createMetricsTracker instead of destructuring the namespace.
 
-async function writeProjectFile(rootDir, relativePath, contents) {
-    const absolutePath = path.join(rootDir, relativePath);
-    await mkdir(path.dirname(absolutePath), { recursive: true });
-    await writeFile(absolutePath, contents, "utf8");
-}
-
 async function createProjectFixture(prefix = "project-index-metrics-") {
-    const projectRoot = await mkdtemp(path.join(os.tmpdir(), prefix));
+    const { projectRoot, writeProjectFile, cleanup } = await createTempProjectWorkspace(prefix);
 
     const manifest = {
         name: "MetricsProject",
@@ -29,20 +21,16 @@ async function createProjectFixture(prefix = "project-index-metrics-") {
         name: "metricsScript"
     };
 
-    await writeProjectFile(projectRoot, "MetricsProject.yyp", JSON.stringify(manifest));
+    await writeProjectFile("MetricsProject.yyp", JSON.stringify(manifest));
 
-    await writeProjectFile(projectRoot, "scripts/metricsScript/metricsScript.yy", JSON.stringify(scriptDescriptor));
+    await writeProjectFile("scripts/metricsScript/metricsScript.yy", JSON.stringify(scriptDescriptor));
 
-    await writeProjectFile(
-        projectRoot,
-        "scripts/metricsScript/metricsScript.gml",
-        "/// @function metricsScript\nreturn 1;\n"
-    );
+    await writeProjectFile("scripts/metricsScript/metricsScript.gml", "/// @function metricsScript\nreturn 1;\n");
 
     return {
         projectRoot,
         async cleanup() {
-            await rm(projectRoot, { recursive: true, force: true });
+            await cleanup();
         }
     };
 }

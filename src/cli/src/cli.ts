@@ -6,7 +6,6 @@
  *   way to format GameMaker Language files.
  * - Watch mode for monitoring GML source files and coordinating the
  *   hot-reload pipeline (transpiler, semantic analysis, patch streaming).
- * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
  * - Generating/retrieving GML identifiers and Feather metadata (via the GameMaker manual).
  *
@@ -17,7 +16,7 @@
 
 import process from "node:process";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command } from "commander";
 
 import { createCliCommandManager } from "./cli-core/command-manager.js";
@@ -25,16 +24,17 @@ import { applyStandardCommandOptions } from "./cli-core/command-standard-options
 import { handleCliError } from "./cli-core/errors.js";
 import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
+import { createFixCommand, runFixCommand } from "./commands/fix.js";
 import { __formatTest__, createFormatCommand, runFormatCommand } from "./commands/format.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createLintCommand, runLintCommand } from "./commands/lint.js";
-import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { createWatchStatusCommand, runWatchStatusCommand } from "./commands/watch-status.js";
+import { CLI_COMMAND_NAMES } from "./shared/command-names.js";
 import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 
 function normalizeWriteChunk(chunk: string | Uint8Array, encoding?: BufferEncoding): string {
@@ -82,10 +82,40 @@ function resolveHelpAliasArguments(args) {
     }
 
     if (!isHelpAliasCommand(args)) {
-        return args;
+        return normalizeFormatCommandHelpShortcut(args);
     }
 
     return resolveHelpAliasCommandArguments(args);
+}
+
+function normalizeFormatCommandHelpShortcut(args) {
+    if (!containsHelpFlag(args)) {
+        return args;
+    }
+
+    const firstArgument = args[0];
+    if (typeof firstArgument !== "string") {
+        return args;
+    }
+
+    const normalizedFirstArgument = firstArgument.trim().toLowerCase();
+    if (normalizedFirstArgument.length === 0) {
+        return args;
+    }
+
+    if (normalizedFirstArgument.startsWith("-")) {
+        return args;
+    }
+
+    if (CLI_COMMAND_NAMES.has(normalizedFirstArgument)) {
+        return args;
+    }
+
+    return [FORMAT_ACTION, "--help"];
+}
+
+function containsHelpFlag(args) {
+    return args.some((argument) => argument === "--help" || argument === "-h");
 }
 
 function isHelpRequest(input: unknown): boolean {
@@ -118,11 +148,14 @@ const program = applyStandardCommandOptions(new Command())
     .usage("[command] [options]")
     .description(
         [
-            "Utilities for working with the prettier-plugin-gml project.",
+            "Utilities for working with the GMLoop toolchain.",
             "Provides formatting, benchmarking, and manual data generation commands.",
             resolveDefaultAction() === FORMAT_ACTION
                 ? `Defaults to running the ${FORMAT_ACTION} command when no command is provided.`
-                : `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`
+                : [
+                      `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`,
+                      `Tip: passing only a file or directory path runs '${FORMAT_ACTION}' for that target.`
+                  ].join(" ")
         ].join(" \n")
     )
     .version(resolveCliVersion(), "-V, --version", "Show CLI version information.");
@@ -131,7 +164,7 @@ export const { registry: cliCommandRegistry, runner: cliCommandRunner } = create
     program,
     onUnhandledError: (error) =>
         handleCliError(error, {
-            prefix: "Failed to run prettier-plugin-gml CLI.",
+            prefix: "Failed to run GMLoop CLI.",
             exitCode: 1
         })
 });
@@ -335,11 +368,11 @@ cliCommandRegistry.registerCommand({
 });
 
 cliCommandRegistry.registerCommand({
-    command: createMemoryCommand(),
-    run: ({ command }) => runMemoryCommand({ command }),
+    command: createFixCommand(),
+    run: ({ command }) => runFixCommand(command),
     onError: (error) =>
         handleCliError(error, {
-            prefix: "Failed to run memory diagnostics.",
+            prefix: "Failed to run project fix workflow.",
             exitCode: 1
         })
 });
@@ -396,7 +429,7 @@ cliCommandRegistry.registerCommand({
 
 cliCommandRegistry.registerCommand({
     command: createRefactorCommand(),
-    run: ({ command }) => runRefactorCommand(command.opts()),
+    run: ({ command }) => runRefactorCommand(command),
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to perform refactor operation.",
@@ -431,7 +464,7 @@ if (!isCliRunSkipped()) {
         await cliCommandRunner.run(normalizedArguments);
     } catch (error) {
         handleCliError(error, {
-            prefix: "Failed to run prettier-plugin-gml CLI.",
+            prefix: "Failed to run GMLoop CLI.",
             exitCode: 1
         });
     }

@@ -4,14 +4,14 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import { Command } from "commander";
 import { XMLParser } from "fast-xml-parser";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, handleCliError } from "../cli-core/errors.js";
 import { ParseResultStatus, ScanStatus, TestCaseStatus } from "../modules/quality-report/index.js";
-import { formatByteSizeDisplay } from "../shared/byte-format.js";
+import { scanProjectHealth } from "../modules/quality-report/project-health.js";
 import { traverseDirectoryEntries } from "../shared/directory-traversal.js";
 
 const {
@@ -22,6 +22,7 @@ const {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     isObjectLike,
+    parseJsonWithContext,
     readTextFileSync,
     toArray,
     toTrimmedString
@@ -285,9 +286,9 @@ function readCoverage(lcovFiles) {
             const text = readTextFileSync(file);
             for (const line of text.split(/\r?\n/)) {
                 if (line.startsWith("LF:")) {
-                    found += Number.parseInt(line.slice(3), 10) || 0;
+                    found += Number.parseInt(line.slice(3)) || 0;
                 } else if (line.startsWith("LH:")) {
-                    hit += Number.parseInt(line.slice(3), 10) || 0;
+                    hit += Number.parseInt(line.slice(3)) || 0;
                 }
             }
         } catch {
@@ -488,7 +489,10 @@ function readDuplicates(files) {
     const file = files[0];
     try {
         const content = readTextFileSync(file);
-        const data = JSON.parse(content);
+        const data = parseJsonWithContext(content, {
+            source: file,
+            description: "JSCPD report"
+        });
         return data.statistics?.total || null;
     } catch {
         return null;
@@ -502,7 +506,10 @@ function readProjectHealth(files) {
     const file = files[0];
     try {
         const content = readTextFileSync(file);
-        return JSON.parse(content);
+        return parseJsonWithContext(content, {
+            source: file,
+            description: "project health report"
+        });
     } catch {
         return null;
     }
@@ -701,7 +708,7 @@ function documentContainsTestElements(document) {
 
     processTraversalQueue(queue, (current, queueRef) => {
         if (Array.isArray(current)) {
-            queueRef.push(...current);
+            enqueueTraversalValues(queueRef, current);
             return;
         }
 
@@ -718,12 +725,24 @@ function documentContainsTestElements(document) {
             return true; // Terminate early
         }
 
-        for (const value of Object.values(current)) {
-            queueRef.push(value);
-        }
+        enqueueObjectChildValues(queueRef, current);
     });
 
     return found;
+}
+
+/**
+ * Appends traversal candidates to the queue.
+ */
+function enqueueTraversalValues(queue, values) {
+    queue.push(...values);
+}
+
+/**
+ * Appends all object child values to the traversal queue.
+ */
+function enqueueObjectChildValues(queue, object) {
+    enqueueTraversalValues(queue, Object.values(object));
 }
 
 function recordTestCases(aggregates, testCases) {
@@ -886,6 +905,24 @@ type TestRecordEntry = { status?: string; node?: TestRecordNode };
 const FILE_NAME_SEPARATOR = "::";
 
 /**
+ * Normalize file/name identity fields from a parsed test record.
+ */
+function getNormalizedTestRecordIdentity(record: TestRecordEntry): {
+    file: string;
+    fileLowerCase: string;
+    name: string;
+} {
+    const file = typeof record.node?.file === "string" ? record.node.file.trim() : "";
+    const name = typeof record.node?.name === "string" ? record.node.name.trim() : "";
+
+    return {
+        file,
+        fileLowerCase: file.toLowerCase(),
+        name
+    };
+}
+
+/**
  * Build a secondary lookup of base failures keyed by `(file, testName)`.
  *
  * This is used to detect when a failing target test corresponds to an already-failing
@@ -901,10 +938,9 @@ function buildBaseFailuresByFileAndName(baseResults: Map<string, unknown>): Set<
         if (r.status !== TestCaseStatus.FAILED) {
             continue;
         }
-        const file = typeof r.node?.file === "string" ? r.node.file.trim() : "";
-        const name = typeof r.node?.name === "string" ? r.node.name.trim() : "";
-        if (file && name) {
-            index.add(`${file.toLowerCase()}${FILE_NAME_SEPARATOR}${name}`);
+        const { fileLowerCase, name } = getNormalizedTestRecordIdentity(r);
+        if (fileLowerCase && name) {
+            index.add(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`);
         }
     }
     return index;
@@ -925,9 +961,9 @@ function buildTargetFilesWithPassingTests(targetResults: Map<string, unknown>): 
     for (const record of targetResults.values()) {
         const r = record as TestRecordEntry;
         if (r.status === TestCaseStatus.PASSED) {
-            const file = typeof r.node?.file === "string" ? r.node.file.trim().toLowerCase() : "";
-            if (file) {
-                passingFiles.add(file);
+            const { fileLowerCase } = getNormalizedTestRecordIdentity(r);
+            if (fileLowerCase) {
+                passingFiles.add(fileLowerCase);
             }
         }
     }
@@ -946,13 +982,12 @@ function buildTargetFilesWithPassingTests(targetResults: Map<string, unknown>): 
  * crash is an infrastructure artifact that should not block auto-merge.
  */
 function isNodeRunnerFileLevelCrash(targetRecord: TestRecordEntry, targetFilesWithPassingTests: Set<string>): boolean {
-    const file = typeof targetRecord.node?.file === "string" ? targetRecord.node.file.trim() : "";
-    const name = typeof targetRecord.node?.name === "string" ? targetRecord.node.name.trim() : "";
+    const { file, fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
     if (!file || !name) {
         return false;
     }
     // The synthetic record's name is the relative path portion of the absolute file path.
-    if (!file.toLowerCase().endsWith(name.toLowerCase())) {
+    if (!fileLowerCase.endsWith(name.toLowerCase())) {
         return false;
     }
     // Confirm it looks like a test file path.
@@ -960,7 +995,7 @@ function isNodeRunnerFileLevelCrash(targetRecord: TestRecordEntry, targetFilesWi
         return false;
     }
     // If passing inner tests exist for this file, the crash is a runner artefact.
-    return targetFilesWithPassingTests.has(file.toLowerCase());
+    return targetFilesWithPassingTests.has(fileLowerCase);
 }
 
 function createRegressionRecord({
@@ -992,9 +1027,8 @@ function createRegressionRecord({
     // (e.g., `<undefined>` wrapper tags), causing the suite-path prefix of existing
     // tests to change. Those renamed failures must not be reported as new regressions.
     if (baseStatus === undefined) {
-        const file = typeof targetRecord.node?.file === "string" ? targetRecord.node.file.trim() : "";
-        const name = typeof targetRecord.node?.name === "string" ? targetRecord.node.name.trim() : "";
-        if (file && name && baseFailuresByFileAndName.has(`${file.toLowerCase()}${FILE_NAME_SEPARATOR}${name}`)) {
+        const { fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
+        if (fileLowerCase && name && baseFailuresByFileAndName.has(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`)) {
             return null;
         }
         // Detect node test runner file-level crash records: synthetic testcases where
@@ -1434,77 +1468,6 @@ function generateQualityRow(label, results, healthStats = null) {
     const todosCell = stats ? stats.todos : "—";
 
     return `| ${label} | ${lintWarningsCell} | ${lintErrorsCell} | ${duplicatesCell} | ${buildSizeCell} | ${largeFilesCell} | ${todosCell} |`;
-}
-
-function getSourceFiles(dir, fileList = []) {
-    const ignoredDirectories = new Set(["node_modules", "dist", "generated", "vendor", "tmp"]);
-    traverseDirectoryEntries(dir, {
-        shouldDescend: (fullPath) => !ignoredDirectories.has(path.basename(fullPath)),
-        onFile: (filePath) => {
-            if (filePath.endsWith(".ts") && !filePath.endsWith(".d.ts")) {
-                fileList.push(filePath);
-            }
-        },
-        continueOnReadError: false,
-        ignoreDotEntries: false
-    });
-    return fileList;
-}
-
-function getBuildSize(dir) {
-    let size = 0;
-    traverseDirectoryEntries(dir, {
-        onFile: (filePath) => {
-            if (filePath.endsWith(".js")) {
-                size += fs.statSync(filePath).size;
-            }
-        },
-        shouldDescend: () => true,
-        continueOnReadError: false,
-        ignoreDotEntries: false
-    });
-    return size;
-}
-
-function scanProjectHealth(rootDir) {
-    const srcDir = path.join(rootDir, "src");
-    const srcFiles = getSourceFiles(srcDir);
-
-    let largeFiles = 0;
-    let todos = 0;
-
-    for (const file of srcFiles) {
-        const content = readTextFileSync(file);
-        const lines = content.split("\n");
-
-        if (lines.length > 1000) {
-            largeFiles += 1;
-        }
-
-        todos += (content.match(/\b(TODO|FIXME|HACK)\b/g) || []).length;
-    }
-
-    let totalBuildSize = 0;
-    if (fs.existsSync(srcDir)) {
-        const packages = fs.readdirSync(srcDir);
-        for (const pkg of packages) {
-            const pkgDir = path.join(srcDir, pkg);
-            if (fs.statSync(pkgDir).isDirectory()) {
-                const distPath = path.join(pkgDir, "dist");
-                totalBuildSize += getBuildSize(distPath);
-            }
-        }
-    }
-
-    return {
-        largeFiles,
-        todos,
-        buildSize: formatByteSizeDisplay(totalBuildSize, {
-            decimals: 2,
-            separator: " ",
-            invalidValue: "Invalid"
-        })
-    };
 }
 
 function describeRegressionCause(regressions, diff) {

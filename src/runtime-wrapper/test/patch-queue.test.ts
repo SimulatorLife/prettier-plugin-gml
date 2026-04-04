@@ -2,6 +2,7 @@ import assert from "node:assert";
 import { test } from "node:test";
 
 import { Clients, Runtime } from "../src/index.js";
+import { deduplicatePatchesById } from "../src/websocket/patch-queue.js";
 
 const { createRuntimeWrapper } = Runtime;
 const { createWebSocketClient } = Clients;
@@ -109,6 +110,23 @@ function prepareRuntimeGlobalsForPatchQueue(): () => void {
 
 function sendScriptPatch(ws: MockWebSocket, id: string, jsBody = "return 1;"): void {
     ws.simulateMessage(JSON.stringify({ kind: "script", id, js_body: jsBody }));
+}
+
+function sendScriptPatchWithDependencies(
+    ws: MockWebSocket,
+    id: string,
+    dependencies: ReadonlyArray<string>,
+    jsBody = "return 1;"
+): void {
+    ws.simulateMessage(JSON.stringify({ kind: "script", id, js_body: jsBody, metadata: { dependencies } }));
+}
+
+function sendChainedDependencyPatches(ws: MockWebSocket, count: number): void {
+    for (let index = count - 1; index >= 0; index -= 1) {
+        const patchId = `gml/script/chain_${index}`;
+        const dependencies = index === 0 ? [] : [`gml/script/chain_${index - 1}`];
+        sendScriptPatchWithDependencies(ws, patchId, dependencies, `return ${index};`);
+    }
 }
 
 function sendScriptPatchBatch(ws: MockWebSocket, patches: Array<{ id: string; js_body?: string }>): void {
@@ -236,11 +254,130 @@ void test("patch queue tracks patches received without double-counting on flush"
     }
 });
 
+void test("deduplicatePatchesById preserves input reference when no duplicate ids exist", () => {
+    const patches = [
+        { kind: "script", id: "gml/script/a", js_body: "return 1;" },
+        { kind: "script", id: "gml/script/b", js_body: "return 2;" },
+        { kind: "event", id: "obj_player#Step", js_body: "return;" }
+    ];
+
+    const result = deduplicatePatchesById(patches);
+    assert.strictEqual(result.duplicateCount, 0);
+    assert.strictEqual(result.patches, patches);
+});
+
+void test("deduplicatePatchesById keeps only the newest patch for duplicate ids", () => {
+    const firstVersion = { kind: "script", id: "gml/script/a", js_body: "return 1;" };
+    const newestVersion = { kind: "script", id: "gml/script/a", js_body: "return 99;" };
+    const uniquePatch = { kind: "script", id: "gml/script/b", js_body: "return 2;" };
+    const patches = [firstVersion, uniquePatch, newestVersion];
+
+    const result = deduplicatePatchesById(patches);
+    assert.strictEqual(result.duplicateCount, 1);
+    assert.deepStrictEqual(result.patches, [uniquePatch, newestVersion]);
+});
+
+void test("patch queue reorders dependency-linked patches before batch apply", async () => {
+    const { wrapper, client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 1000
+        }
+    });
+
+    try {
+        sendScriptPatchWithDependencies(ws, "gml/script/dependent", ["gml/script/provider"], "return provider();");
+        sendScriptPatch(ws, "gml/script/provider", "return 42;");
+
+        const flushedCount = client.flushPatchQueue();
+        assert.strictEqual(flushedCount, 2);
+
+        assert.ok(wrapper.hasScript("gml/script/provider"), "Provider patch should be applied");
+        assert.ok(wrapper.hasScript("gml/script/dependent"), "Dependent patch should be applied after provider");
+
+        const metrics = client.getConnectionMetrics();
+        assert.strictEqual(metrics.patchesApplied, 2);
+        assert.strictEqual(metrics.patchesFailed, 0);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
+void test("patch queue handles duplicate dependency entries when reordering batches", async () => {
+    const { wrapper, client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 1000
+        }
+    });
+
+    try {
+        sendScriptPatchWithDependencies(
+            ws,
+            "gml/script/duplicate_dependency_consumer",
+            ["gml/script/duplicate_dependency_provider", "gml/script/duplicate_dependency_provider"],
+            "return duplicate_dependency_provider();"
+        );
+        sendScriptPatch(ws, "gml/script/duplicate_dependency_provider", "return 42;");
+
+        const flushedCount = client.flushPatchQueue();
+        assert.strictEqual(flushedCount, 2);
+
+        assert.ok(wrapper.hasScript("gml/script/duplicate_dependency_provider"));
+        assert.ok(wrapper.hasScript("gml/script/duplicate_dependency_consumer"));
+
+        const metrics = client.getConnectionMetrics();
+        assert.strictEqual(metrics.patchesApplied, 2);
+        assert.strictEqual(metrics.patchesFailed, 0);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
+void test("patch queue applies long dependency chains from reverse receive order", async () => {
+    const { wrapper, client, ws, restoreRuntimeGlobals } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 1000,
+            maxQueueSize: 300
+        }
+    });
+
+    try {
+        sendChainedDependencyPatches(ws, 120);
+
+        const flushedCount = client.flushPatchQueue();
+        assert.strictEqual(flushedCount, 120);
+
+        assert.ok(wrapper.hasScript("gml/script/chain_0"), "First dependency patch should be applied");
+        assert.ok(wrapper.hasScript("gml/script/chain_119"), "Last dependent patch should be applied");
+
+        const metrics = client.getConnectionMetrics();
+        assert.strictEqual(metrics.patchesApplied, 120);
+        assert.strictEqual(metrics.patchesFailed, 0);
+    } finally {
+        client.disconnect();
+        restoreRuntimeGlobals();
+    }
+});
+
 void test("getPatchQueueMetrics returns null when queuing is disabled", () => {
     const wrapper = createRuntimeWrapper();
     const client = createWebSocketClient({
         wrapper,
         autoConnect: false
+    });
+
+    const metrics = client.getPatchQueueMetrics();
+    assert.strictEqual(metrics, null);
+});
+
+void test("patch queue is disabled when enabled without a runtime wrapper", () => {
+    const client = createWebSocketClient({
+        wrapper: null,
+        autoConnect: false,
+        patchQueue: {
+            enabled: true
+        }
     });
 
     const metrics = client.getPatchQueueMetrics();

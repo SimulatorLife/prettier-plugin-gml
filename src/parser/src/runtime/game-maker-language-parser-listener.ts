@@ -1,7 +1,6 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import type { ListenerDelegate, ListenerOptions, ParserContext } from "../types/index.js";
-import { toDelegate } from "./delegation.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import {
     getParserListenerBase,
@@ -44,7 +43,7 @@ ensureHasInstancePatched(GeneratedParserListenerBase, {
 
 function createListenerDelegate(options: ListenerOptions = {}): ListenerDelegate {
     const { listenerDelegate, listenerHandlers } = options;
-    const baseDelegate = toDelegate(listenerDelegate, DEFAULT_LISTENER_DELEGATE);
+    const baseDelegate = typeof listenerDelegate === "function" ? listenerDelegate : DEFAULT_LISTENER_DELEGATE;
 
     if (!listenerHandlers || typeof listenerHandlers !== "object") {
         return baseDelegate;

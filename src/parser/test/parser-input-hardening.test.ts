@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { Parser } from "../src/index.js";
 
@@ -142,6 +142,18 @@ function test() {
 
         void it("should successfully parse valid input", () => {
             const ast = GMLParser.parse("x = 42;");
+            assert.ok(ast);
+            assert.equal(ast.type, "Program");
+        });
+
+        void it("should parse large additive call chains without exhausting memory", () => {
+            const repeatedSegments = Array.from(
+                { length: 420 },
+                (_, index) => `string_format(value_${index}, 1, 10)`
+            ).join(" + ");
+            const source = [`function stress_trace() {`, `    return ${repeatedSegments};`, `}`, ""].join("\n");
+
+            const ast = GMLParser.parse(source, { getComments: false });
             assert.ok(ast);
             assert.equal(ast.type, "Program");
         });

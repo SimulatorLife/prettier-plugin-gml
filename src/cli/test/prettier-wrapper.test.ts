@@ -8,9 +8,9 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { CLI } from "@gml-modules/cli";
-import { Core } from "@gml-modules/core";
-import { Format } from "@gml-modules/format";
+import { CLI } from "@gmloop/cli";
+import { Core } from "@gmloop/core";
+import { Format } from "@gmloop/format";
 
 import { findRepoRoot } from "../src/shared/repo-root.js";
 
@@ -160,14 +160,15 @@ void describe("Prettier wrapper CLI", () => {
 
     void it("applies plugin newline normalization when run through the wrapper CLI", async () => {
         const repoRootDirectory = await findRepoRoot(currentDirectory);
-        const fixturePath = path.join(repoRootDirectory, "test/fixtures/integration/test-int-newlines.gml");
-        const optionsPath = path.join(repoRootDirectory, "test/fixtures/integration/test-int-newlines.options.json");
+        const fixtureDirectory = path.join(repoRootDirectory, "test/fixtures/integration/test-int-newlines");
+        const fixturePath = path.join(fixtureDirectory, "input.gml");
+        const optionsPath = path.join(fixtureDirectory, "gmloop.json");
 
         const [source, optionsContent] = await Promise.all([
             fs.readFile(fixturePath, "utf8"),
             fs.readFile(optionsPath, "utf8")
         ]);
-        const pluginOptions = JSON.parse(optionsContent);
+        const pluginOptions = Format.extractProjectFormatOptions(JSON.parse(optionsContent) as Record<string, unknown>);
 
         const tempDirectory = await createTemporaryDirectory();
 
@@ -1224,6 +1225,11 @@ void describe("Prettier wrapper CLI", () => {
             assert.ok(
                 stdout.includes("Run with a command name to get started (e.g., 'format --help' for formatting"),
                 "Expected stdout to guide users on how to get started"
+            );
+            assert.match(
+                stdout,
+                /Tip: passing only a file or directory path runs 'format'/,
+                "Expected stdout to clarify the path-only shorthand behavior"
             );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });

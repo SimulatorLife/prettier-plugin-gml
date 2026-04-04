@@ -352,6 +352,79 @@ void test("WebSocket client defers patch batches until runtime readiness", async
     }
 });
 
+void test("WebSocket client deduplicates deferred patches before runtime readiness flush", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const readyJsonGame = {
+        ScriptNames: ["gml_Script_bootstrap"],
+        Scripts: [() => void 0]
+    };
+
+    globalWithJson.JSON_game = {
+        ScriptNames: readyJsonGame.ScriptNames,
+        Scripts: [null]
+    };
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    try {
+        await wait(50);
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
+        const mockSocket = ws as MockWebSocket;
+
+        mockSocket.simulateMessage(
+            JSON.stringify({
+                kind: "script",
+                id: "script:deferred_duplicate",
+                js_body: "return 1;"
+            })
+        );
+        mockSocket.simulateMessage(
+            JSON.stringify({
+                kind: "script",
+                id: "script:deferred_duplicate",
+                js_body: "return 2;"
+            })
+        );
+        mockSocket.simulateMessage(
+            JSON.stringify({
+                kind: "script",
+                id: "script:deferred_duplicate",
+                js_body: "return 3;"
+            })
+        );
+
+        await wait(40);
+
+        assert.strictEqual(wrapper.hasScript("script:deferred_duplicate"), false);
+
+        globalWithJson.JSON_game = readyJsonGame;
+
+        await wait(120);
+
+        assert.strictEqual(wrapper.hasScript("script:deferred_duplicate"), true);
+        assert.strictEqual(wrapper.getRegistrySnapshot().scriptCount, 1);
+
+        const appliedScript = wrapper.getScript("script:deferred_duplicate");
+        assert.ok(appliedScript, "Deferred script should be installed after readiness");
+        assert.strictEqual(appliedScript(null, null, []), 3);
+
+        const history = wrapper.getPatchById("script:deferred_duplicate");
+        assert.strictEqual(history.length, 1);
+    } finally {
+        client.disconnect();
+        globalWithJson.JSON_game = readyJsonGame;
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
 void test("WebSocket client bounds deferred patches before runtime readiness", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
@@ -864,6 +937,72 @@ void test("WebSocket client disconnects cleanly", async () => {
     assert.strictEqual(client.isConnected(), false);
 
     delete globalWithWebSocket.WebSocket;
+});
+
+void test("WebSocket client removes socket observers on disconnect to prevent listener leaks", () => {
+    type Listener = (event?: Error | MessageEventLike) => void;
+    type ListenerMap = Record<WebSocketEvent, Array<Listener>>;
+
+    class ListenerTrackingWebSocket implements RuntimeWebSocketInstance {
+        public readyState = 0;
+        private readonly listeners: ListenerMap = {
+            open: [],
+            message: [],
+            close: [],
+            error: []
+        };
+
+        constructor(public readonly url: string) {
+            void this.url;
+        }
+
+        addEventListener(event: WebSocketEvent, handler: Listener): void {
+            this.listeners[event].push(handler);
+        }
+
+        removeEventListener(event: WebSocketEvent, handler: Listener): void {
+            const index = this.listeners[event].indexOf(handler);
+            if (index !== -1) {
+                this.listeners[event].splice(index, 1);
+            }
+        }
+
+        send(_data: string): void {}
+
+        close(): void {
+            this.readyState = 3;
+            for (const handler of this.listeners.close) {
+                handler();
+            }
+        }
+
+        countListeners(): number {
+            return (
+                this.listeners.open.length +
+                this.listeners.message.length +
+                this.listeners.close.length +
+                this.listeners.error.length
+            );
+        }
+    }
+
+    globalWithWebSocket.WebSocket = ListenerTrackingWebSocket as unknown as RuntimeWebSocketConstructor;
+
+    try {
+        const client = RuntimeWrapper.createWebSocketClient({
+            autoConnect: false
+        });
+        client.connect();
+        const socket = client.getWebSocket() as ListenerTrackingWebSocket;
+
+        assert.equal(socket.countListeners(), 4, "expected one listener per websocket event type after connect");
+
+        client.disconnect();
+
+        assert.equal(socket.countListeners(), 0, "disconnect() should remove all websocket listeners from the socket");
+    } finally {
+        delete globalWithWebSocket.WebSocket;
+    }
 });
 
 void test("WebSocket client reconnects after connection loss", async () => {

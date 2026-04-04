@@ -33,6 +33,40 @@ export function safeGetParentNode(path: AstPath<any>, level: number = 0): any {
 }
 
 /**
+ * Safely reads the current node value from an AstPath.
+ *
+ * This keeps printer logic from repeating `typeof path.getValue === "function"`
+ * guards whenever a path may come from partial mocks or boundary code.
+ *
+ * @param path - The Prettier AstPath object.
+ * @returns The node value, or `null` when unavailable.
+ */
+export function safeGetPathValue(path: AstPath<any>): any {
+    if (path && typeof path.getValue === "function") {
+        return path.getValue();
+    }
+
+    return null;
+}
+
+/**
+ * Safely reads the current property name from an AstPath.
+ *
+ * Some path objects in tests and fallback call sites may not expose
+ * `getName`; this helper normalizes that behavior to `null`.
+ *
+ * @param path - The Prettier AstPath object.
+ * @returns The current path property name, or `null` when unavailable.
+ */
+export function safeGetPathName(path: AstPath<any>): PropertyKey | null {
+    if (path && typeof path.getName === "function") {
+        return path.getName();
+    }
+
+    return null;
+}
+
+/**
  * Walks up the Prettier AST path and returns the first ancestor node for
  * which the given predicate returns `true`.
  *
@@ -64,4 +98,21 @@ export function findAncestorNode(path: AstPath<any>, predicate: (node: any) => b
             return parent;
         }
     }
+}
+
+/**
+ * Finds the nearest enclosing `FunctionDeclaration` ancestor node using the
+ * Prettier path. This is a layout-only traversal helper for printer context
+ * lookups and must not be used for semantic/content rewrites.
+ *
+ * Previously lived in `variable-declarator-layout.ts` alongside doc-fragment
+ * joining helpers; moved here because path traversal utilities belong in a
+ * single dedicated module (`path-utils.ts`) rather than scattered across
+ * printer sub-modules named for unrelated concerns.
+ *
+ * @param path - The Prettier AstPath to traverse upward
+ * @returns The nearest enclosing `FunctionDeclaration` node, or `undefined`
+ */
+export function findEnclosingFunctionDeclaration(path: AstPath<any>): unknown {
+    return findAncestorNode(path, (node: unknown) => (node as { type?: string }).type === "FunctionDeclaration");
 }

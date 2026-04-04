@@ -3,7 +3,7 @@
  * The sanitizer inserts harmless guard operators so the parser and printer treat the expression as a comparison while
  * recording how indices shift so downstream diagnostics can stay in sync.
  */
-import { Core, type StringCommentScanState } from "@gml-modules/core";
+import { Core, type StringCommentScanState } from "@gmloop/core";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set(["*", "+", "-", "/", "%", "|", "&", "^", "<", ">", "!", "=", ":"]);
 

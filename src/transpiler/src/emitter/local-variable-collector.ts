@@ -14,63 +14,57 @@
 
 import type { ProgramNode } from "./ast.js";
 
-type AnyRecord = Record<string, unknown>;
+type AstRecord = Record<string, unknown>;
 
-function enqueueNodeChildren(node: AnyRecord, traversalStack: unknown[]): void {
-    for (const value of Object.values(node)) {
-        if (Array.isArray(value)) {
-            for (let index = value.length - 1; index >= 0; index -= 1) {
-                traversalStack.push(value[index]);
+function isAstRecord(value: unknown): value is AstRecord {
+    return value !== null && typeof value === "object";
+}
+
+function isFunctionScopeBoundary(node: AstRecord): boolean {
+    return node.type === "FunctionDeclaration" || node.type === "ConstructorDeclaration";
+}
+
+function collectVarDeclaratorNames(node: AstRecord, localNames: Set<string>): void {
+    if (node.type !== "VariableDeclaration" || node.kind !== "var" || !Array.isArray(node.declarations)) {
+        return;
+    }
+
+    for (const declaration of node.declarations) {
+        if (!isAstRecord(declaration) || declaration.type !== "VariableDeclarator" || !isAstRecord(declaration.id)) {
+            continue;
+        }
+
+        const { name } = declaration.id;
+        if (typeof name === "string" && name.length > 0) {
+            localNames.add(name);
+        }
+    }
+}
+
+function collectVarDeclarationsFromTree(root: unknown, localNames: Set<string>): void {
+    const traversalStack: unknown[] = [root];
+
+    while (traversalStack.length > 0) {
+        const currentNode = traversalStack.pop();
+        if (currentNode === undefined) {
+            continue;
+        }
+
+        if (Array.isArray(currentNode)) {
+            for (let index = currentNode.length - 1; index >= 0; index -= 1) {
+                traversalStack.push(currentNode[index]);
             }
             continue;
         }
 
-        if (value !== null && typeof value === "object") {
-            traversalStack.push(value);
+        if (!isAstRecord(currentNode) || isFunctionScopeBoundary(currentNode)) {
+            continue;
         }
-    }
-}
 
-function isFunctionScopeBoundary(nodeType: unknown): boolean {
-    return nodeType === "FunctionDeclaration" || nodeType === "ConstructorDeclaration";
-}
+        collectVarDeclaratorNames(currentNode, localNames);
 
-/**
- * Extract the declared variable name from a VariableDeclarator node record.
- * Returns the name string, or null if the shape doesn't match.
- */
-function extractDeclaratorName(decl: unknown): string | null {
-    if (decl === null || typeof decl !== "object") {
-        return null;
-    }
-    const declRecord = decl as AnyRecord;
-    if (declRecord.type !== "VariableDeclarator") {
-        return null;
-    }
-    const id = declRecord.id;
-    if (id === null || typeof id !== "object") {
-        return null;
-    }
-    const name = (id as AnyRecord).name;
-    return typeof name === "string" && name ? name : null;
-}
-
-/**
- * Collect names from a VariableDeclaration node whose `kind` is `"var"`.
- * Adds each declared name to the `out` set.
- */
-function collectVarDeclarationNames(node: AnyRecord, out: Set<string>): void {
-    if (node.kind !== "var") {
-        return;
-    }
-    const declarations = node.declarations;
-    if (!Array.isArray(declarations)) {
-        return;
-    }
-    for (const decl of declarations) {
-        const name = extractDeclaratorName(decl);
-        if (name) {
-            out.add(name);
+        for (const key of Object.keys(currentNode)) {
+            traversalStack.push(currentNode[key]);
         }
     }
 }
@@ -100,26 +94,7 @@ function collectVarDeclarationNames(node: AnyRecord, out: Set<string>): void {
  * ```
  */
 export function collectLocalVariables(ast: ProgramNode): ReadonlySet<string> {
-    const locals = new Set<string>();
-    const traversalStack: unknown[] = [ast];
-
-    while (traversalStack.length > 0) {
-        const current = traversalStack.pop();
-        if (current === null || typeof current !== "object") {
-            continue;
-        }
-
-        const node = current as AnyRecord;
-        const nodeType = node.type;
-        if (isFunctionScopeBoundary(nodeType)) {
-            continue;
-        }
-        if (nodeType === "VariableDeclaration") {
-            collectVarDeclarationNames(node, locals);
-        }
-
-        enqueueNodeChildren(node, traversalStack);
-    }
-
-    return locals;
+    const localNames = new Set<string>();
+    collectVarDeclarationsFromTree(ast, localNames);
+    return localNames;
 }

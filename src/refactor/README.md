@@ -4,18 +4,18 @@ This package powers GML-native codemods and semantic refactoring transactions, a
 
 ## Ownership Boundaries
 
-`@gml-modules/refactor` is the owner of **Global Transactions (Codemods)**.
+`@gmloop/refactor` is the owner of **Global Transactions (Codemods)**.
 
-- Depends on `@gml-modules/semantic` for symbol/scope analysis inputs.
+- Depends on `@gmloop/semantic` for symbol/scope analysis inputs.
 - Owns atomic cross-file edits, metadata updates, and structural migrations.
 - Implements a jscodeshift-like Collection API for GML ASTs.
 - Is the ONLY layer that should decide whether a rename requires cross-file edits or metadata changes.
 
 It does not replace lint or formatter domains:
 
-- `@gml-modules/lint` owns **Diagnostic Reporting** and **Local Repairs** (single-file fixes).
-- `@gml-modules/format` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
-- `@gml-modules/cli` is the composition root that invokes refactor workflows through the `refactor` command.
+- `@gmloop/lint` owns **Diagnostic Reporting** and **Local Repairs** (single-file fixes).
+- `@gmloop/format` is **Formatter-only** (layout/canonical rendering) and does not own refactor transactions.
+- `@gmloop/cli` is the composition root that invokes refactor workflows through the `refactor` command.
 
 ## Responsibilities
 
@@ -28,6 +28,35 @@ It does not replace lint or formatter domains:
 - Validate hot reload compatibility to ensure refactored code can be patched live.
 
 ## Features
+
+- Naming-convention codemods treat unique constructor static members as cross-file rename targets, including dotted calls like `value.Sub()` and bare calls like `Reset()` that occur inside constructors or `with (...)` blocks.
+- Batch resource renames compose staged metadata rewrites and staged file moves, so later renames in the same run resolve the current folder/file path even for non-canonical GameMaker layouts that keep multiple object `.yy` files in one directory.
+
+## Performance Regression Coverage
+
+Current guardrails focus on the two hottest naming-convention paths that showed up in profiling:
+
+- Selected-path filtering now compiles allow/deny lists once per codemod run instead of re-resolving them for every candidate.
+- `WorkspaceEdit` application now assembles rewritten file content in a single pass, avoiding one full-string allocation per text edit.
+- Top-level naming-convention batch planning now reuses the first batch validation when the rename set is unchanged, avoiding a second full pass through `validateRenameRequest`.
+- CLI local-variable naming scans now build each file's local-reference index once and reuse it for every declaration in that file.
+- CLI semantic bridge lookups for script-backed callable declarations now use a resource-path index instead of rescanning every script entry for each lookup.
+- Naming-convention planning now skips macro-expansion dependency scans for batches that only touch top-level/resource symbols, instead of parsing macro sources on every run whether local renames are present or not.
+- Resource rename metadata planning now indexes inbound metadata references once per semantic bridge and reuses parsed `.yy/.yyp` documents across the batch instead of rescanning and reparsing them for every rename.
+- `WorkspaceEdit` now caches grouped text edits per revision and skips the second structural validation pass when the same immutable workspace is applied immediately after validation.
+- The CLI refactor command now uses the semantic workspace's default GML project-index concurrency instead of forcing a serial build, so large codemod runs do not bottleneck on one-file-at-a-time indexing.
+
+The refactor workspace keeps naming-convention codemod stress tests in the regular TypeScript test suite:
+
+- [`src/refactor/test/naming-convention-performance.test.ts`](./test/naming-convention-performance.test.ts) exercises high-volume local rename planning and edit application.
+- [`src/cli/test/refactor-codemod-performance.test.ts`](../cli/test/refactor-codemod-performance.test.ts) exercises the indexed CLI bridge path for large top-level rename batches.
+- [`src/cli/test/refactor-codemod-command-performance.test.ts`](../cli/test/refactor-codemod-command-performance.test.ts) exercises end-to-end `refactor codemod --write` execution on a larger synthetic GameMaker project so CLI indexing, planning, and write-back stay bounded.
+- [`src/cli/test/refactor-naming-target-discovery-performance.test.ts`](../cli/test/refactor-naming-target-discovery-performance.test.ts) exercises naming-target discovery on mixed declaration/reference workloads so reference-only files do not rebuild local-reference indexes unnecessarily.
+- [`src/cli/test/refactor-local-naming-performance.test.ts`](../cli/test/refactor-local-naming-performance.test.ts) exercises disk-backed local-variable codemods so CI catches regressions in source-text loading, local-occurrence indexing, and member-access filtering on real files.
+- [`src/cli/test/refactor-script-resource-naming-performance.test.ts`](../cli/test/refactor-script-resource-naming-performance.test.ts) exercises script-backed function naming on large resource sets so repeated script-resource scans stay bounded.
+- [`src/cli/test/refactor-metadata-resource-naming-performance.test.ts`](../cli/test/refactor-metadata-resource-naming-performance.test.ts) exercises metadata-backed script resource renames on disk so repeated manifest/resource metadata parsing stays bounded.
+
+Use `pnpm run test:performance` to execute only the compiled performance suite locally. CI also runs that script explicitly on the `head` leg in addition to the normal `pnpm run test:ci` coverage pass, so performance regressions stay visible even when the broader test matrix is green.
 
 ### Project-wide Codemod Execution
 
@@ -142,7 +171,7 @@ This is essential for:
 Ensure renames maintain semantic consistency across file boundaries:
 
 ```javascript
-import { validateCrossFileConsistency } from "@gml-modules/refactor";
+import { validateCrossFileConsistency } from "@gmloop/refactor";
 
 // Get occurrences for the symbol being renamed
 const occurrences = await engine.gatherSymbolOccurrences("scr_player");
@@ -184,7 +213,7 @@ This validation is particularly useful for:
 Validate rename request structure before expensive operations like gathering occurrences. This provides fast fail-fast feedback for IDE integrations and CLI tools:
 
 ```javascript
-import { validateRenameStructure } from "@gml-modules/refactor";
+import { validateRenameStructure } from "@gmloop/refactor";
 
 // Quick structural validation before planning
 const errors = await validateRenameStructure(
@@ -274,7 +303,7 @@ The method detects:
 Efficiently validate rename safety across multiple scopes for hot reload scenarios:
 
 ```javascript
-import { batchValidateScopeConflicts } from "@gml-modules/refactor";
+import { batchValidateScopeConflicts } from "@gmloop/refactor";
 
 // Get occurrences from semantic analyzer
 const occurrences = await engine.gatherSymbolOccurrences("player_hp");
@@ -314,15 +343,135 @@ Benefits:
 
 ### Naming Convention Enforcement (Policy Config)
 
-The refactor module should support a single naming-policy config that defines
-how each symbol scope/type must be named, then use that policy during validation
-and rename planning.
+Naming policy lives under `refactor.namingConventionPolicy` inside the unified
+project-root `gmloop.json`. The `namingConvention` codemod reads that policy,
+plans top-level renames through the batch rename engine, merges those edits with
+local single-file renames into one workspace edit, and runs hot-reload
+validation before apply.
+Unsafe top-level renames are skipped with warnings so one conflicting symbol
+does not abort the rest of the codemod run. Batch-planned metadata rewrites are
+coalesced per metadata file so sequential resource renames compose into a
+single `.yy`/`.yyp` update instead of conflicting duplicate rewrites, and write
+mode avoids stale rename offsets by applying the merged workspace atomically.
+Case-style rewrites preserve allowed leading and trailing underscore affixes, so
+`lower_snake` policy does not silently strip names like `__input_error` unless
+the policy explicitly bans those affixes. Object-event assignment-backed fields
+that the semantic index only reports as unresolved references are still treated
+as instance-variable naming targets when they are introduced through instance
+assignments, so project-wide variable policy can rename identifiers like
+`charMat` to `char_mat`. Script resource names stay coupled to a same-name
+top-level callable only when that file defines exactly one top-level callable;
+multi-function script files expose the resource and each callable as
+independent rename targets so policies can rename `DemoLibrary` and
+`function DemoLibrary()` differently when needed, with resource renames
+limited to metadata/path edits while callable renames own the text
+occurrences inside `.gml` files.
+Constructor renames also update parent-constructor clauses such as
+`function Child() : BaseType() constructor {}`, and local naming rewrites skip
+identifiers that referenced `#macro` expansions read from the caller scope so
+the refactor output remains valid after GameMaker preprocesses macro bodies.
+Cross-file enum and macro renames also collect unresolved top-level consumer
+references from project file records so naming-convention runs keep
+`CM_RAY.MASK`-style uses aligned with renamed declarations.
+Within multi-callable script resources, each callable now keeps its own
+declaration category: constructor or struct policies only affect the matching
+declarations, and plain functions stay untouched unless the policy explicitly
+configures the `function` category.
 
 #### Contract
 
-- `namingConventionPolicy` is user-authored project config.
+- `gmloop.json` is the project config file.
+- `refactor.namingConventionPolicy` is user-authored project config.
+- `refactor.codemods.namingConvention` enables the codemod.
 - `rule exists => enabled` is the contract.
 - There is no `enabled` property on naming rules. If a rule is present for a category, that category is enabled. If a category is set to `false`, it is disabled even if a parent has a rule.
+
+#### Project Config Shape
+
+```json
+{
+    "printWidth": 95,
+    "lintRules": {
+        "gml/no-globalvar": "error"
+    },
+    "refactor": {
+        "namingConventionPolicy": {
+            "rules": {
+                "resource": {
+                    "caseStyle": "lower"
+                },
+                "roomResourceName": {
+                    "prefix": "rm_"
+                },
+                "variable": {
+                    "caseStyle": "camel"
+                },
+                "globalVariable": {
+                    "prefix": "g_",
+                    "caseStyle": "lower_snake"
+                },
+                "loopIndexVariable": false,
+                "callable": {
+                    "caseStyle": "camel"
+                },
+                "macro": {
+                    "caseStyle": "upper_snake"
+                }
+            },
+            "exclusivePrefixes": {
+                "rm_": "roomResourceName"
+            }
+        },
+        "codemods": {
+            "namingConvention": {},
+            "loopLengthHoisting": {
+                "functionSuffixes": {
+                    "array_length": "len"
+                }
+            }
+        }
+    }
+}
+```
+
+#### CLI Usage
+
+```bash
+# Preview configured codemods and effective config
+pnpm run cli -- refactor codemod --list
+
+# Dry-run configured codemods for the whole project
+pnpm run cli -- refactor codemod
+
+# Apply only namingConvention to a subset of paths
+pnpm run cli -- refactor codemod scripts/player --only namingConvention --write
+```
+
+Selected-path namingConvention runs now resolve naming targets with one
+filtered semantic query for the whole file set instead of rescanning the full
+project index once per file. The refactor test suite includes a tracked
+stress test for this path, so the existing `pnpm run test:refactor` and
+`pnpm run test:ci` jobs catch regressions in both behavior and runtime.
+The CLI semantic bridge also keeps indexed name and symbol-id lookup tables for
+rename validation, occurrence gathering, and scope checks, preventing large
+codemod runs from repeatedly scanning every identifier collection for every
+top-level rename candidate.
+
+Unresolved project-file references are also indexed once per bridge session and
+reused during rename occurrence gathering instead of being rescanned across the
+full file map for every symbol. Batch rename planning now keeps the refactor
+semantic query cache warm while metadata overlays are staged, so later renames
+in the same codemod run can reuse symbol existence and occurrence lookups.
+When a resource rename still needs disk-backed fallback occurrence discovery,
+the CLI semantic bridge now builds one cached identifier-occurrence index per
+GML file and reuses it across the whole codemod session instead of reparsing or
+rescanning every file for every renamed resource.
+
+Naming-convention edits also normalize semantic occurrence spans to exclusive
+end indexes before generating workspace edits, and local-variable rename
+targets explicitly exclude property/member access tokens (for example
+`enum_name.Member`) so codemods do not corrupt valid member accesses when a
+local identifier happens to share the same spelling.
 
 #### Policy Shape
 
@@ -359,16 +508,11 @@ type NamingCategory =
     | "callable"
     | "function"
     | "constructorFunction"
-    | "eventHandlerFunction"
-    | "structMethod"
-    | "staticMethod"
     | "typeName"
     | "structDeclaration"
     | "enum"
     | "member"
-    | "structField"
     | "enumMember"
-    | "constant"
     | "macro";
 
 type NamingRuleConfig = {
@@ -427,70 +571,23 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
     globalVariable: "variable",
     instanceVariable: "variable",
     staticVariable: "variable",
-    structVariable: "variable",
     argument: "variable",
     catchArgument: "variable",
     loopIndexVariable: "localVariable",
 
     callable: null,
     function: "callable",
-    constructorFunction: "callable",
-    eventHandlerFunction: "callable",
-    structMethod: "callable",
-    staticMethod: "callable",
 
-    structDeclaration: null,
-    enum: null,
-    enumMember: null,
+    typeName: null,
+    structDeclaration: "typeName",
+    constructorFunction: "structDeclaration",
+    enum: "typeName",
+
+    member: null,
+    enumMember: "member",
+
     macro: null
 };
-```
-
-#### Example User-Authored Config
-
-```json
-{
-    "namingConventionPolicy": {
-        "rules": {
-            "resource": {
-                "caseStyle": "lower"
-            },
-            "roomResourceName": {
-                "prefix": "rm_"
-            },
-            "audioResourceName": {
-                "prefix": "snd_"
-            },
-            "variable": {
-                "caseStyle": "camel",
-                "minChars": 2,
-                "maxChars": 32,
-                "bannedPrefixes": ["_"],
-                "bannedSuffixes": ["_"]
-            },
-            "globalVariable": {
-                "prefix": "g_",
-                "caseStyle": "lower_snake"
-            },
-            "loopIndexVariable": false,
-            "callable": {
-                "caseStyle": "camel"
-            },
-            "function": {
-                "prefix": "scr_"
-            },
-            "macro": {
-                "caseStyle": "upper_snake"
-            },
-            "objectResourceName": {
-                "prefix": "obj_"
-            }
-        },
-        "exclusivePrefixes": {
-            "rm_": "roomResourceName"
-        }
-    }
-}
 ```
 
 #### Enforcement Model
@@ -506,6 +603,10 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
 
 #### Notes
 
+- Current runtime target coverage includes resource names, script/constructor/struct declarations, enums, enum members, macros, globals, instance variables, locals, static locals, loop indices, arguments, and catch arguments.
+- Naming-convention planning expands selected `.gml` paths to their owning resource `.yy` files, so object event rewrites also execute the matching object resource rename transaction instead of leaving code and metadata out of sync.
+- Implicit instance-variable coverage follows unresolved object-event assignments across related object event files, including inherited child-object reads and dotted object-property reads, while excluding known enum-owner member accesses such as `CM.R` so enum members are not folded into instance-variable renames.
+- `staticVariable` and `loopIndexVariable` are syntax-refined local-variable categories. The refactor engine only exposes concrete categories that it can currently rename with complete occurrence coverage from the semantic bridge.
 - Prefix/suffix matching is strict and case-sensitive.
 - Parent/category relationships are not stored in `ResolvedNamingRule`; they are only used during rule resolution.
 - `lower_snake` and `upper_snake` are both supported to enforce snake-case in either casing.
@@ -991,7 +1092,7 @@ import {
     groupOccurrencesByFile,
     findOccurrencesInFile,
     countAffectedFiles
-} from "@gml-modules/refactor";
+} from "@gmloop/refactor";
 
 // Get only definition sites
 const definitions = filterOccurrencesByKind(occurrences, ["definition"]);
@@ -1027,7 +1128,7 @@ These utilities are particularly useful for:
 The refactor engine supports caching of semantic analyzer queries to optimize batch operations and impact analysis. During complex refactoring workflows, the same semantic data is often queried repeatedly (e.g., symbol occurrences, dependencies). The `SemanticQueryCache` memoizes these results within a session to reduce redundant queries.
 
 ```javascript
-import { SemanticQueryCache } from "@gml-modules/refactor";
+import { SemanticQueryCache } from "@gmloop/refactor";
 
 // Create cache with custom configuration
 const cache = new SemanticQueryCache(semantic, {
@@ -1065,6 +1166,7 @@ The cache is particularly beneficial for:
 **Cache behavior:**
 
 - Entries are evicted using FIFO when `maxSize` is exceeded
+- Setting `maxSize` to `0` makes the cache zero-capacity: calls still succeed, but fetched results are dropped immediately instead of being retained
 - Entries expire after `ttlMs` milliseconds
 - Each cache type (occurrences, file symbols, dependents, existence) has its own storage
 - The cache is session-scoped and should be created per refactoring workflow
@@ -1076,7 +1178,7 @@ The cache is particularly beneficial for:
 The refactor engine also provides a specialized cache for rename validation results. During interactive rename sessions (e.g., IDE rename dialogs), the same symbol-to-name combinations are often validated repeatedly as users type new names. The `RenameValidationCache` caches validation results to provide faster feedback for IDE integrations.
 
 ```javascript
-import { RenameValidationCache } from "@gml-modules/refactor";
+import { RenameValidationCache } from "@gmloop/refactor";
 
 // Create cache with custom configuration
 const validationCache = new RenameValidationCache({
@@ -1178,9 +1280,9 @@ new RefactorEngine({ parser, semantic, formatter });
 
 #### Workspace Operations
 
-- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
+- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files (`includeResultContent: false` avoids retaining full post-edit text in memory during write flows)
 - `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
-- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, impact analysis, and hot reload metadata
+- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, optional impact analysis (`includeImpactAnalyses`), and optional hot reload metadata
 
 #### Hot Reload Integration
 
@@ -1365,7 +1467,7 @@ new SemanticQueryCache(semantic, config);
 
 **Configuration:**
 
-- `maxSize` - Maximum entries per cache type (default: 100)
+- `maxSize` - Maximum entries per cache type (default: 100). A value of `0` keeps the cache enabled but gives it zero capacity, so results are returned without being retained.
 - `ttlMs` - Time-to-live in milliseconds (default: 60000)
 - `enabled` - Enable/disable caching (default: true)
 
@@ -1433,3 +1535,7 @@ The query cache layer optimizes repeated semantic queries during batch operation
 validation cache layer speeds up interactive rename workflows by caching validation results as
 users type new names, significantly improving performance for complex refactoring workflows and
 providing instant feedback in IDE rename dialogs.
+
+## TODO
+* For the renaming fix, we should support an allow/deny list of prefixes, suffixes, and names that are exempt from renaming. For example, if a project's `gmploop.json` specifies that sprites must use the `spr_` prefix, the rename configuration should also allow exceptions such as sprites with the tex_ prefix so they are not flagged for renaming.
+* Alternatively, instead of requiring a specific prefix or suffix, we could support a denylist of disallowed names, prefixes, or suffixes. So, resources would only be flagged for renaming if they match an entry in the denylist. For example, if a resource is named `__apple` and the denylist includes the prefix `__`, it would be flagged for renaming, since it matches a disallowed naming pattern. In this mode, renaming would follow a default or separately defined naming rule (e.g., a standard prefix/suffix or pattern), applied only when a name violates the denylist. In this mode, a resource that matches the denylist would first check its inheritance tree and try to inherit a valid naming prefix from its parent chain. If no applicable prefix is found, it should attempt to remove the disallowed prefix, provided the result passes all safety checks. If that still fails, it should fall back to the default naming convention.

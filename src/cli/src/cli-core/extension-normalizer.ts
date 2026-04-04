@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const { compactArray, createListSplitPattern, normalizeExtensionSuffix, normalizeStringList, uniqueArray } = Core;
 
@@ -24,7 +24,10 @@ function coerceExtensionValue(value: unknown): string | null {
         return null;
     }
 
-    return normalizeExtensionSuffix(cleaned);
+    const extensionCandidate =
+        cleaned.startsWith(".") || !cleaned.includes(".") ? cleaned : path.extname(cleaned) || cleaned;
+
+    return normalizeExtensionSuffix(extensionCandidate);
 }
 
 function splitExtensionInput(value: unknown): Array<string> {

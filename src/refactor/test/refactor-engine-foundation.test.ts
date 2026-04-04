@@ -256,6 +256,51 @@ void test("planRename creates workspace edit with occurrences", async () => {
     assert.equal(workspace.edits[1].newText, "scr_new");
 });
 
+void test("planRename drops metadata-file text edits when a full metadata rewrite is staged", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            {
+                path: "objects/oCamera/oCamera.yy",
+                start: 10,
+                end: 17,
+                scopeId: "scope:resource:oCamera"
+            },
+            {
+                path: "objects/oSystem/Other_2.gml",
+                start: 28,
+                end: 35,
+                scopeId: "scope:object:oSystem"
+            }
+        ],
+        getAdditionalSymbolEdits: () => {
+            const workspace = new WorkspaceEditFactory();
+            workspace.addMetadataEdit(
+                "objects/oCamera/oCamera.yy",
+                '{"name":"o_camera","resourcePath":"objects/o_camera/o_camera.yy"}'
+            );
+            workspace.addFileRename("objects/oCamera/oCamera.yy", "objects/oCamera/o_camera.yy");
+            workspace.addFileRename("objects/oCamera", "objects/o_camera");
+            return workspace;
+        }
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const workspace = await engine.planRename({
+        symbolId: "gml/objects/oCamera",
+        newName: "o_camera"
+    });
+
+    assert.equal(workspace.edits.length, 1);
+    assert.equal(workspace.edits[0]?.path, "objects/oSystem/Other_2.gml");
+    assert.equal(workspace.metadataEdits.length, 1);
+    assert.equal(workspace.metadataEdits[0]?.path, "objects/oCamera/oCamera.yy");
+
+    const validation = await engine.validateRename(workspace);
+    assert.equal(validation.valid, true);
+    assert.deepEqual(validation.errors, []);
+});
+
 void test("validateSymbolExists requires semantic analyzer", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(() => engine.validateSymbolExists("gml/script/foo"), {
@@ -327,6 +372,20 @@ void test("validateRename accepts metadata-only workspace edits", async () => {
     assert.equal(result.errors.length, 0);
 });
 
+void test("validateRename rejects ambiguous file rename graphs", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    ws.addFileRename("scripts/a.gml", "scripts/b.gml");
+    ws.addFileRename("scripts/b.gml", "scripts/c.gml");
+    ws.addFileRename("scripts/d.gml", "scripts/c.gml");
+
+    const result = await engine.validateRename(ws);
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((error) => error.includes("rename chains are not supported")));
+    assert.ok(result.errors.some((error) => error.includes("Duplicate file rename destination detected")));
+});
+
 void test("gatherSymbolOccurrences returns empty array without semantic", async () => {
     const engine = new RefactorEngineClass();
     const occurrences = await engine.gatherSymbolOccurrences("test");
@@ -344,6 +403,25 @@ void test("gatherSymbolOccurrences uses semantic analyzer when available", async
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
     const occurrences = await engine.gatherSymbolOccurrences("test");
     assert.deepEqual(occurrences, mockOccurrences);
+});
+
+void test("gatherSymbolOccurrences de-duplicates identical semantic occurrences", async () => {
+    const duplicatedOccurrences = [
+        { path: "test.gml", start: 0, end: 10, kind: Refactor.OccurrenceKind.DEFINITION },
+        { path: "test.gml", start: 0, end: 11, kind: Refactor.OccurrenceKind.REFERENCE },
+        { path: "test.gml", start: 50, end: 60, kind: Refactor.OccurrenceKind.REFERENCE }
+    ];
+    const mockSemantic = {
+        getSymbolOccurrences: () => duplicatedOccurrences
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const occurrences = await engine.gatherSymbolOccurrences("test");
+
+    assert.deepEqual(occurrences, [
+        { path: "test.gml", start: 0, end: 11, kind: Refactor.OccurrenceKind.REFERENCE },
+        { path: "test.gml", start: 50, end: 60, kind: Refactor.OccurrenceKind.REFERENCE }
+    ]);
 });
 
 void test("prepareHotReloadUpdates returns empty for empty workspace", async () => {
@@ -516,6 +594,25 @@ void test("applyWorkspaceEdit applies edits correctly", async () => {
     assert.equal(results.get("test.gml"), "new text world");
 });
 
+void test("applyWorkspaceEdit preserves edit ordering when many replacements target one file", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    const originalSource = "alpha beta gamma delta epsilon";
+
+    ws.addEdit("test.gml", 0, 5, "ALPHA");
+    ws.addEdit("test.gml", 6, 10, "BETA");
+    ws.addEdit("test.gml", 11, 16, "GAMMA");
+    ws.addEdit("test.gml", 17, 22, "DELTA");
+    ws.addEdit("test.gml", 23, 30, "EPSILON");
+
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile: async () => originalSource,
+        dryRun: true
+    });
+
+    assert.equal(results.get("test.gml"), "ALPHA BETA GAMMA DELTA EPSILON");
+});
+
 void test("applyWorkspaceEdit handles multiple files", async () => {
     const engine = new RefactorEngineClass();
     const ws = new WorkspaceEditFactory();
@@ -557,6 +654,28 @@ void test("applyWorkspaceEdit applies metadata edits as full-document replacemen
 
     assert.equal(results.get("objects/o_player/o_player.yy"), '{"name":"o_hero"}');
     assert.equal(writes["objects/o_player/o_player.yy"], '{"name":"o_hero"}');
+});
+
+void test("applyWorkspaceEdit can omit result content in write mode", async () => {
+    const engine = new RefactorEngineClass();
+    const ws = new WorkspaceEditFactory();
+    ws.addEdit("test.gml", 0, 3, "new");
+
+    const readFile: WorkspaceReadFile = async () => "old text here";
+    const writes: Record<string, string> = {};
+    const writeFile: WorkspaceWriteFile = async (targetPath, content) => {
+        writes[targetPath] = content;
+    };
+
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile,
+        writeFile,
+        dryRun: false,
+        includeResultContent: false
+    });
+
+    assert.equal(results.get("test.gml"), "");
+    assert.equal(writes["test.gml"], "new text here");
 });
 
 void test("applyWorkspaceEdit rejects invalid edits", async () => {

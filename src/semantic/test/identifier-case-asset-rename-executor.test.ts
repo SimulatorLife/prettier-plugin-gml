@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { __private__, createAssetRenameExecutor } from "../src/identifier-case/asset-rename-executor.js";
-import { DEFAULT_WRITE_ACCESS_MODE } from "../src/identifier-case/common.js";
+import { __private__, createAssetRenameExecutor } from "../src/identifier-case/asset-renames/executor.js";
+import { DEFAULT_WRITE_ACCESS_MODE } from "../src/identifier-case/fs-facade.js";
 
 const { ensureWritableDirectory, ensureWritableFile, readJsonFile } = __private__;
 
@@ -190,8 +190,20 @@ void describe("asset rename executor memory management", () => {
             gc();
         }
 
+        const readCountAfterQueue = readCount;
         const cachedHeap = process.memoryUsage().heapUsed;
         const result = executor.commit();
+
+        // Functional verification: after commit() the JSON cache must be cleared.
+        // Re-queuing a path that was previously cached should trigger a fresh
+        // filesystem read rather than returning the cached value.
+        executor.queueRename({ resourcePath: "assets/0.yy", toName: "demo" });
+        assert.equal(
+            readCount,
+            readCountAfterQueue + 1,
+            "Expected a fresh filesystem read after commit(), confirming the JSON cache was cleared."
+        );
+
         if (gc) {
             gc();
         }
@@ -204,10 +216,6 @@ void describe("asset rename executor memory management", () => {
         assert.equal(result.writes.length, 0);
         assert.ok(readCount > 0);
         if (!gc) {
-            assert.ok(
-                cachedHeap >= baselineHeap || finalHeap >= baselineHeap,
-                "Expected heap usage sampling to run without forced GC."
-            );
             return;
         }
 

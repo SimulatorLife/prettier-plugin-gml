@@ -15,7 +15,7 @@
  * src/format/src/printer/ or src/core/src/ast/ and import them as needed.
  */
 
-import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gmloop/core";
 import { util } from "prettier";
 
 import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/comment-printer.js";
@@ -37,9 +37,8 @@ import {
     UNDEFINED_TYPE
 } from "./constants.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
-import { joinDeclaratorPartsWithCommas } from "./function-parameter-naming.js";
 import { isLogicalComparisonClause } from "./logical-expression-predicates.js";
-import { safeGetParentNode } from "./path-utils.js";
+import { safeGetParentNode, safeGetPathName, safeGetPathValue } from "./path-utils.js";
 import {
     breakParent,
     concat,
@@ -71,11 +70,7 @@ import {
     sliceOriginalText,
     stripTrailingLineTerminators
 } from "./source-text.js";
-import {
-    shouldAddNewlinesAroundStatement,
-    shouldForceBlankLineBetweenReturnPaths,
-    shouldSuppressEmptyLineBetween
-} from "./statement-spacing-policy.js";
+import { shouldAddNewlinesAroundStatement, shouldSuppressEmptyLineBetween } from "./statement-spacing-policy.js";
 import {
     expressionIsStringLike,
     hasLineBreak,
@@ -87,54 +82,10 @@ import {
     isSimpleCallArgument,
     isSyntheticParenFlatteningEnabled
 } from "./type-guards.js";
-
-// TODO: Use Core.* directly instead of destructuring the Core namespace across
-// package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
-// `getCommentArray(...)`.
-const {
-    ASSIGNMENT_EXPRESSION,
-    BLOCK_STATEMENT,
-    CALL_EXPRESSION,
-    CONSTRUCTOR_DECLARATION,
-    DEFINE_STATEMENT,
-    DO_UNTIL_STATEMENT,
-    EXPRESSION_STATEMENT,
-    FOR_STATEMENT,
-    FUNCTION_DECLARATION,
-    EMPTY_STATEMENT,
-    FUNCTION_EXPRESSION,
-    IF_STATEMENT,
-    LITERAL,
-    MACRO_DECLARATION,
-    MEMBER_DOT_EXPRESSION,
-    MEMBER_INDEX_EXPRESSION,
-    PROGRAM,
-    REPEAT_STATEMENT,
-    STRUCT_EXPRESSION,
-    TEMPLATE_STRING_TEXT,
-    VARIABLE_DECLARATION,
-    VARIABLE_DECLARATOR,
-    WHILE_STATEMENT,
-    WITH_STATEMENT
-} = Core;
+import { joinDeclaratorPartsWithCommas } from "./variable-declarator-layout.js";
 
 const forcedStructArgumentBreaks = new WeakMap();
 const MIN_VARIABLE_DECLARATIONS_BEFORE_LOOP_PADDING = 4;
-
-function callPathMethod(path: any, methodName: any, { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}) {
-    if (!path) {
-        return defaultValue;
-    }
-
-    const method = path[methodName];
-    if (typeof method !== "function") {
-        return defaultValue;
-    }
-
-    const normalizedArgs = Core.toArray(args);
-
-    return method.apply(path, normalizedArgs);
-}
 
 const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
@@ -157,42 +108,26 @@ function _printImpl(path, options, print) {
     return _printImplCore(node, path, options, print);
 }
 
+// Ordered list of category-level printers tried in sequence. Each function
+// returns `undefined` (via implicit switch fall-through) when it does not own
+// the given node type, allowing the loop to advance to the next candidate.
+// Note: some printers legitimately return `null` for a valid-but-empty result
+// (e.g. a bare ExpressionStatement that emits nothing), so the "no match"
+// sentinel is strictly `undefined` – using `??` here would be incorrect.
+const NODE_TYPE_PRINTERS = [
+    tryPrintControlStructureNode,
+    tryPrintFunctionNode,
+    tryPrintFunctionSupportNode,
+    tryPrintVariableNode,
+    tryPrintExpressionNode,
+    tryPrintDeclarationNode,
+    tryPrintLiteralNode
+];
+
 function _printImplCore(node, path, options, print) {
-    let doc;
-
-    doc = tryPrintControlStructureNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintFunctionNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintFunctionSupportNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintVariableNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintExpressionNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintDeclarationNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
-    }
-
-    doc = tryPrintLiteralNode(node, path, options, print);
-    if (doc !== undefined) {
-        return doc;
+    for (const tryPrint of NODE_TYPE_PRINTERS) {
+        const doc = tryPrint(node, path, options, print);
+        if (doc !== undefined) return doc;
     }
 }
 
@@ -276,7 +211,7 @@ function printNodeDocComments(node, path, options) {
     // The formatter trusts the AST's `docComments` as authoritative. Legacy doc
     // comment formats (e.g. `// @function`) are normalised by the lint rule
     // `gml/normalize-doc-comments` before formatting, so no source-text fallback
-    // is needed here. The parser's `normalizeFunctionDocCommentAttachments` pass
+    // is needed here. Core's `normalizeFunctionDocCommentAttachments` helper
     // pre-attaches recognised `@function`-tag comments to the correct function
     // node, removing the need for any formatter-side source-text scan.
     // (target-state.md §2.2, §3.2, §3.5)
@@ -367,11 +302,7 @@ function joinDocCommentsPreservingSourceSpacing(
         const currentEntry = docCommentDocs[index];
         const nextEntry = docCommentDocs[index + 1];
         if (hasBlankLineBetweenDocCommentEntries(currentEntry, nextEntry, originalText)) {
-            if (shouldCollapseDescriptionToFunctionDocGap(docCommentDocs, index)) {
-                parts.push(hardline);
-            } else {
-                parts.push(hardline, hardline);
-            }
+            parts.push(hardline, hardline);
         } else {
             parts.push(hardline);
         }
@@ -393,51 +324,6 @@ function hasBlankLineBetweenDocCommentEntries(leftEntry: unknown, rightEntry: un
     }
 
     return /\r?\n[ \t]*\r?\n/u.test(slice);
-}
-
-function resolveDocCommentEntryText(commentEntry: unknown): string | null {
-    if (typeof commentEntry === "string") {
-        return commentEntry;
-    }
-
-    if (Core.isObjectLike(commentEntry)) {
-        const docText = (commentEntry as { _gmlDocText?: unknown })._gmlDocText;
-        if (typeof docText === "string") {
-            return docText;
-        }
-    }
-
-    const rawText = Core.getLineCommentRawText(commentEntry, {});
-    return typeof rawText === STRING_TYPE && rawText.length > 0 ? rawText : null;
-}
-
-function shouldCollapseDescriptionToFunctionDocGap(docCommentDocs: MutableDocCommentLines, leftIndex: number): boolean {
-    const leftText = resolveDocCommentEntryText(docCommentDocs[leftIndex]);
-    const rightText = resolveDocCommentEntryText(docCommentDocs[leftIndex + 1]);
-    if (leftText === null || rightText === null) {
-        return false;
-    }
-
-    if (!/^\/\/\/\s*@description\b/iu.test(leftText.trim())) {
-        return false;
-    }
-
-    if (!/^\/\/\/\s*@(?:function|func)\b/iu.test(rightText.trim())) {
-        return false;
-    }
-
-    for (let index = leftIndex + 2; index < docCommentDocs.length; index += 1) {
-        const trailingText = resolveDocCommentEntryText(docCommentDocs[index]);
-        if (trailingText === null) {
-            continue;
-        }
-
-        if (/^\/\/\/\s*@/iu.test(trailingText.trim())) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 function resolveDocCommentStartIndex(commentEntry: unknown): number | null {
@@ -497,8 +383,8 @@ function sortDocCommentsBySourceOrder(docCommentDocs: MutableDocCommentLines): v
     }
 
     indexedEntries.sort((left, right) => {
-        const leftStart = typeof left.startIndex === NUMBER_TYPE ? left.startIndex : Number.POSITIVE_INFINITY;
-        const rightStart = typeof right.startIndex === NUMBER_TYPE ? right.startIndex : Number.POSITIVE_INFINITY;
+        const leftStart = typeof left.startIndex === NUMBER_TYPE ? left.startIndex : Number.NEGATIVE_INFINITY;
+        const rightStart = typeof right.startIndex === NUMBER_TYPE ? right.startIndex : Number.NEGATIVE_INFINITY;
         if (leftStart !== rightStart) {
             return leftStart - rightStart;
         }
@@ -519,9 +405,9 @@ function markDocCommentsAsPrinted(node, path) {
         });
     } else {
         const parentNode = safeGetParentNode(path);
-        if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
+        if (parentNode && parentNode.type === Core.VARIABLE_DECLARATOR) {
             const grandParentNode = safeGetParentNode(path, 1);
-            if (grandParentNode && grandParentNode.type === VARIABLE_DECLARATION && grandParentNode.docComments) {
+            if (grandParentNode && grandParentNode.type === Core.VARIABLE_DECLARATION && grandParentNode.docComments) {
                 grandParentNode.docComments.forEach((comment: any) => {
                     if (comment && typeof comment === "object") {
                         comment.printed = true;
@@ -559,7 +445,7 @@ function printFunctionParameters(node, path, options, print) {
 }
 
 function printConstructorClause(node, _path, _options, print) {
-    if (node.type !== CONSTRUCTOR_DECLARATION) {
+    if (node.type !== Core.CONSTRUCTOR_DECLARATION) {
         return "";
     }
 
@@ -606,12 +492,15 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
 
 function tryPrintVariableNode(node, path, options, print) {
     switch (node.type) {
-        case EXPRESSION_STATEMENT: {
+        case Core.EXPRESSION_STATEMENT: {
             const printed = print("expression");
             return printed === "" ? null : printed;
         }
         case "AssignmentExpression": {
-            return group(concat([group(print("left")), " ", node.operator, " ", group(print("right"))]));
+            // Keep chained assignments together in a single group.
+            // Calling `print("left")`/`print("right")` allows nested assignment chains
+            // to format consistently via the same print logic without manually recursing.
+            return group(concat([print("left"), " ", node.operator, " ", print("right")]));
         }
         case "GlobalVarStatement": {
             return printGlobalVarStatementAsKeyword(node, path, print, options);
@@ -627,21 +516,6 @@ function tryPrintVariableNode(node, path, options, print) {
 
             if (node.kind === "static") {
                 // WORKAROUND: Bypass printCommaSeparatedList for static declarations.
-                //
-                // PROBLEM: printCommaSeparatedList introduces unwanted blank lines or produces
-                // empty output when formatting static variable declarations with multiple declarators.
-                // The exact root cause is unclear (likely a state-tracking issue in the helper),
-                // but static declarations are nearly always single-line or short lists in GML.
-                //
-                // SOLUTION: Manually map each declarator and join them with ", " to avoid the
-                // broken helper entirely. This ensures static declarations format correctly.
-                //
-                // WHAT WOULD BREAK: Removing this workaround would cause static declarations
-                // to either disappear from the output or gain spurious blank lines, breaking
-                // both correctness and readability.
-                //
-                // LONG-TERM FIX: Investigate and fix the underlying issue in printCommaSeparatedList
-                // so it correctly handles static declarations, then remove this manual join logic.
                 const parts = path.map(print, "declarations");
                 const joined = joinDeclaratorPartsWithCommas(parts);
 
@@ -784,15 +658,15 @@ function printCallExpressionNode(node, path, options, print) {
     } else {
         const callbackArguments = node.arguments.filter(
             (argument) =>
-                argument?.type === FUNCTION_DECLARATION ||
-                argument?.type === FUNCTION_EXPRESSION ||
-                argument?.type === CONSTRUCTOR_DECLARATION
+                argument?.type === Core.FUNCTION_DECLARATION ||
+                argument?.type === Core.FUNCTION_EXPRESSION ||
+                argument?.type === Core.CONSTRUCTOR_DECLARATION
         );
         const structArguments = [];
         const structArgumentsToBreak = [];
         for (let index = 0; index < node.arguments.length; index++) {
             const argument = node.arguments[index];
-            if (argument?.type === STRUCT_EXPRESSION) {
+            if (argument?.type === Core.STRUCT_EXPRESSION) {
                 structArguments.push(argument);
                 const previousArgument = index > 0 ? node.arguments[index - 1] : null;
                 if (shouldForceBreakStructArgument(argument, options, previousArgument)) {
@@ -821,10 +695,10 @@ function printCallExpressionNode(node, path, options, print) {
 
         const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
             (argumentNode) =>
-                argumentNode?.type === FUNCTION_DECLARATION ||
-                argumentNode?.type === FUNCTION_EXPRESSION ||
-                argumentNode?.type === CONSTRUCTOR_DECLARATION ||
-                argumentNode?.type === STRUCT_EXPRESSION
+                argumentNode?.type === Core.FUNCTION_DECLARATION ||
+                argumentNode?.type === Core.FUNCTION_EXPRESSION ||
+                argumentNode?.type === Core.CONSTRUCTOR_DECLARATION ||
+                argumentNode?.type === Core.STRUCT_EXPRESSION
         );
 
         const shouldIncludeInlineVariant =
@@ -836,7 +710,11 @@ function printCallExpressionNode(node, path, options, print) {
             forceBreak: shouldForceBreakArguments,
             maxElementsPerLine: effectiveElementsPerLineLimit,
             includeInlineVariant: shouldIncludeInlineVariant,
-            hasCallbackArguments
+            hasCallbackArguments,
+            // Keep call expressions in l-value chains on one line to avoid
+            // breaking the chain into multiple visual lines (e.g. `foo().bar`).
+            // This preserves readability for chained property access after calls.
+            forceInline: isInLValueChain(path)
         });
 
         if (shouldUseCallbackLayout) {
@@ -867,13 +745,13 @@ function printCallExpressionNode(node, path, options, print) {
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {
-    if (isInLValueChain(path) && path.parent?.type === CALL_EXPRESSION) {
+    if (isInLValueChain(path) && path.parent?.type === Core.CALL_EXPRESSION) {
         const objectNode = path.getValue()?.object;
         const shouldAllowBreakBeforeDot =
             objectNode &&
-            (objectNode.type === CALL_EXPRESSION ||
-                objectNode.type === MEMBER_DOT_EXPRESSION ||
-                objectNode.type === MEMBER_INDEX_EXPRESSION);
+            (objectNode.type === Core.CALL_EXPRESSION ||
+                objectNode.type === Core.MEMBER_DOT_EXPRESSION ||
+                objectNode.type === Core.MEMBER_INDEX_EXPRESSION);
 
         if (shouldAllowBreakBeforeDot) {
             return concat([print(OBJECT_TYPE), softline, ".", print("property")]);
@@ -954,15 +832,15 @@ function printNewExpressionNode(node, path, options, print) {
 
     const callbackArguments = node.arguments.filter(
         (argument) =>
-            argument?.type === FUNCTION_DECLARATION ||
-            argument?.type === FUNCTION_EXPRESSION ||
-            argument?.type === CONSTRUCTOR_DECLARATION
+            argument?.type === Core.FUNCTION_DECLARATION ||
+            argument?.type === Core.FUNCTION_EXPRESSION ||
+            argument?.type === Core.CONSTRUCTOR_DECLARATION
     );
     const structArguments = [];
     const structArgumentsToBreak = [];
     for (let index = 0; index < node.arguments.length; index++) {
         const argument = node.arguments[index];
-        if (argument?.type === STRUCT_EXPRESSION) {
+        if (argument?.type === Core.STRUCT_EXPRESSION) {
             structArguments.push(argument);
             const previousArgument = index > 0 ? node.arguments[index - 1] : null;
             if (shouldForceBreakStructArgument(argument, options, previousArgument)) {
@@ -991,10 +869,10 @@ function printNewExpressionNode(node, path, options, print) {
 
     const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
         (argumentNode) =>
-            argumentNode?.type === FUNCTION_DECLARATION ||
-            argumentNode?.type === FUNCTION_EXPRESSION ||
-            argumentNode?.type === CONSTRUCTOR_DECLARATION ||
-            argumentNode?.type === STRUCT_EXPRESSION
+            argumentNode?.type === Core.FUNCTION_DECLARATION ||
+            argumentNode?.type === Core.FUNCTION_EXPRESSION ||
+            argumentNode?.type === Core.CONSTRUCTOR_DECLARATION ||
+            argumentNode?.type === Core.STRUCT_EXPRESSION
     );
 
     const shouldIncludeInlineVariant = shouldUseCallbackLayout && !shouldForceBreakArguments && simplePrefixLength > 1;
@@ -1334,7 +1212,7 @@ function buildTemplateStringParts(atoms, path, print) {
     for (let index = 0; index < length; index += 1) {
         const atom = atoms[index];
 
-        if (atom?.type === TEMPLATE_STRING_TEXT && typeof atom.value === STRING_TYPE) {
+        if (atom?.type === Core.TEMPLATE_STRING_TEXT && typeof atom.value === STRING_TYPE) {
             parts.push(atom.value);
             continue;
         }
@@ -1433,7 +1311,8 @@ function buildCallArgumentsDocs(
         forceBreak = false,
         maxElementsPerLine = Infinity,
         includeInlineVariant = false,
-        hasCallbackArguments = false
+        hasCallbackArguments = false,
+        forceInline = false
     } = {}
 ) {
     const node = path.getValue();
@@ -1459,7 +1338,7 @@ function buildCallArgumentsDocs(
     const firstArgumentNode = node.arguments[0];
     const firstArgumentText = firstArgumentNode?.value;
     const firstArgumentIsStringLiteral =
-        firstArgumentNode?.type === LITERAL &&
+        firstArgumentNode?.type === Core.LITERAL &&
         typeof firstArgumentText === STRING_TYPE &&
         (firstArgumentText.startsWith('"') || firstArgumentText.startsWith("'") || firstArgumentText.startsWith('@"'));
 
@@ -1478,6 +1357,7 @@ function buildCallArgumentsDocs(
 
     const multilineDoc = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
         forceBreak,
+        forceInline,
         maxElementsPerLine
     });
 
@@ -1631,7 +1511,7 @@ function printInBlock(path, options, print, expressionKey) {
     const parentNode = path.getValue();
     const node = parentNode[expressionKey];
 
-    if (node.type === BLOCK_STATEMENT) {
+    if (node.type === Core.BLOCK_STATEMENT) {
         return [print(expressionKey), optionalSemicolon(node.type)];
     }
 
@@ -1668,7 +1548,7 @@ function shouldPrintBlockAlternateAsElseIf(node) {
     }
 
     const [onlyStatement] = body;
-    return onlyStatement?.type === IF_STATEMENT;
+    return onlyStatement?.type === Core.IF_STATEMENT;
 }
 
 // print a delimited sequence of elements
@@ -1899,10 +1779,10 @@ function buildStatementPartsForPrinter({
     if (!node) {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
-    const isTopLevel = childPath.parent?.type === PROGRAM;
+    const isTopLevel = childPath.parent?.type === Core.PROGRAM;
     const printed = print();
 
-    if (printed == null || (printed === "" && node.type !== EMPTY_STATEMENT)) {
+    if (printed == null || (printed === "" && node.type !== Core.EMPTY_STATEMENT)) {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
 
@@ -1929,7 +1809,7 @@ function buildStatementPartsForPrinter({
         nodeStartIndex
     });
 
-    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
+    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== Core.PROGRAM;
 
     const textForSemicolons = originalTextCache || "";
     let hasTerminatingSemicolon = false;
@@ -1944,14 +1824,14 @@ function buildStatementPartsForPrinter({
         hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
     }
 
-    const isVariableDeclaration = node.type === VARIABLE_DECLARATION;
+    const isVariableDeclaration = node.type === Core.VARIABLE_DECLARATION;
     const isStaticDeclaration = isVariableDeclaration && node.kind === "static";
     const hasFunctionInitializer =
         isVariableDeclaration &&
         Array.isArray(node.declarations) &&
         node.declarations.some((declaration) => {
             const initType = declaration?.init?.type;
-            return initType === FUNCTION_EXPRESSION || initType === FUNCTION_DECLARATION;
+            return initType === Core.FUNCTION_EXPRESSION || initType === Core.FUNCTION_DECLARATION;
         });
 
     if (isFirstStatementInBlock && isStaticDeclaration) {
@@ -2050,20 +1930,20 @@ function normalizeStatementSemicolon({ node, semi, hasTerminatingSemicolon, isSt
     }
 
     const initializerIsFunctionExpression =
-        node.type === VARIABLE_DECLARATION &&
+        node.type === Core.VARIABLE_DECLARATION &&
         Array.isArray(node.declarations) &&
         node.declarations.length === 1 &&
-        (node.declarations[0]?.init?.type === FUNCTION_EXPRESSION ||
-            node.declarations[0]?.init?.type === FUNCTION_DECLARATION);
+        (node.declarations[0]?.init?.type === Core.FUNCTION_EXPRESSION ||
+            node.declarations[0]?.init?.type === Core.FUNCTION_DECLARATION);
 
     if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
         return semi;
     }
 
     const assignmentExpressionForSemicolonCheck =
-        node.type === ASSIGNMENT_EXPRESSION
+        node.type === Core.ASSIGNMENT_EXPRESSION
             ? node
-            : node.type === EXPRESSION_STATEMENT && node.expression?.type === ASSIGNMENT_EXPRESSION
+            : node.type === Core.EXPRESSION_STATEMENT && node.expression?.type === Core.ASSIGNMENT_EXPRESSION
               ? node.expression
               : null;
 
@@ -2151,23 +2031,23 @@ function applyTrailingSpacing({
 }
 
 function isStaticFunctionVariableDeclaration(node) {
-    if (node?.type !== VARIABLE_DECLARATION || node.kind !== "static" || !Array.isArray(node.declarations)) {
+    if (node?.type !== Core.VARIABLE_DECLARATION || node.kind !== "static" || !Array.isArray(node.declarations)) {
         return false;
     }
 
     return node.declarations.some((declaration) => {
         const initializerType = declaration?.init?.type;
-        return initializerType === FUNCTION_EXPRESSION || initializerType === FUNCTION_DECLARATION;
+        return initializerType === Core.FUNCTION_EXPRESSION || initializerType === Core.FUNCTION_DECLARATION;
     });
 }
 
 function isLoopLikeStatement(node) {
     return (
-        node?.type === FOR_STATEMENT ||
-        node?.type === WHILE_STATEMENT ||
-        node?.type === REPEAT_STATEMENT ||
-        node?.type === DO_UNTIL_STATEMENT ||
-        node?.type === WITH_STATEMENT
+        node?.type === Core.FOR_STATEMENT ||
+        node?.type === Core.WHILE_STATEMENT ||
+        node?.type === Core.REPEAT_STATEMENT ||
+        node?.type === Core.DO_UNTIL_STATEMENT ||
+        node?.type === Core.WITH_STATEMENT
     );
 }
 
@@ -2182,7 +2062,7 @@ function countContiguousVariableDeclarationsBeforeIndexWithSource(
 
     let count = 0;
     for (let cursor = index; cursor >= 0; cursor -= 1) {
-        if (statements[cursor]?.type !== VARIABLE_DECLARATION) {
+        if (statements[cursor]?.type !== Core.VARIABLE_DECLARATION) {
             break;
         }
 
@@ -2234,6 +2114,25 @@ function hasBlankLineBetweenStatements(leftNode, rightNode, originalText: string
     return /\r?\n[ \t]*\r?\n/u.test(betweenText);
 }
 
+function hasTrailingCommentOnStatementLine(node, originalText: string): boolean {
+    const nodeEndIndex = Core.getNodeEndIndex(node);
+    if (typeof nodeEndIndex !== NUMBER_TYPE || nodeEndIndex < 0 || nodeEndIndex >= originalText.length) {
+        return false;
+    }
+
+    let lineEndIndex = nodeEndIndex;
+    while (lineEndIndex < originalText.length) {
+        const character = originalText[lineEndIndex];
+        if (character === "\n" || character === "\r") {
+            break;
+        }
+
+        lineEndIndex += 1;
+    }
+
+    return /\/\/|\/\*/u.test(originalText.slice(nodeEndIndex, lineEndIndex));
+}
+
 function isNodeImmediatelyPrecededByBlockComment(node, originalText: string): boolean {
     const nodeStartIndex = Core.getNodeStartIndex(node);
     if (typeof nodeStartIndex !== NUMBER_TYPE || nodeStartIndex <= 0) {
@@ -2267,7 +2166,7 @@ function shouldForceVariableBlockBeforeLoopPadding(
     nextNode,
     originalText: string | null
 ): boolean {
-    if (node?.type !== VARIABLE_DECLARATION || !isLoopLikeStatement(nextNode)) {
+    if (node?.type !== Core.VARIABLE_DECLARATION || !isLoopLikeStatement(nextNode)) {
         return false;
     }
 
@@ -2334,20 +2233,23 @@ function handleIntermediateTrailingSpacing({
     }
 
     const nextLineProbeIndex =
-        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
+        node?.type === Core.DEFINE_STATEMENT || node?.type === Core.MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
 
     const forceFollowingEmptyLine = node?._gmlForceFollowingEmptyLine === true;
     const originalText = typeof options.originalText === STRING_TYPE ? (options.originalText as string) : null;
+    const currentStatementIsDelete = Core.isDeleteStatementNode(node);
     const hasSourceBlankLineBeforeNextNode =
         !suppressFollowingEmptyLine &&
         originalText !== null &&
         nextNode != null &&
         hasBlankLineBetweenStatements(node, nextNode, originalText);
+    const currentStatementHasTrailingComment =
+        originalText !== null && hasTrailingCommentOnStatementLine(node, originalText);
     const nextLineEmpty = suppressFollowingEmptyLine
         ? false
         : util.isNextLineEmpty(options.originalText, nextLineProbeIndex) || hasSourceBlankLineBeforeNextNode;
 
-    const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
+    const isSanitizedMacro = node?.type === Core.MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
         isSanitizedMacro && macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
     const hasAutomaticPaddingCapacity = canForceAutomaticPadding(
@@ -2369,7 +2271,7 @@ function handleIntermediateTrailingSpacing({
         isMacroLikeNode && !isDefineMacroReplacement && !nextNodeIsMacro && hasAutomaticPaddingCapacity;
     const isLoopStatement = isLoopLikeStatement(node);
     const nextNodeIsLoop = isLoopLikeStatement(nextNode);
-    const nextNodeIsVariableDeclaration = nextNode?.type === VARIABLE_DECLARATION;
+    const nextNodeIsVariableDeclaration = nextNode?.type === Core.VARIABLE_DECLARATION;
     const shouldForceLoopSectionPadding =
         hasAutomaticPaddingCapacityWithSuppressionGuard &&
         isLoopStatement &&
@@ -2387,16 +2289,12 @@ function handleIntermediateTrailingSpacing({
         hasAutomaticPaddingCapacityWithSuppressionGuard &&
         containerNode?.type === "ConstructorDeclaration" &&
         isStaticFunctionVariableDeclaration(nextNode);
-    const shouldForceEarlyReturnPadding =
-        !suppressFollowingEmptyLine && shouldForceBlankLineBetweenReturnPaths(node, nextNode);
-
     const shouldAddForcedPadding = [
         shouldForceMacroPadding,
         shouldForceLoopSectionPadding,
         shouldForceVariableBlockLoopPadding,
         shouldForceConstructorStaticSectionPadding,
-        forceFollowingEmptyLine && hasAutomaticPaddingCapacity,
-        shouldForceEarlyReturnPadding && hasAutomaticPaddingCapacity
+        forceFollowingEmptyLine && hasAutomaticPaddingCapacity
     ].some(Boolean);
 
     // Suppress the blank line between a #region and an immediately following
@@ -2436,19 +2334,28 @@ function handleIntermediateTrailingSpacing({
             originalText !== null &&
             nextNode != null &&
             isNodeImmediatelyPrecededByBlockComment(nextNode, originalText);
-        const nextNodePrintsDocCommentBlock =
-            Core.isNonEmptyArray(nextNode?.docComments) || Core.isNonEmptyArray(nextNode?._syntheticDocLines);
+        const nextNodePrintsDocCommentBlock = Core.isNonEmptyArray(nextNode?.docComments);
 
         const shouldPreserveSourceGapBeforeDocCommentedNode =
             nextNodePrintsDocCommentBlock && hasSourceBlankLineBeforeNextNode;
+        const shouldPreserveSourceGapAfterTrailingComment =
+            currentStatementHasTrailingComment &&
+            hasSourceBlankLineBeforeNextNode &&
+            (currentStatementIsDelete || !isTopLevel);
+        const shouldCollapseTopLevelTrailingCommentGap =
+            isTopLevel && currentStatementHasTrailingComment && !currentStatementIsDelete;
 
         const shouldApplyGenericSourceBlankLineSpacing =
-            !nextNodePrintsDocCommentBlock && !nextNodeHasLeadingComment && !nextNodeHasCommentGap;
+            !shouldCollapseTopLevelTrailingCommentGap &&
+            !nextNodePrintsDocCommentBlock &&
+            !nextNodeHasLeadingComment &&
+            !nextNodeHasCommentGap;
 
         if (
             shouldApplyGenericSourceBlankLineSpacing ||
             nextNodeHasBlockCommentImmediatelyBefore ||
-            shouldPreserveSourceGapBeforeDocCommentedNode
+            shouldPreserveSourceGapBeforeDocCommentedNode ||
+            shouldPreserveSourceGapAfterTrailingComment
         ) {
             parts.push(hardlineDoc);
         }
@@ -2473,7 +2380,7 @@ function handleTerminalTrailingSpacing({
     const parentNode = childPath.parent;
     const isFunctionDeclarationNode = node?.type === "FunctionDeclaration";
     const trailingProbeIndex =
-        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
+        node?.type === Core.DEFINE_STATEMENT || node?.type === Core.MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
     const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
     const blockParent = safeGetParentNode(childPath) ?? childPath.parent;
     const constructorAncestor = safeGetParentNode(childPath, 1) ?? blockParent?.parent ?? null;
@@ -2482,10 +2389,7 @@ function handleTerminalTrailingSpacing({
     const constructorHasParentClause = isConstructorBlock && constructorAncestor.parent != null;
     const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
     let shouldPreserveTrailingBlankLine = false;
-    const hasAttachedDocComment =
-        node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-        Core.isNonEmptyArray(node?.docComments) ||
-        Core.isNonEmptyArray(node?._syntheticDocLines);
+    const hasAttachedDocComment = node?.[DOC_COMMENT_OUTPUT_FLAG] === true || Core.isNonEmptyArray(node?.docComments);
     const requiresTrailingPadding =
         enforceTrailingPadding &&
         parentNode?.type === "BlockStatement" &&
@@ -2805,7 +2709,7 @@ function getBinaryOperatorInfo(operator) {
 
 function shouldOmitSyntheticParens(path, _options) {
     void _options;
-    const node = callPathMethod(path, "getValue", { defaultValue: null });
+    const node = safeGetPathValue(path);
     if (!node || node.type !== "ParenthesizedExpression") {
         return false;
     }
@@ -2817,14 +2721,12 @@ function shouldOmitSyntheticParens(path, _options) {
     // and can be safely omitted when the context makes precedence unambiguous.
     const isSynthetic = node.synthetic === true;
 
-    const parent = callPathMethod(path, "getParentNode", {
-        defaultValue: null
-    });
+    const parent = safeGetParentNode(path);
     if (!parent) {
         return false;
     }
 
-    const parentKey = callPathMethod(path, "getName");
+    const parentKey = safeGetPathName(path);
     const expression = node.expression;
 
     if (shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression)) {
@@ -3009,7 +2911,7 @@ function shouldFlattenTernaryTest(parentKey, expression) {
 }
 
 function shouldWrapTernaryExpression(path) {
-    const node = callPathMethod(path, "getValue", { defaultValue: null });
+    const node = safeGetPathValue(path);
     if (node && node.__skipTernaryParens) {
         return false;
     }
@@ -3480,7 +3382,7 @@ function shouldFlattenSyntheticBinary(parent, expression, _path) {
         return true;
     }
 
-    const parentKey = callPathMethod(_path, "getName");
+    const parentKey = safeGetPathName(_path);
     const parentIsAdditive = parent.operator === "+" || parent.operator === "-";
     const expressionIsAdditive = expression.operator === "+" || expression.operator === "-";
     if (!parentIsAdditive || !expressionIsAdditive) {

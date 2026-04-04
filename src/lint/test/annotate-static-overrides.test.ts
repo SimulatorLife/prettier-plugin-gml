@@ -9,9 +9,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gmloop/core";
 
-import { annotateStaticFunctionOverridesTransform } from "../src/rules/gml/transforms/comments/annotate-static-overrides.js";
+import { annotateStaticFunctionOverridesTransform } from "../src/rules/gml/transforms/comment-annotate-static-overrides.js";
 import { assertEquals } from "./assertions.js";
 
 /**

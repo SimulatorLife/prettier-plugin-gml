@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { createProjectIndexAbortGuard, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE } from "./abort-guard.js";
 import { isProjectManifestPath } from "./constants.js";

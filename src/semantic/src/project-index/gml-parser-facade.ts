@@ -1,8 +1,8 @@
-import { Core } from "@gml-modules/core";
-import * as Parser from "@gml-modules/parser";
+import { Core } from "@gmloop/core";
+import * as Parser from "@gmloop/parser";
 
 import { SemanticScopeCoordinator } from "../scopes/identifier-scope.js";
-import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
+import { formatProjectIndexSyntaxError } from "./parsing/syntax-error-formatter.js";
 
 /**
  * Parser facade adapter for the project-index subsystem.
@@ -19,7 +19,7 @@ import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
  * LONG-TERM PLAN: Once the parser is fully rebuilt and scope tracking is moved
  * entirely to the 'semantic' layer (or made optional in the parser), this facade
  * can be removed. At that point:
- *   1. 'Semantic' will import '@gml-modules/parser' directly.
+ *   1. 'Semantic' will import '@gmloop/parser' directly.
  *   2. The parser will not depend on 'semantic' at all.
  *   3. Scope analysis will happen as a post-parse step in 'semantic'.
  *
@@ -33,8 +33,6 @@ type ProjectIndexParser = (sourceText: string, context?: unknown) => unknown;
 let parserNamespace: ParserNamespace | null = null;
 const defaultProjectIndexParser: ProjectIndexParser = (sourceText: string, context = {}) =>
     parseProjectIndexSource(sourceText, context);
-
-const PARSER_FACADE_OPTION_KEYS = ["identifierCaseProjectIndexParserFacade", "gmlParserFacade", "parserFacade"];
 
 export function setProjectIndexParserNamespace(parser: ParserNamespace): void {
     parserNamespace = parser;
@@ -109,14 +107,12 @@ export function getProjectIndexParserOverride(options) {
         return null;
     }
 
-    for (const key of PARSER_FACADE_OPTION_KEYS) {
-        const facade = options[key];
-        if (typeof facade?.parse === "function") {
-            return {
-                facade,
-                parse: facade.parse.bind(facade)
-            };
-        }
+    const facade = options.gmlParserFacade;
+    if (typeof facade?.parse === "function") {
+        return {
+            facade,
+            parse: facade.parse.bind(facade)
+        };
     }
 
     const parse = options.parseGml;

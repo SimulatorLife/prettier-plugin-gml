@@ -1,6 +1,6 @@
 import test from "node:test";
 
-import type * as LintWorkspace from "@gml-modules/lint";
+import type * as LintWorkspace from "@gmloop/lint";
 
 type ExpectTrue<T extends true> = T;
 type IsAssignable<TValue, TExpected> = TValue extends TExpected ? true : false;

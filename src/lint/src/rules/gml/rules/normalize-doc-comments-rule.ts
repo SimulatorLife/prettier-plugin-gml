@@ -1,11 +1,7 @@
-import * as CoreWorkspace from "@gml-modules/core";
+import * as CoreWorkspace from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import {
-    convertLegacyReturnsDescriptionLinesToMetadata,
-    promoteLeadingDocCommentTextToDescription
-} from "../../../doc-comment/index.js";
-import type { GmlRuleDefinition } from "../../catalog.js";
+import { gmlRuleDocCommentServices } from "../gml-rule-services.js";
 import {
     type AstNodeWithType,
     computeLineStartOffsets,
@@ -15,6 +11,10 @@ import {
     reportFullTextRewrite,
     walkAstNodesWithParent
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
+
+const { convertLegacyReturnsDescriptionLinesToMetadata, promoteLeadingDocCommentTextToDescription } =
+    gmlRuleDocCommentServices;
 
 const { applyJsDocTagAliasReplacements } = CoreWorkspace.Core;
 
@@ -423,16 +423,12 @@ function remapUnmatchedParamDocLinesToFunctionOrder(
         return docLines;
     }
 
-    const rewrittenLines = Array.from(docLines);
-    for (const [missingParamIndex, unmatchedLineIndex] of unmatchedParamLineIndices.entries()) {
-        const replacementName = missingFunctionParamNames[missingParamIndex];
-        if (typeof replacementName !== "string") {
-            break;
-        }
-
-        rewrittenLines[unmatchedLineIndex] = rewriteDocCommentParamLineName(
-            rewrittenLines[unmatchedLineIndex],
-            replacementName
+    const rewrittenLines = [...docLines];
+    const pairCount = Math.min(unmatchedParamLineIndices.length, missingFunctionParamNames.length);
+    for (let i = 0; i < pairCount; i++) {
+        rewrittenLines[unmatchedParamLineIndices[i]] = rewriteDocCommentParamLineName(
+            rewrittenLines[unmatchedParamLineIndices[i]],
+            missingFunctionParamNames[i]
         );
     }
 
@@ -1078,28 +1074,31 @@ function collectExistingParamNames(docLines: ReadonlyArray<string>): Set<string>
     return existingParams;
 }
 
-function escapeLiteralForRegExpPattern(value: string): string {
-    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
-}
-
 function updateExistingParamDocWithDefault(docBlock: Array<string>, parameterName: string, defaultVal: string): void {
-    const escapedParameterName = escapeLiteralForRegExpPattern(parameterName);
+    const escapedParameterName = CoreWorkspace.Core.escapeRegExp(parameterName);
+    const normalizedDocName = isFunctionDefaultValueText(defaultVal)
+        ? `[${parameterName}]`
+        : formatOptionalParamDocName(parameterName, defaultVal);
     for (const [index, line] of docBlock.entries()) {
         const optionalParamMatch = new RegExp(
-            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)\[${escapedParameterName}(?:=[^\]]*)?\]*(.*)$`
+            String.raw`^(\s*///\s*@param)(\s+\{[^}]+\})?(\s+)\[${escapedParameterName}(?:=[^\]]*)?\]*(.*)$`
         ).exec(line);
         if (optionalParamMatch) {
+            const typeAnnotation =
+                optionalParamMatch[2] ?? (isFunctionDefaultValueText(defaultVal) ? " {function}" : "");
             docBlock[index] =
-                `${optionalParamMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${optionalParamMatch[2]}`;
+                `${optionalParamMatch[1]}${typeAnnotation}${optionalParamMatch[3]}${normalizedDocName}${optionalParamMatch[4]}`;
             return;
         }
 
         const requiredParamMatch = new RegExp(
-            String.raw`^(\s*///\s*@param(?:\s+\{[^}]+\})?\s+)${escapedParameterName}\b(.*)$`
+            String.raw`^(\s*///\s*@param)(\s+\{[^}]+\})?(\s+)${escapedParameterName}\b(.*)$`
         ).exec(line);
         if (requiredParamMatch) {
+            const typeAnnotation =
+                requiredParamMatch[2] ?? (isFunctionDefaultValueText(defaultVal) ? " {function}" : "");
             docBlock[index] =
-                `${requiredParamMatch[1]}${formatOptionalParamDocName(parameterName, defaultVal)}${requiredParamMatch[2]}`;
+                `${requiredParamMatch[1]}${typeAnnotation}${requiredParamMatch[3]}${normalizedDocName}${requiredParamMatch[4]}`;
             return;
         }
     }
@@ -1217,8 +1216,12 @@ function inferReturnDocTypeFromTextAfterLine(
     return docParamTypesByName.get(inferredParamName) ?? "any";
 }
 
+function isTextualNamedFunctionDeclarationLine(line: string): boolean {
+    return /^\s*function\s+[A-Za-z_]\w*\s*\(/u.test(line);
+}
+
 function countTopLevelFunctionHeaders(lines: ReadonlyArray<string>): number {
-    return lines.filter((line) => /^\s*function\b/.test(line)).length;
+    return lines.filter((line) => isTextualNamedFunctionDeclarationLine(line)).length;
 }
 
 function isTextualConstructorFunctionLine(line: string): boolean {
@@ -1319,7 +1322,7 @@ export function createNormalizeDocCommentsRule(definition: GmlRuleDefinition): R
                         // just `{type:"Program"}` so the map will be empty; fall back to a
                         // simple regex to recognize function headers in that case.
                         const hasLeadingIndentation = /^\s+/u.test(line);
-                        const isTextualFunctionDeclaration = /^\s*function\b/u.test(line);
+                        const isTextualFunctionDeclaration = isTextualNamedFunctionDeclarationLine(line);
                         const isTextualFunctionAssignment = /^\s*(?:var|static)\s+[A-Za-z_]\w*\s*=\s*function\b/u.test(
                             line
                         );
@@ -1469,7 +1472,6 @@ function determineIfShouldSynthesizeReturnLine({
         returnInference.hasConcreteReturn;
     const suppressUndocumentedStructReturnForDeclarations =
         !assignmentStyle &&
-        !hadInputDocLines &&
         normalizeReturnTypeForComparison(inferredReturnType) === "struct" &&
         returnInference.hasConcreteReturn;
     const suppressUndocumentedNoParamPropertyFunctionReturn =
@@ -1524,6 +1526,16 @@ function handleDeferredDocSynthesis(
                 const assignmentLines = assignmentText.split(/\r?\n/u);
                 const assignmentEndLineIndex = getLineIndexForOffset(lineStartOffsets, assignmentEndIndex - 1);
                 const deferredLines = ["", ...synthesized, ...assignmentLines];
+                if (
+                    hasMaterializedDeferredDocumentedAssignmentAfterSourceText(
+                        text,
+                        assignmentSliceEndIndex,
+                        synthesized,
+                        assignmentLines
+                    )
+                ) {
+                    return true;
+                }
                 const existingDeferredLines = deferredDocBlocksByLineIndex.get(assignmentEndLineIndex) ?? [];
                 existingDeferredLines.push(...deferredLines);
                 deferredDocBlocksByLineIndex.set(assignmentEndLineIndex, existingDeferredLines);
@@ -1532,4 +1544,34 @@ function handleDeferredDocSynthesis(
         }
     }
     return false;
+}
+
+function hasMaterializedDeferredDocumentedAssignmentAfterSourceText(
+    sourceText: string,
+    assignmentSliceEndIndex: number,
+    synthesizedDocLines: ReadonlyArray<string>,
+    assignmentLines: ReadonlyArray<string>
+): boolean {
+    const followingLines = sourceText.slice(assignmentSliceEndIndex).split(/\r?\n/u);
+    let lineIndex = 0;
+    while (lineIndex < followingLines.length && followingLines[lineIndex].trim().length === 0) {
+        lineIndex += 1;
+    }
+
+    if (lineIndex === 0) {
+        return false;
+    }
+
+    const expectedLines = [...synthesizedDocLines, ...assignmentLines];
+    if (followingLines.length - lineIndex < expectedLines.length) {
+        return false;
+    }
+
+    for (const [expectedIndex, expectedLine] of expectedLines.entries()) {
+        if (followingLines[lineIndex + expectedIndex] !== expectedLine) {
+            return false;
+        }
+    }
+
+    return true;
 }

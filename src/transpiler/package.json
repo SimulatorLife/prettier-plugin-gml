@@ -1,5 +1,5 @@
 {
-  "name": "@gml-modules/transpiler",
+  "name": "@gmloop/transpiler",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,12 +12,12 @@
     "dist"
   ],
   "dependencies": {
-    "@gml-modules/core": "workspace:*",
-    "@gml-modules/parser": "workspace:*",
-    "@gml-modules/semantic": "workspace:*"
+    "@gmloop/core": "workspace:*",
+    "@gmloop/parser": "workspace:*",
+    "@gmloop/semantic": "workspace:*"
   },
   "scripts": {
-    "build:types": "tsc -p tsconfig.json",
+    "build:types": "tsc -b tsconfig.json",
     "clean:types": "rm -rf dist",
     "test": "pnpm run build:types && node --test dist/test/*.test.js dist/test/performance/*.test.js"
   },

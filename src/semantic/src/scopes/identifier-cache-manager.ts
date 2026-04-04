@@ -13,6 +13,19 @@ export class IdentifierCacheManager {
      * associated resolution results (or null if not found in that scope).
      */
     private readonly cache = new Map<string, Map<string, ScopeSymbolMetadata | null>>();
+    private readonly maxTrackedNames: number;
+    private readonly maxScopesPerName: number;
+
+    constructor(options: { maxTrackedNames?: number; maxScopesPerName?: number } = {}) {
+        this.maxTrackedNames =
+            typeof options.maxTrackedNames === "number" && Number.isFinite(options.maxTrackedNames)
+                ? Math.max(1, Math.floor(options.maxTrackedNames))
+                : 4000;
+        this.maxScopesPerName =
+            typeof options.maxScopesPerName === "number" && Number.isFinite(options.maxScopesPerName)
+                ? Math.max(1, Math.floor(options.maxScopesPerName))
+                : 64;
+    }
 
     /**
      * Attempts to read a resolution result from the cache for a given identifier name in a specific scope.
@@ -23,7 +36,17 @@ export class IdentifierCacheManager {
      */
     public read(name: string, scopeId: string): ScopeSymbolMetadata | null | undefined {
         const scopeResults = this.cache.get(name);
-        return scopeResults?.get(scopeId);
+        const value = scopeResults?.get(scopeId);
+        if (!scopeResults || value === undefined) {
+            return value;
+        }
+
+        // Mark as recently used by reinserting both the name and scope entry.
+        scopeResults.delete(scopeId);
+        scopeResults.set(scopeId, value);
+        this.cache.delete(name);
+        this.cache.set(name, scopeResults);
+        return value;
     }
 
     /**
@@ -35,12 +58,30 @@ export class IdentifierCacheManager {
      */
     public write(name: string, scopeId: string, declaration: ScopeSymbolMetadata | null): void {
         let scopeResults = this.cache.get(name);
-        if (!scopeResults) {
+        if (scopeResults) {
+            // Mark as recently used at the top-level cache.
+            this.cache.delete(name);
+            this.cache.set(name, scopeResults);
+        } else {
             scopeResults = new Map();
             this.cache.set(name, scopeResults);
         }
 
+        if (!scopeResults.has(scopeId) && scopeResults.size >= this.maxScopesPerName) {
+            const oldestScopeId = scopeResults.keys().next().value;
+            if (oldestScopeId) {
+                scopeResults.delete(oldestScopeId);
+            }
+        }
+
         scopeResults.set(scopeId, declaration);
+
+        if (this.cache.size > this.maxTrackedNames) {
+            const oldestName = this.cache.keys().next().value;
+            if (oldestName) {
+                this.cache.delete(oldestName);
+            }
+        }
     }
 
     /**

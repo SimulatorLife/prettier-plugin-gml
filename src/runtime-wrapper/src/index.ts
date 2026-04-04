@@ -1,10 +1,12 @@
 import * as Runtime from "./runtime/index.js";
+import * as Timing from "./timing/index.js";
 import * as Clients from "./websocket/index.js";
 
 // Export the RuntimeWrapper namespace as the primary public API
 export const RuntimeWrapper = Object.freeze({
     ...Runtime,
-    ...Clients
+    ...Clients,
+    Timing
 });
 
 export type {
@@ -71,3 +73,5 @@ export type {
     WebSocketPatchQueueManager
 } from "./websocket/index.js";
 export * as Clients from "./websocket/index.js";
+// The Timing namespace is the canonical public surface for timing utilities.
+export * as Timing from "./timing/index.js";

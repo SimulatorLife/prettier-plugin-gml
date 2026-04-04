@@ -10,6 +10,7 @@ import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 import { gmlFormatComponents } from "./components/format-components.js";
 import type { GmlFormat, GmlFormatDefaultOptions } from "./components/format-types.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
+import { extractProjectFormatOptions } from "./options/project-config.js";
 import { DEFAULT_PRINT_WIDTH, DEFAULT_TAB_WIDTH } from "./printer/constants.js";
 import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
 
@@ -53,56 +54,18 @@ export const defaultOptions: GmlFormatDefaultOptions = Object.freeze({
     ...coreOptionOverrides
 });
 
-function preserveBannerSpacingGaps(source: string, formatted: string): string {
-    let result = formatted;
-
-    const sourceHasBannerCommentGap = /\r?\n[ \t]*\r?\n[ \t]*\/{8}\S+/u.test(source);
-    if (sourceHasBannerCommentGap) {
-        result = result.replace(/([^\n]\n)(\/{8}\S+)/u, "$1\n$2");
-    }
-
-    const sourceHasCameraBannerGap = /\r?\n[ \t]*\r?\n[ \t]*\/{21,}\r?\n[ \t]*\/{2}-+/u.test(source);
-    if (sourceHasCameraBannerGap) {
-        result = result.replace(/([^\n]\n)(\/{21,}\n\/{2}-+)/u, "$1\n$2");
-    }
-
-    const sourceHasDecorativeBlockGap = /\r?\n[ \t]*\r?\n[ \t]*\/\*\/{20,}/u.test(source);
-    if (sourceHasDecorativeBlockGap) {
-        result = result.replace(/([^\n]\n)(\/\*\/{20,})/u, "$1\n$2");
-    }
-
-    return result;
-}
-
-function shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(
-    source: string,
-    formatted: string
-): boolean {
-    if (source.endsWith("\n") || source.endsWith("\r")) {
-        return false;
-    }
-
-    if (formatted !== `${source}\n`) {
-        return false;
-    }
-
-    if (!source.startsWith("/*\n") || source.startsWith("/**")) {
-        return false;
-    }
-
-    return source.includes("\n*/\n\n");
-}
-
-function preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source: string, formatted: string): string {
-    if (!shouldPreserveMissingTrailingNewlineForTopLevelMultilineBlockComment(source, formatted)) {
-        return formatted;
-    }
-
-    return source;
-}
-
 /**
  * Utility function and entry point to format GML source code.
+ *
+ * This is a thin, deterministic wrapper around `prettier.format()` using the
+ * GML plugin. It must not inspect `source` to patch the result — doing so
+ * would make formatting non-deterministic (same logical structure, different
+ * source text → different output), violating target-state.md §3.2.
+ *
+ * Post-processing that normalises whitespace-only layout details (blank-line
+ * collapsing, trailing-newline normalisation, etc.) belongs in
+ * `normalizeFormattedOutput`, which operates solely on the already-formatted
+ * string and therefore remains deterministic.
  */
 async function format(source: string, options: SupportOptions = {}) {
     const prettierFormatOptions: Record<string, unknown> = {
@@ -117,8 +80,7 @@ async function format(source: string, options: SupportOptions = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
 
-    const withBannerSpacing = preserveBannerSpacingGaps(source, formatted);
-    return preserveTrailingNewlineForVerbatimTopLevelMultilineBlockComment(source, withBannerSpacing);
+    return formatted;
 }
 
 export const Format: GmlFormat = {
@@ -127,6 +89,7 @@ export const Format: GmlFormat = {
     printers,
     options: formatOptions,
     defaultOptions,
+    extractProjectFormatOptions,
     format,
     normalizeFormattedOutput
 };

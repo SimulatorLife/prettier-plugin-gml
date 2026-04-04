@@ -13,7 +13,7 @@ import type { HotReloadSafetySummary, ValidationSummary } from "./types.js";
 export interface RenameValidationCacheConfig {
     /**
      * Maximum number of cached validation results.
-     * When exceeded, oldest entries are evicted (FIFO).
+     * When exceeded, the least-recently-used entry is evicted.
      * @default 50
      */
     maxSize?: number;
@@ -95,7 +95,9 @@ export class RenameValidationCache {
     private readonly maxSize: number;
     private readonly ttlMs: number;
     private readonly enabled: boolean;
-    private stats: ValidationCacheStats;
+    private hits = 0;
+    private misses = 0;
+    private evictions = 0;
 
     constructor(config: RenameValidationCacheConfig = {}) {
         this.cache = new Map();
@@ -103,55 +105,13 @@ export class RenameValidationCache {
         this.maxSize = config.maxSize ?? 50;
         this.ttlMs = config.ttlMs ?? 30_000;
         this.enabled = config.enabled ?? true;
-        this.stats = {
-            hits: 0,
-            misses: 0,
-            evictions: 0,
-            size: 0
-        };
-    }
-
-    /**
-     * Generate a cache key from symbol ID and new name.
-     */
-    private getCacheKey(symbolId: string, newName: string): string {
-        return `${symbolId}::${newName}`;
-    }
-
-    /**
-     * Check if a cache entry is still valid based on TTL.
-     */
-    private isEntryValid(entry: CacheEntry): boolean {
-        return Date.now() - entry.timestamp < this.ttlMs;
-    }
-
-    /**
-     * Evict a specific cache entry and update eviction stats.
-     */
-    private evictEntry(key: string): void {
-        if (this.cache.delete(key)) {
-            this.stats.evictions++;
-        }
-    }
-
-    /**
-     * Evict oldest entry when cache is full (FIFO eviction).
-     */
-    private evictOldest(): void {
-        if (this.cache.size === 0) {
-            return;
-        }
-
-        const oldestKey = this.cache.keys().next().value as string | undefined;
-        if (oldestKey !== undefined) {
-            this.evictEntry(oldestKey);
-        }
     }
 
     /**
      * Get or compute a validation result.
-     * If a valid cached result exists, return it immediately.
-     * Otherwise, compute the result using the provided function and cache it.
+     * If a valid cached result exists, return it immediately and promote it so
+     * frequently-used validations stay resident. Otherwise, compute the result
+     * and cache it using least-recently-used eviction.
      *
      * @param symbolId - Symbol being renamed
      * @param newName - Proposed new name
@@ -167,51 +127,46 @@ export class RenameValidationCache {
             return compute();
         }
 
-        const key = this.getCacheKey(symbolId, newName);
+        const key = `${symbolId}::${newName}`;
         const cached = this.cache.get(key);
 
-        // Return cached result if valid
         if (cached) {
-            if (this.isEntryValid(cached)) {
-                this.stats.hits++;
+            if (Date.now() - cached.timestamp < this.ttlMs) {
+                this.hits++;
+                this.promoteCachedEntry(key, cached);
                 return cached.result;
             }
-
-            this.evictEntry(key);
+            // Entry expired – evict it
+            if (this.cache.delete(key)) {
+                this.evictions++;
+            }
         }
 
         const inFlightValidation = this.inFlight.get(key);
         if (inFlightValidation !== undefined) {
-            this.stats.hits++;
+            this.hits++;
             return inFlightValidation;
         }
 
-        // Cache miss - compute and store
-        this.stats.misses++;
+        this.misses++;
 
         const validationPromise = (async (): Promise<CachedValidationResult> => {
             const result = await compute();
 
-            // Store in cache with current timestamp
-            const entry: CacheEntry = {
-                result,
-                timestamp: Date.now()
-            };
-
-            // Evict oldest if at capacity (check before adding)
-            if (this.cache.size >= this.maxSize) {
-                this.evictOldest();
-            }
-
-            // Only add if there's room (maxSize > 0)
             if (this.maxSize > 0) {
-                this.cache.set(key, entry);
+                // Evict the least-recently-used entry before adding the new one
+                if (this.cache.size >= this.maxSize) {
+                    const oldestKey = this.cache.keys().next().value as string | undefined;
+                    if (oldestKey !== undefined) {
+                        this.cache.delete(oldestKey);
+                        this.evictions++;
+                    }
+                }
+                this.cache.set(key, { result, timestamp: Date.now() });
             } else {
-                // maxSize is 0, so we evict immediately
-                this.stats.evictions++;
+                // maxSize of 0 means never cache – count as an immediate eviction
+                this.evictions++;
             }
-
-            this.stats.size = this.cache.size;
 
             return result;
         })();
@@ -225,6 +180,38 @@ export class RenameValidationCache {
         }
     }
 
+    private promoteCachedEntry(key: string, entry: CacheEntry): void {
+        this.cache.delete(key);
+        this.cache.set(key, entry);
+    }
+
+    /**
+     * Read a fresh cached validation result without affecting hit/miss counters.
+     *
+     * This is used by internal planning paths that can safely reuse a validation
+     * computed earlier in the same refactor session without treating the lookup as
+     * a user-visible cache hit.
+     */
+    peek(symbolId: string, newName: string): CachedValidationResult | null {
+        if (!this.enabled) {
+            return null;
+        }
+
+        const key = `${symbolId}::${newName}`;
+        const cached = this.cache.get(key);
+        if (!cached) {
+            return null;
+        }
+
+        if (Date.now() - cached.timestamp >= this.ttlMs) {
+            this.cache.delete(key);
+            this.evictions++;
+            return null;
+        }
+
+        return cached.result;
+    }
+
     /**
      * Invalidate cached validation for a specific symbol-name pair.
      *
@@ -232,10 +219,9 @@ export class RenameValidationCache {
      * @param newName - Proposed new name
      */
     invalidate(symbolId: string, newName: string): void {
-        const key = this.getCacheKey(symbolId, newName);
+        const key = `${symbolId}::${newName}`;
         this.cache.delete(key);
         this.inFlight.delete(key);
-        this.stats.size = this.cache.size;
     }
 
     /**
@@ -246,20 +232,11 @@ export class RenameValidationCache {
      */
     invalidateSymbol(symbolId: string): void {
         const prefix = `${symbolId}::`;
-        const keysToDelete: Array<string> = [];
-
-        for (const key of this.cache.keys()) {
-            if (key.startsWith(prefix)) {
-                keysToDelete.push(key);
-            }
-        }
-
+        const keysToDelete = [...this.cache.keys()].filter((k) => k.startsWith(prefix));
         for (const key of keysToDelete) {
             this.cache.delete(key);
             this.inFlight.delete(key);
         }
-
-        this.stats.size = this.cache.size;
     }
 
     /**
@@ -269,7 +246,6 @@ export class RenameValidationCache {
     invalidateAll(): void {
         this.cache.clear();
         this.inFlight.clear();
-        this.stats.size = 0;
     }
 
     /**
@@ -278,16 +254,20 @@ export class RenameValidationCache {
      * @returns Current cache statistics
      */
     getStats(): Readonly<ValidationCacheStats> {
-        return Object.freeze({ ...this.stats });
+        return Object.freeze({
+            hits: this.hits,
+            misses: this.misses,
+            evictions: this.evictions,
+            size: this.cache.size
+        });
     }
 
     /**
      * Reset cache performance counters.
      */
     resetStats(): void {
-        this.stats.hits = 0;
-        this.stats.misses = 0;
-        this.stats.evictions = 0;
-        this.stats.size = this.cache.size;
+        this.hits = 0;
+        this.misses = 0;
+        this.evictions = 0;
     }
 }

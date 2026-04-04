@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 interface GameMakerSyntaxErrorOptions {
     message: string;
@@ -126,6 +126,34 @@ interface GameMakerLexerErrorListenerOptions {
     formatter?: SyntaxErrorFormatter;
 }
 
+function reportAmbiguity() {}
+
+function reportAttemptingFullContext() {}
+
+function reportContextSensitivity() {}
+
+function resolveRuleInvocationStack(recognizer: unknown): Array<string> {
+    if (!recognizer || typeof recognizer !== "object") {
+        return [];
+    }
+
+    if (!("getRuleInvocationStack" in recognizer)) {
+        return [];
+    }
+
+    const candidate = (recognizer as { getRuleInvocationStack?: unknown }).getRuleInvocationStack;
+    if (typeof candidate !== "function") {
+        return [];
+    }
+
+    try {
+        const stack = candidate.call(recognizer);
+        return Array.isArray(stack) ? stack : [];
+    } catch {
+        return [];
+    }
+}
+
 class ParserContextAnalyzer {
     resolveOpenBlockStartToken(parser) {
         const currentContext = parser?._ctx;
@@ -206,7 +234,7 @@ function createGameMakerParseErrorListener({
         const offendingText = formatter.resolveOffendingSymbolText(offendingSymbol);
         const wrongSymbol = formatter.formatWrongSymbol(offendingText);
 
-        const stack = parser.getRuleInvocationStack();
+        const stack = resolveRuleInvocationStack(parser);
         const currentRule = stack[0];
 
         const createError = (message) =>
@@ -243,6 +271,9 @@ function createGameMakerParseErrorListener({
 
     return {
         syntaxError,
+        reportAmbiguity,
+        reportAttemptingFullContext,
+        reportContextSensitivity,
         formatter,
         contextAnalyzer
     };

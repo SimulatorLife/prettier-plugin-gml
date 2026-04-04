@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import { runCliTestCommand } from "../src/cli.js";
@@ -25,4 +28,22 @@ void test("lint --help output shows a --max-warnings CI example with a .gml path
     const { stdout } = await runCliTestCommand({ argv: ["lint", "--help"] });
 
     assert.match(stdout, /--max-warnings 0.*\.gml/);
+});
+
+void test("lint reports when no .gml files are found in the provided path", async () => {
+    const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-cli-lint-empty-"));
+
+    try {
+        await writeFile(path.join(temporaryDirectory, "readme.txt"), "not gml\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["lint", temporaryDirectory]
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.match(result.stderr, /No \.gml files were linted in/);
+        assert.match(result.stderr, /Lint only processes \.gml sources/);
+    } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+    }
 });

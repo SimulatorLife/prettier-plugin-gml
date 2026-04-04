@@ -1,10 +1,10 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import { printNodeForAutofix } from "../../../language/print-expression.js";
-import type { GmlRuleDefinition } from "../../catalog.js";
-import { cloneAstNodeWithoutTraversalLinks, createMeta } from "../rule-base-helpers.js";
-import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expressions/traversal-normalization.js";
+import { printNodeForAutofix } from "../print-expression.js";
+import { cloneAstNodeWithoutTraversalLinks, createMeta, resolveLocFromIndex } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
+import { applyLogicalNormalizationWithChangeMetadata } from "../transforms/logical-expression-traversal-normalization.js";
 
 /**
  * Normalize whitespace for structural expression comparisons.
@@ -14,6 +14,7 @@ function normalizeWhitespaceForComparison(value: string): string {
 }
 
 type SourceTextRange = Readonly<{ start: number; end: number }>;
+type BooleanLiteralInput = Parameters<typeof Core.getBooleanLiteralValue>[0];
 
 const LOGICAL_NORMALIZATION_SIGNAL_PATTERN = /&&|\|\||!|\b(?:and|or|not|true|false)\b/u;
 const COMMENT_SEQUENCE_PATTERN = /\/\/|\/\*/u;
@@ -74,23 +75,6 @@ function unwrapSingleStatement(node: unknown): AstRecord | null {
     }
 
     return firstStatementRecord;
-}
-
-function readBooleanLiteral(node: unknown): boolean | null {
-    const nodeRecord = asAstRecord(node);
-    if (!nodeRecord || nodeRecord.type !== "Literal") {
-        return null;
-    }
-
-    const value = nodeRecord.value;
-    if (value === true || value === "true") {
-        return true;
-    }
-    if (value === false || value === "false") {
-        return false;
-    }
-
-    return null;
 }
 
 function areComparableAssignmentTargetsEquivalent(left: unknown, right: unknown): boolean {
@@ -203,11 +187,15 @@ function canIfStatementBenefitFromNormalization(node: unknown): boolean {
 
     if (consequentStatement && alternateStatement) {
         if (consequentStatement.type === "ReturnStatement" && alternateStatement.type === "ReturnStatement") {
-            const consequentValue = readBooleanLiteral(consequentStatement.argument);
-            const alternateValue = readBooleanLiteral(alternateStatement.argument);
+            const consequentValue = Core.getBooleanLiteralValue(consequentStatement.argument as BooleanLiteralInput, {
+                acceptBooleanPrimitives: true
+            });
+            const alternateValue = Core.getBooleanLiteralValue(alternateStatement.argument as BooleanLiteralInput, {
+                acceptBooleanPrimitives: true
+            });
             return (
-                (consequentValue === true && alternateValue === false) ||
-                (consequentValue === false && alternateValue === true)
+                (consequentValue === "true" && alternateValue === "false") ||
+                (consequentValue === "false" && alternateValue === "true")
             );
         }
 
@@ -263,10 +251,6 @@ function canUnaryExpressionBenefitFromNormalization(node: unknown): boolean {
     );
 }
 
-function isBooleanLiteralNode(node: unknown): boolean {
-    return readBooleanLiteral(node) !== null;
-}
-
 function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
     const logicalExpression = asAstRecord(node);
     if (
@@ -283,29 +267,22 @@ function canLogicalExpressionBenefitFromNormalization(node: unknown): boolean {
         return false;
     }
 
-    if (isBooleanLiteralNode(left) || isBooleanLiteralNode(right)) {
+    if (
+        Core.isBooleanLiteral(left as BooleanLiteralInput, { acceptBooleanPrimitives: true }) ||
+        Core.isBooleanLiteral(right as BooleanLiteralInput, { acceptBooleanPrimitives: true })
+    ) {
         return true;
     }
 
-    if (logicalExpression.operator === "&&") {
-        return (
-            left.type === "LogicalExpression" ||
-            right.type === "LogicalExpression" ||
-            left.type === "BinaryExpression" ||
-            right.type === "BinaryExpression"
-        );
-    }
-
-    if (logicalExpression.operator === "||") {
-        return (
-            left.type === "LogicalExpression" ||
-            right.type === "LogicalExpression" ||
-            left.type === "BinaryExpression" ||
-            right.type === "BinaryExpression"
-        );
-    }
-
-    return false;
+    // At this point the operator is guaranteed to be "&&" or "||" (checked above).
+    // Both operators share the same structural heuristic: normalize when either
+    // operand is itself a logical/binary expression that could be further simplified.
+    return (
+        left.type === "LogicalExpression" ||
+        right.type === "LogicalExpression" ||
+        left.type === "BinaryExpression" ||
+        right.type === "BinaryExpression"
+    );
 }
 
 function getNodeRange(node: unknown): SourceTextRange | null {
@@ -331,43 +308,6 @@ function isRangeInsideAnyRange(range: SourceTextRange, existingRanges: ReadonlyA
     return existingRanges.some((existingRange) => {
         return range.start >= existingRange.start && range.end <= existingRange.end;
     });
-}
-
-function resolveSafeNodeLoc(context: Rule.RuleContext, node: unknown): { line: number; column: number } {
-    const sourceText = context.sourceCode.text;
-    const rawStart = Core.getNodeStartIndex(node as any);
-    const startIndex =
-        typeof rawStart === "number" && Number.isFinite(rawStart) ? Core.clamp(rawStart, 0, sourceText.length) : 0;
-    const sourceCodeWithLocator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (index: number) => { line: number; column: number } | undefined;
-    };
-    const located =
-        typeof sourceCodeWithLocator.getLocFromIndex === "function"
-            ? sourceCodeWithLocator.getLocFromIndex(startIndex)
-            : undefined;
-    if (
-        located &&
-        typeof located.line === "number" &&
-        typeof located.column === "number" &&
-        Number.isFinite(located.line) &&
-        Number.isFinite(located.column)
-    ) {
-        return located;
-    }
-
-    let line = 1;
-    let lastLineStart = 0;
-    for (let index = 0; index < startIndex; index += 1) {
-        if (sourceText[index] === "\n") {
-            line += 1;
-            lastLineStart = index + 1;
-        }
-    }
-
-    return {
-        line,
-        column: startIndex - lastLineStart
-    };
 }
 
 export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Rule.RuleModule {
@@ -447,7 +387,11 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                         rewrittenNodeRanges.push(nodeRange);
 
                         context.report({
-                            loc: resolveSafeNodeLoc(context, originalNode as unknown),
+                            loc: resolveLocFromIndex(
+                                context,
+                                fullSourceText,
+                                Core.getNodeStartIndex(originalNode) ?? 0
+                            ),
                             messageId: definition.messageId,
                             fix(fixer) {
                                 return fixer.replaceTextRange([nodeRange.start, nodeRange.end], newText);

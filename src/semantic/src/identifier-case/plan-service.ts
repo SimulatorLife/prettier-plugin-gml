@@ -1,4 +1,4 @@
-import { Core, type GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode } from "@gmloop/core";
 
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
@@ -65,49 +65,6 @@ const defaultSnapshotApplyService = Object.freeze({
     applyIdentifierCasePlanSnapshot: defaultApplyIdentifierCasePlanSnapshot
 });
 
-const IDENTIFIER_CASE_SERVICE_DEFINITIONS = Object.freeze({
-    preparation: Object.freeze({
-        serviceErrorMessage: "Identifier case plan preparation service must be provided as an object",
-        functionDescriptors: Object.freeze([
-            Object.freeze({
-                property: "prepareIdentifierCasePlan",
-                errorMessage:
-                    "Identifier case plan preparation service must provide a prepareIdentifierCasePlan function"
-            })
-        ])
-    }),
-    renameLookup: Object.freeze({
-        serviceErrorMessage: "Identifier case rename lookup service must be provided as an object",
-        functionDescriptors: Object.freeze([
-            Object.freeze({
-                property: "getIdentifierCaseRenameForNode",
-                errorMessage:
-                    "Identifier case rename lookup service must provide a getIdentifierCaseRenameForNode function"
-            })
-        ])
-    }),
-    snapshotCapture: Object.freeze({
-        serviceErrorMessage: "Identifier case plan snapshot capture service must be provided as an object",
-        functionDescriptors: Object.freeze([
-            Object.freeze({
-                property: "captureIdentifierCasePlanSnapshot",
-                errorMessage:
-                    "Identifier case plan snapshot capture service must provide a captureIdentifierCasePlanSnapshot function"
-            })
-        ])
-    }),
-    snapshotApply: Object.freeze({
-        serviceErrorMessage: "Identifier case plan snapshot apply service must be provided as an object",
-        functionDescriptors: Object.freeze([
-            Object.freeze({
-                property: "applyIdentifierCasePlanSnapshot",
-                errorMessage:
-                    "Identifier case plan snapshot apply service must provide an applyIdentifierCasePlanSnapshot function"
-            })
-        ])
-    })
-});
-
 function createIdentifierCaseServiceRegistry({
     defaultService,
     normalize,
@@ -150,47 +107,66 @@ function createIdentifierCaseServiceRegistry({
     return { resolve, register, reset };
 }
 
-/**
- * Normalize a service object to ensure it exposes the expected function
- * collaborators. The identifier case plan services previously repeated the
- * same validation scaffolding (plain-object guard followed by function
- * assertions) which obscured the differences between each service. Centralizing
- * the logic keeps error messaging consistent and makes future service additions
- * trivial—callers simply describe the required function names.
- */
-function normalizeIdentifierCaseServiceFunctions(service, { serviceErrorMessage, functionDescriptors }) {
-    const normalized = Core.assertPlainObject(service, {
-        errorMessage: serviceErrorMessage
+function assertServiceFunction(service, property, errorMessage) {
+    return Core.assertFunction(service[property], property, {
+        errorMessage
     });
-
-    return Object.freeze(
-        Object.fromEntries(
-            functionDescriptors.map(({ property, errorMessage }) => [
-                property,
-                Core.assertFunction(normalized[property], property, {
-                    errorMessage
-                })
-            ])
-        )
-    );
-}
-
-function normalizeIdentifierCaseService(service, definitionKey) {
-    const definition = IDENTIFIER_CASE_SERVICE_DEFINITIONS[definitionKey];
-
-    if (!definition) {
-        throw new RangeError(`Unknown identifier case service definition: ${String(definitionKey)}`);
-    }
-
-    return normalizeIdentifierCaseServiceFunctions(service, definition);
 }
 
 function normalizeIdentifierCasePlanPreparationService(service) {
-    return normalizeIdentifierCaseService(service, "preparation");
+    const normalized = Core.assertPlainObject(service, {
+        errorMessage: "Identifier case plan preparation service must be provided as an object"
+    });
+
+    return Object.freeze({
+        prepareIdentifierCasePlan: assertServiceFunction(
+            normalized,
+            "prepareIdentifierCasePlan",
+            "Identifier case plan preparation service must provide a prepareIdentifierCasePlan function"
+        )
+    });
 }
 
 function normalizeIdentifierCaseRenameLookupService(service) {
-    return normalizeIdentifierCaseService(service, "renameLookup");
+    const normalized = Core.assertPlainObject(service, {
+        errorMessage: "Identifier case rename lookup service must be provided as an object"
+    });
+
+    return Object.freeze({
+        getIdentifierCaseRenameForNode: assertServiceFunction(
+            normalized,
+            "getIdentifierCaseRenameForNode",
+            "Identifier case rename lookup service must provide a getIdentifierCaseRenameForNode function"
+        )
+    });
+}
+
+function normalizeIdentifierCasePlanSnapshotCaptureService(service) {
+    const normalized = Core.assertPlainObject(service, {
+        errorMessage: "Identifier case plan snapshot capture service must be provided as an object"
+    });
+
+    return Object.freeze({
+        captureIdentifierCasePlanSnapshot: assertServiceFunction(
+            normalized,
+            "captureIdentifierCasePlanSnapshot",
+            "Identifier case plan snapshot capture service must provide a captureIdentifierCasePlanSnapshot function"
+        )
+    });
+}
+
+function normalizeIdentifierCasePlanSnapshotApplyService(service) {
+    const normalized = Core.assertPlainObject(service, {
+        errorMessage: "Identifier case plan snapshot apply service must be provided as an object"
+    });
+
+    return Object.freeze({
+        applyIdentifierCasePlanSnapshot: assertServiceFunction(
+            normalized,
+            "applyIdentifierCasePlanSnapshot",
+            "Identifier case plan snapshot apply service must provide an applyIdentifierCasePlanSnapshot function"
+        )
+    });
 }
 
 const preparationRegistry = createIdentifierCaseServiceRegistry({
@@ -209,14 +185,14 @@ const renameLookupRegistry = createIdentifierCaseServiceRegistry({
 
 const snapshotCaptureRegistry = createIdentifierCaseServiceRegistry({
     defaultService: defaultSnapshotCaptureService,
-    normalize: (service) => normalizeIdentifierCaseService(service, "snapshotCapture"),
+    normalize: normalizeIdentifierCasePlanSnapshotCaptureService,
     providerTypeErrorMessage: "Identifier case plan snapshot capture provider must be a function",
     missingProviderMessage: "No identifier case plan snapshot capture provider has been registered"
 });
 
 const snapshotApplyRegistry = createIdentifierCaseServiceRegistry({
     defaultService: defaultSnapshotApplyService,
-    normalize: (service) => normalizeIdentifierCaseService(service, "snapshotApply"),
+    normalize: normalizeIdentifierCasePlanSnapshotApplyService,
     providerTypeErrorMessage: "Identifier case plan snapshot apply provider must be a function",
     missingProviderMessage: "No identifier case plan snapshot apply provider has been registered"
 });

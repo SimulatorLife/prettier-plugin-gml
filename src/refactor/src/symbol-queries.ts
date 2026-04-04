@@ -4,7 +4,7 @@
  * from the semantic analyzer and parser.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import {
     type AstNode,
@@ -129,7 +129,8 @@ export function validateSymbolExists(symbolId: string, semantic: PartialSemantic
  */
 export function gatherSymbolOccurrences(
     symbolName: string,
-    semantic: PartialSemanticAnalyzer | null
+    semantic: PartialSemanticAnalyzer | null,
+    symbolId: string | null = null
 ): Promise<Array<SymbolOccurrence>> {
     if (!semantic) {
         return Promise.resolve<Array<SymbolOccurrence>>([]);
@@ -141,7 +142,7 @@ export function gatherSymbolOccurrences(
     // both the location (path, offset) and the kind (definition vs. reference)
     // of each occurrence, which later phases use to construct text edits.
     if (Core.hasMethods(semantic, "getSymbolOccurrences")) {
-        return Promise.resolve(semantic.getSymbolOccurrences(symbolName));
+        return Promise.resolve(semantic.getSymbolOccurrences(symbolName, symbolId));
     }
 
     // If occurrence tracking isn't available, return an empty array so the

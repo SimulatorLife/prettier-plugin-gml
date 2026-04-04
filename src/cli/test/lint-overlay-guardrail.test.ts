@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { __lintCommandTest__, runLintCommand } from "../src/commands/lint.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
@@ -100,6 +100,8 @@ void test("overlay warning output is deduped per invocation and bounded", () => 
     const rendered = __lintCommandTest__.formatOverlayWarning(paths);
 
     assert.match(rendered, /^GML_OVERLAY_WITHOUT_LANGUAGE_WIRING:/);
+    assert.match(rendered, /Add `plugins: \{ gml: Lint\.plugin \}` and `language: "gml\/gml"`/);
+    assert.match(rendered, /Affected files:/);
     assert.match(rendered, /\/tmp\/0\.gml/);
     assert.match(rendered, /\/tmp\/19\.gml/);
     assert.doesNotMatch(rendered, /\/tmp\/20\.gml/);
@@ -132,6 +134,20 @@ void test("formatter normalization preserves unknown names for explicit validati
     assert.equal(__lintCommandTest__.isSupportedFormatter("json"), true);
     assert.equal(__lintCommandTest__.isSupportedFormatter("checkstyle"), true);
     assert.equal(__lintCommandTest__.isSupportedFormatter("custom"), false);
+});
+
+void test("eslint constructor options suppress ignored-file warnings by default", () => {
+    assert.deepEqual(__lintCommandTest__.createEslintConstructorOptions("/tmp/workspace", false, false), {
+        cwd: "/tmp/workspace",
+        fix: false,
+        warnIgnored: false
+    });
+
+    assert.deepEqual(__lintCommandTest__.createEslintConstructorOptions("/tmp/workspace", true, true), {
+        cwd: "/tmp/workspace",
+        fix: true,
+        warnIgnored: true
+    });
 });
 
 void test("explicit config validation fails on missing file", async () => {
@@ -256,6 +272,87 @@ void test("extractLintRuntimeFailureLocation falls back when location is unavail
     assert.equal(parsed.column, 1);
 });
 
+void test("createRecoverableLintTargets prioritizes expanded file targets before passthrough targets", () => {
+    const orderedTargets = __lintCommandTest__.createRecoverableLintTargets({
+        cwd: "/tmp/workspace",
+        expandedTargets: {
+            fileTargets: ["/tmp/workspace/alpha.gml", "/tmp/workspace/beta.gml"],
+            passthroughTargets: ["scripts", "missing.gml"]
+        }
+    });
+
+    assert.deepEqual(orderedTargets, [
+        Object.freeze({
+            target: "/tmp/workspace/alpha.gml",
+            fallbackFilePath: "/tmp/workspace/alpha.gml"
+        }),
+        Object.freeze({
+            target: "/tmp/workspace/beta.gml",
+            fallbackFilePath: "/tmp/workspace/beta.gml"
+        }),
+        Object.freeze({
+            target: "scripts",
+            fallbackFilePath: "/tmp/workspace/scripts"
+        }),
+        Object.freeze({
+            target: "missing.gml",
+            fallbackFilePath: "/tmp/workspace/missing.gml"
+        })
+    ]);
+});
+
+void test("appendRetainedLintResults strips autofix payloads before aggregation", () => {
+    const aggregatedResults: Parameters<typeof __lintCommandTest__.appendRetainedLintResults>[0] = [];
+
+    __lintCommandTest__.appendRetainedLintResults(aggregatedResults, [
+        {
+            filePath: "/tmp/workspace/example.gml",
+            messages: [
+                {
+                    ruleId: "gml/example-rule",
+                    severity: 1,
+                    message: "Example warning",
+                    line: 1,
+                    column: 1,
+                    nodeType: "Identifier",
+                    fix: { range: [0, 3], text: "foo" },
+                    suggestions: [{ desc: "Apply suggestion", fix: { range: [0, 3], text: "bar" } }]
+                }
+            ],
+            suppressedMessages: [],
+            errorCount: 0,
+            fatalErrorCount: 0,
+            warningCount: 1,
+            fixableErrorCount: 0,
+            fixableWarningCount: 1,
+            usedDeprecatedRules: []
+        }
+    ]);
+
+    assert.deepEqual(aggregatedResults, [
+        {
+            filePath: "/tmp/workspace/example.gml",
+            messages: [
+                {
+                    ruleId: "gml/example-rule",
+                    severity: 1,
+                    message: "Example warning",
+                    line: 1,
+                    column: 1,
+                    nodeType: "Identifier"
+                }
+            ],
+            suppressedMessages: [],
+            errorCount: 0,
+            fatalErrorCount: 0,
+            warningCount: 1,
+            fixableErrorCount: 0,
+            fixableWarningCount: 1,
+            usedDeprecatedRules: []
+        }
+    ]);
+});
+
 void test("lintTargetsWithRuntimeRecovery records recoverable crashes and continues", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-recovery-targets-"));
     const firstFile = path.join(tempRoot, "alpha.gml");
@@ -373,6 +470,66 @@ void test("lintTargetsWithRuntimeRecovery runs targets sequentially", async () =
     assert.deepEqual(completionOrder, [firstFile, secondFile]);
     assert.equal(elapsedTimings.length, 2);
     assert.ok(elapsedTimings.every((value) => value >= 0n));
+});
+
+void test("lintTargetsWithRuntimeRecovery can create a fresh executor per target", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-recovery-fresh-executor-"));
+    const targetA = path.join(tempRoot, "first.gml");
+    const targetB = path.join(tempRoot, "second.gml");
+
+    let defaultExecutorCalls = 0;
+    let createdExecutors = 0;
+    const lintedByFreshExecutors: Array<string> = [];
+
+    const defaultExecutor = {
+        async lintFiles() {
+            defaultExecutorCalls += 1;
+            return [];
+        }
+    };
+
+    const results = await __lintCommandTest__.lintTargetsWithRuntimeRecovery({
+        eslint: defaultExecutor,
+        cwd: tempRoot,
+        targets: [targetA, targetB],
+        createExecutorForTarget: () => {
+            createdExecutors += 1;
+            return {
+                async lintFiles(filePatterns: string | Array<string>) {
+                    if (typeof filePatterns === "string") {
+                        return [];
+                    }
+
+                    const [filePath] = filePatterns;
+                    if (typeof filePath !== "string") {
+                        return [];
+                    }
+
+                    lintedByFreshExecutors.push(filePath);
+
+                    return [
+                        {
+                            filePath,
+                            messages: [],
+                            suppressedMessages: [],
+                            errorCount: 0,
+                            fatalErrorCount: 0,
+                            warningCount: 0,
+                            fixableErrorCount: 0,
+                            fixableWarningCount: 0,
+                            usedDeprecatedRules: []
+                        }
+                    ];
+                }
+            };
+        },
+        onTargetCompleted: async () => {}
+    });
+
+    assert.equal(defaultExecutorCalls, 0);
+    assert.equal(createdExecutors, 2);
+    assert.equal(results.length, 2);
+    assert.deepEqual(lintedByFreshExecutors.sort(), [targetA, targetB].sort());
 });
 
 void test("emitLintFixProgressForResults logs de-duplicated display paths", () => {
@@ -501,6 +658,51 @@ void test("overlay guardrail ignores non-object resolved configs", async () => {
     assert.deepEqual(offendingPaths, []);
 });
 
+void test("overlay guardrail resolves file configs sequentially for large result sets", async () => {
+    const resultPaths = Array.from({ length: 200 }, (_, index) => `/tmp/overlay-${index}.gml`);
+    let activeCalls = 0;
+    let maxConcurrentCalls = 0;
+
+    const eslint = {
+        async calculateConfigForFile(filePath: string): Promise<unknown> {
+            activeCalls += 1;
+            maxConcurrentCalls = Math.max(maxConcurrentCalls, activeCalls);
+            await new Promise((resolve) => {
+                setTimeout(resolve, 1);
+            });
+            activeCalls -= 1;
+
+            const numericSuffix = Number.parseInt(filePath.match(/(\d+)\.gml$/u)?.[1] ?? "0");
+            if (numericSuffix % 2 === 0) {
+                return {
+                    plugins: { gml: {} },
+                    language: "js/js",
+                    rules: {
+                        [Lint.services.performanceOverrideRuleIds[0]]: "warn"
+                    }
+                };
+            }
+
+            return {
+                plugins: { gml: Lint.plugin },
+                language: "gml/gml",
+                rules: {
+                    [Lint.services.performanceOverrideRuleIds[0]]: "warn"
+                }
+            };
+        }
+    };
+
+    const offendingPaths = await __lintCommandTest__.collectOverlayWithoutLanguageWiringPaths({
+        eslint,
+        results: resultPaths.map((filePath) => ({ filePath }))
+    });
+
+    assert.equal(maxConcurrentCalls, 1);
+    assert.equal(offendingPaths.length, 100);
+    assert.ok(offendingPaths.every((filePath) => filePath.includes("overlay-")));
+});
+
 void test("processor normalization treats default/none sentinels as equivalent", () => {
     assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(undefined), null);
     assert.equal(__lintCommandTest__.normalizeProcessorIdentityForEnforcement(null), null);
@@ -523,6 +725,36 @@ void test("processor enforcement fails when active processor is observable and n
     assert.equal(evaluation.exitCode, 2);
     assert.match(evaluation.message ?? "", new RegExp(`^${__lintCommandTest__.PROCESSOR_UNSUPPORTED_ERROR_CODE}:`));
     assert.equal(evaluation.warning, null);
+});
+
+void test("processor enforcement evaluates resolved configs sequentially", async () => {
+    const resultPaths = Array.from({ length: 200 }, (_, index) => `/tmp/processor-${index}.gml`);
+    let activeCalls = 0;
+    let maxConcurrentCalls = 0;
+
+    const evaluation = await __lintCommandTest__.enforceProcessorPolicyForGmlFiles({
+        eslint: {
+            async calculateConfigForFile(filePath: string): Promise<unknown> {
+                activeCalls += 1;
+                maxConcurrentCalls = Math.max(maxConcurrentCalls, activeCalls);
+                await new Promise((resolve) => {
+                    setTimeout(resolve, 1);
+                });
+                activeCalls -= 1;
+
+                const numericSuffix = Number.parseInt(filePath.match(/(\d+)\.gml$/u)?.[1] ?? "0");
+                return {
+                    processor: numericSuffix % 2 === 0 ? "markdown/markdown" : undefined
+                };
+            }
+        },
+        results: resultPaths.map((filePath) => ({ filePath })),
+        verbose: false
+    });
+
+    assert.equal(maxConcurrentCalls, 1);
+    assert.equal(evaluation.exitCode, 2);
+    assert.match(evaluation.message ?? "", /^GML_PROCESSOR_UNSUPPORTED:/u);
 });
 
 void test("processor enforcement emits verbose observability warning when processor cannot be observed", async () => {
@@ -575,5 +807,63 @@ void test("runLintCommand maps semantic provider prebuild failures to exit code 
                 }
             }
         );
+    });
+});
+
+void test("runLintCommand handles large additive-call-chain sources without parser OOM", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-lint-large-source-"));
+    const sourceFilePath = path.join(tempRoot, "large-chain.gml");
+    const configFilePath = path.join(tempRoot, "eslint.config.mjs");
+    const lintWorkspaceModulePath = path.resolve(process.cwd(), "src/lint/dist/index.js").replaceAll("\\", "\\\\");
+
+    const additiveCallChain = Array.from({ length: 520 }, (_, index) => `string_format(value_${index}, 1, 10)`).join(
+        " + "
+    );
+    const sourceText = ["function stress_trace() {", `    return ${additiveCallChain};`, "}", ""].join("\n");
+    await fs.writeFile(sourceFilePath, sourceText, "utf8");
+
+    const configText = [
+        `import * as LintWorkspace from "${lintWorkspaceModulePath}";`,
+        "",
+        "export default [",
+        "    {",
+        '        files: ["**/*.gml"],',
+        "        plugins: {",
+        "            gml: LintWorkspace.Lint.plugin",
+        "        },",
+        '        language: "gml/gml",',
+        "        rules: {}",
+        "    }",
+        "];",
+        ""
+    ].join("\n");
+    await fs.writeFile(configFilePath, configText, "utf8");
+
+    const previousCwd = process.cwd();
+    await withTemporaryProperty(process, "exitCode", undefined, async () => {
+        process.chdir(tempRoot);
+
+        try {
+            await runLintCommand({
+                args: [sourceFilePath],
+                opts() {
+                    return {
+                        fix: false,
+                        formatter: "stylish",
+                        maxWarnings: "-1",
+                        quiet: true,
+                        config: configFilePath,
+                        noDefaultConfig: false,
+                        verbose: false,
+                        project: null,
+                        projectStrict: false
+                    };
+                }
+            });
+
+            assert.equal(process.exitCode ?? 0, 0);
+        } finally {
+            process.chdir(previousCwd);
+        }
     });
 });

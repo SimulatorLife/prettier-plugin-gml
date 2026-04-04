@@ -3,7 +3,24 @@ import { describe, it } from "node:test";
 
 import type { AstPath } from "prettier";
 
-import { findAncestorNode, safeGetParentNode } from "../src/printer/path-utils.js";
+import {
+    findAncestorNode,
+    findEnclosingFunctionDeclaration,
+    safeGetParentNode,
+    safeGetPathName,
+    safeGetPathValue
+} from "../src/printer/path-utils.js";
+
+/**
+ * Builds a mock AstPath whose getParentNode returns ancestors from the
+ * provided array (index 0 = immediate parent, 1 = grandparent, …).
+ */
+function makePath(ancestors: Array<{ type: string }>): AstPath<any> {
+    return {
+        getValue: () => ({ type: "Identifier" }),
+        getParentNode: (level: number = 0) => ancestors[level] ?? null
+    } as unknown as AstPath<any>;
+}
 
 void describe("Path null safety guards", () => {
     void it("safeGetParentNode returns null when getParentNode is missing", () => {
@@ -78,20 +95,42 @@ void describe("Path null safety guards", () => {
         const result1 = safeGetParentNode(pathWithParent, 1);
         assert.strictEqual(result1, null);
     });
+
+    void it("safeGetPathValue returns null when getValue is missing", () => {
+        const pathWithoutGetValue = {
+            getParentNode: () => null
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(safeGetPathValue(pathWithoutGetValue), null);
+    });
+
+    void it("safeGetPathValue delegates to getValue when available", () => {
+        const value = { type: "Identifier", name: "a" };
+        const path = {
+            getValue: () => value
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(safeGetPathValue(path), value);
+    });
+
+    void it("safeGetPathName returns null when getName is missing", () => {
+        const pathWithoutGetName = {
+            getValue: () => ({ type: "Identifier" })
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(safeGetPathName(pathWithoutGetName), null);
+    });
+
+    void it("safeGetPathName delegates to getName when available", () => {
+        const path = {
+            getName: () => "alternate"
+        } as unknown as AstPath<any>;
+
+        assert.strictEqual(safeGetPathName(path), "alternate");
+    });
 });
 
 void describe("findAncestorNode", () => {
-    /**
-     * Builds a mock AstPath whose getParentNode returns ancestors from the
-     * provided array (index 0 = immediate parent, 1 = grandparent, …).
-     */
-    function makePath(ancestors: Array<{ type: string }>): AstPath<any> {
-        return {
-            getValue: () => ({ type: "Identifier" }),
-            getParentNode: (level: number = 0) => ancestors[level] ?? null
-        } as unknown as AstPath<any>;
-    }
-
     void it("returns null when path is null", () => {
         assert.strictEqual(
             findAncestorNode(null as any, () => true),
@@ -140,5 +179,36 @@ void describe("findAncestorNode", () => {
             findAncestorNode(path, (node) => node.isConstructor === true),
             target
         );
+    });
+});
+
+// ---------------------------------------------------------------------------
+// findEnclosingFunctionDeclaration
+// ---------------------------------------------------------------------------
+// `findEnclosingFunctionDeclaration` was relocated from
+// `variable-declarator-layout.ts` to `path-utils.ts` because it is a path
+// traversal utility.  All AstPath helpers belong in a single focused module.
+
+void describe("findEnclosingFunctionDeclaration", () => {
+    void it("returns null when no FunctionDeclaration ancestor exists", () => {
+        const path = makePath([{ type: "BlockStatement" }, { type: "Program" }]);
+        assert.strictEqual(findEnclosingFunctionDeclaration(path), null);
+    });
+
+    void it("returns the immediate FunctionDeclaration parent", () => {
+        const fnNode = { type: "FunctionDeclaration" };
+        const path = makePath([fnNode, { type: "Program" }]);
+        assert.strictEqual(findEnclosingFunctionDeclaration(path), fnNode);
+    });
+
+    void it("skips non-FunctionDeclaration ancestors to find the nearest one", () => {
+        const fnNode = { type: "FunctionDeclaration" };
+        const path = makePath([{ type: "BlockStatement" }, { type: "IfStatement" }, fnNode]);
+        assert.strictEqual(findEnclosingFunctionDeclaration(path), fnNode);
+    });
+
+    void it("returns null when path lacks getParentNode", () => {
+        const path = { getValue: () => ({}) } as unknown as AstPath<any>;
+        assert.strictEqual(findEnclosingFunctionDeclaration(path), null);
     });
 });

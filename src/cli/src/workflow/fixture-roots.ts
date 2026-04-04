@@ -1,11 +1,11 @@
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { REPO_ROOT } from "../shared/workspace-paths.js";
-import { createWorkflowPathFilter, type WorkflowPathFilterOptions } from "./path-filter.js";
+import { createWorkflowPathFilter, normalizeWorkflowPathList, type WorkflowPathFilterOptions } from "./path-filter.js";
 
-const { toArray, pushUnique } = Core;
+const { toArray } = Core;
 
 export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "parser", "test", "input"),
@@ -17,27 +17,9 @@ export function normalizeFixtureRoots(
     filterOptions: WorkflowPathFilterOptions = {}
 ): Array<string> {
     const pathFilter = createWorkflowPathFilter(filterOptions);
-    const candidates = [
-        ...DEFAULT_FIXTURE_DIRECTORIES,
-        ...(Array.isArray(additionalRoots) ? additionalRoots : toArray(additionalRoots))
-    ];
+    const additionalRootEntries = Array.isArray(additionalRoots) ? additionalRoots : toArray(additionalRoots);
 
-    const resolved = [];
+    const normalizedCandidates = normalizeWorkflowPathList([...DEFAULT_FIXTURE_DIRECTORIES, ...additionalRootEntries]);
 
-    for (const candidate of candidates) {
-        if (typeof candidate !== "string" || candidate.length === 0) {
-            continue;
-        }
-
-        const normalized = path.resolve(candidate);
-
-        if (!pathFilter.allowsDirectory(normalized)) {
-            continue;
-        }
-
-        pushUnique(resolved, normalized);
-    }
-
-    return resolved;
+    return normalizedCandidates.filter((candidate) => pathFilter.allowsDirectory(candidate));
 }
-export { REPO_ROOT } from "../shared/workspace-paths.js";

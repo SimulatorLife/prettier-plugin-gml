@@ -1,6 +1,5 @@
 import type { Rule } from "eslint";
 
-import type { GmlRuleDefinition } from "../../catalog.js";
 import {
     applySourceTextEdits,
     createMeta,
@@ -11,6 +10,7 @@ import {
     reportFullTextRewrite,
     walkAstNodes
 } from "../rule-base-helpers.js";
+import type { GmlRuleDefinition } from "../rule-definition.js";
 
 type ProvenAccessorToken = "[#" | "[?" | "[|";
 

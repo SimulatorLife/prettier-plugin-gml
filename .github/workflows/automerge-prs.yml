@@ -22,7 +22,7 @@ jobs:
       should_run_tests: ${{ steps.decide.outputs.should_run_tests }}
     steps:
       - id: decide
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -76,7 +76,9 @@ jobs:
         id: ref
         run: |
           if [ "${{ matrix.target }}" = "base" ]; then
-            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            # Use the live base branch ref so the base leg stays aligned with the
+            # synthetic merge ref, which GitHub rebuilds against the current base tip.
+            echo "ref=${{ github.event.pull_request.base.ref }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ matrix.target }}" = "head" ]; then
             echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           else
@@ -85,7 +87,7 @@ jobs:
 
       # If the synthetic merge ref doesn't exist, continue so the leg can still upload nothing and be summarized.
       - name: Checkout (${{ matrix.target }})
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.ref.outputs.ref }}
         continue-on-error: ${{ matrix.target == 'merge' }}
@@ -94,13 +96,19 @@ jobs:
         id: node-version
         run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
 
-      - name: Enable pnpm via Corepack (${{ matrix.target }})
+      - name: Read pnpm version from package.json
+        id: pnpm-version
         run: |
-          corepack enable
-          corepack prepare $(node -p "require('./package.json').packageManager") --activate
+          echo "version=$(grep '"packageManager": "pnpm@' package.json | cut -d@ -f2 | tr -d '\",')" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm (${{ matrix.target }})
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ steps.pnpm-version.outputs.version }}
+          run_install: false
 
       - name: Setup Node (${{ matrix.target }})
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ steps.node-version.outputs.version }}
           cache: 'pnpm'
@@ -134,6 +142,11 @@ jobs:
       - name: Run tests & coverage (${{ matrix.target }})
         run: pnpm run test:ci
         continue-on-error: true
+
+      - name: Run performance regression tests (${{ matrix.target }})
+        if: ${{ matrix.target == 'head' }}
+        continue-on-error: true
+        run: pnpm run test:performance
 
       - name: Publish test summary (${{ matrix.target }})
         if: ${{ always() }}
@@ -180,19 +193,25 @@ jobs:
       GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
     steps:
       - name: Checkout repo (for scripts)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Read Node version from .nvmrc
         id: node-version-summary
         run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
 
-      - name: Enable pnpm via Corepack (summary)
+      - name: Read pnpm version from package.json
+        id: pnpm-version-summary
         run: |
-          corepack enable
-          corepack prepare $(node -p "require('./package.json').packageManager") --activate
+          echo "version=$(grep '"packageManager": "pnpm@' package.json | cut -d@ -f2 | tr -d '\",')" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ steps.pnpm-version-summary.outputs.version }}
+          run_install: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ steps.node-version-summary.outputs.version }}
           cache: 'pnpm'
@@ -260,7 +279,7 @@ jobs:
 
       - name: Summarize and comment
         id: summarize
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           REGRESSION_ALL_GREEN: ${{ steps.regress.outputs.all_green }}
           REGRESSION_STATUS: ${{ steps.regress.outputs.status }}
@@ -297,7 +316,7 @@ jobs:
 
       - name: Request Agent help for regressions
         if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && env.GH_USER_TOKEN != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_USER_TOKEN }}
           script: |
@@ -373,7 +392,7 @@ jobs:
     steps:
       - name: Prepare PR & wait for mergeability
         id: prepare
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -414,7 +433,7 @@ jobs:
       - name: Update PR branch from base (attempt updateBranch, fallback to server-side merge)
         id: update
         if: ${{ steps.prepare.outputs.proceed == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -494,7 +513,7 @@ jobs:
       - name: Attempt merge
         id: attempt
         if: ${{ steps.prepare.outputs.proceed == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -511,7 +530,7 @@ jobs:
 
       - name: Delete head branch (if merged)
         if: ${{ steps.attempt.outputs.merged == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;

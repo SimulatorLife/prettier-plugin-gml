@@ -63,6 +63,47 @@ await test("transpileScript unwraps function parameters into args assignments", 
     assert.match(result.js_body, /return \(?x \+ y\)?;/);
 });
 
+await test("transpileScript reuses pre-parsed function ASTs with string parameters", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+    const result = transpiler.transpileScript({
+        sourceText: "function test(x, y = 5) { return x + y; }",
+        symbolId: "gml/script/test",
+        ast: {
+            type: "Program",
+            body: [
+                {
+                    type: "FunctionDeclaration",
+                    id: "test",
+                    params: [
+                        "x",
+                        {
+                            type: "DefaultParameter",
+                            left: { type: "Identifier", name: "y" },
+                            right: { type: "Literal", value: 5 }
+                        }
+                    ],
+                    body: {
+                        type: "BlockStatement",
+                        body: [
+                            {
+                                type: "ReturnStatement",
+                                argument: {
+                                    type: "BinaryExpression",
+                                    operator: "+",
+                                    left: { type: "Identifier", name: "x" },
+                                    right: { type: "Identifier", name: "y" }
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    });
+
+    assert.equal(result.js_body, "var x = args[0];\nvar y = args[1] === undefined ? 5 : args[1];\nreturn (x + y);");
+});
+
 await test("transpileScript includes source path metadata when provided", () => {
     const transpiler = new Transpiler.GmlTranspiler();
     const result = transpiler.transpileScript({
@@ -110,6 +151,22 @@ await test("transpileScript rejects malformed ast objects before property access
     );
 });
 
+await test("transpileScript rejects non-Program ast objects", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+
+    assert.throws(
+        () =>
+            transpiler.transpileScript({
+                sourceText: "x = 1 + 2",
+                symbolId: "gml/script/test",
+                ast: { type: "BinaryExpression", body: [] }
+            } as unknown as TranspileScriptArgs),
+        {
+            message: /ast\.type to be 'Program'/
+        }
+    );
+});
+
 await test("transpileScript handles parsing errors gracefully", () => {
     const transpiler = new Transpiler.GmlTranspiler();
 
@@ -129,4 +186,19 @@ await test("transpileExpression handles parsing errors gracefully", () => {
     assert.throws(() => transpiler.transpileExpression("invalid syntax %%%%"), {
         message: /Failed to transpile expression/
     });
+});
+
+await test("transpileScript preserves the original error as cause", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+
+    try {
+        transpiler.transpileScript({
+            sourceText: "invalid syntax %%%%",
+            symbolId: "gml/script/test"
+        });
+        assert.fail("Expected transpileScript to throw");
+    } catch (error) {
+        assert.ok(error instanceof Error);
+        assert.ok(error.cause instanceof Error);
+    }
 });

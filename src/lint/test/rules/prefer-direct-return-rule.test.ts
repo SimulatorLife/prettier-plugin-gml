@@ -1,6 +1,6 @@
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
 import { lintWithRule } from "./lint-rule-test-harness.js";
@@ -40,6 +40,33 @@ void test("prefer-direct-return does not rewrite when comments would be dropped"
 
     assertEquals(result.messages.length, 0);
     assertEquals(result.output, input);
+});
+
+void test("prefer-direct-return preserves comments inside a multiline initializer when rewriting", () => {
+    const input = [
+        "function make_stats() {",
+        "    var stats = {",
+        "        hp: 100, // keep the property note",
+        "        mp: 50",
+        "    };",
+        "    return stats;",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "function make_stats() {",
+        "    return {",
+        "        hp: 100, // keep the property note",
+        "        mp: 50",
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-direct-return", input, {});
+
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.output, expected);
 });
 
 void test("prefer-direct-return does not rewrite when initializer references the declared identifier", () => {

@@ -17,13 +17,14 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Core, type DebouncedFunction } from "@gml-modules/core";
-import { Parser } from "@gml-modules/parser";
-import { Transpiler } from "@gml-modules/transpiler";
+import { Core, type DebouncedFunction } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
+import { Transpiler } from "@gmloop/transpiler";
 import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
 import { formatCliError } from "../cli-core/errors.js";
+import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
     type RuntimeStaticServerHandle,
@@ -38,10 +39,12 @@ import {
     type RuntimeSourceResolver
 } from "../modules/runtime/source.js";
 import { startStatusServer, type StatusServerHandle, type StatusServerLifecycle } from "../modules/status/server.js";
+import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
 import {
     displayTranspilationStatistics,
     type ErrorCollector,
     type MetricsCollector,
+    orderPatchesForReplay,
     type PatchBroadcastService,
     type PatchHistoryStore,
     registerScriptNamesFromSymbols,
@@ -50,14 +53,21 @@ import {
     type TranspilationResult,
     transpileFile,
     type TranspilerProvider
-} from "../modules/transpilation/coordinator.js";
-import { DependencyTracker } from "../modules/transpilation/dependency-tracker.js";
+} from "../modules/transpilation/index.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
 } from "../modules/transpilation/runtime-identifiers.js";
 import { extractSymbolsFromAst } from "../modules/transpilation/symbol-extraction.js";
 import { type PatchWebSocketServer, startPatchWebSocketServer } from "../modules/websocket/server.js";
+import {
+    DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT,
+    DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS,
+    DEFAULT_WATCH_DEBOUNCE_DELAY_MS,
+    DEFAULT_WATCH_MAX_CONCURRENT_DIRS,
+    DEFAULT_WATCH_MAX_PATCH_HISTORY,
+    DEFAULT_WATCH_POLLING_INTERVAL_MS
+} from "./watch-constants.js";
 
 const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode } = Core;
 
@@ -86,6 +96,8 @@ interface FileWatchingConfig {
     pollingInterval?: number;
     debounceDelay?: number;
     maxConcurrentDirs?: number;
+    transientEmptyFileReadRetryCount?: number;
+    transientEmptyFileReadRetryDelayMs?: number;
     watchFactory?: WatchFactory;
 }
 
@@ -149,6 +161,8 @@ interface HotReloadConfig {
  */
 interface InfrastructureConfig {
     abortSignal?: AbortSignal;
+    onWebSocketServerReady?: (server: PatchWebSocketServer) => void;
+    onStatusServerReady?: (server: StatusServerHandle) => void;
 }
 
 /**
@@ -242,6 +256,9 @@ interface RuntimeContext
         PatchHistory,
         ServerControllers,
         WatchLifecycle {
+    watchRoot: string;
+    extensionMatcher: ExtensionMatcher;
+    maxConcurrentDirs: number;
     scriptNames: Set<string>;
     fileSnapshots: Map<string, number>;
     /** SHA-256 prefix of each file's last-transpiled source text.
@@ -251,6 +268,8 @@ interface RuntimeContext
     /** UTF-16 code-unit length of each file's last-transpiled source text.
      * Used as a low-cost pre-check to avoid hashing when content length changed. */
     fileContentLengths: Map<string, number>;
+    transientEmptyFileReadRetryCount: number;
+    transientEmptyFileReadRetryDelayMs: number;
 }
 
 /**
@@ -285,9 +304,6 @@ interface FileChangeOptions extends LoggingConfig {
     abortSignal?: AbortSignal;
 }
 
-const TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT = 4;
-const TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS = 25;
-
 /**
  * Waits before retrying a transient empty-file read and supports abort-driven teardown.
  *
@@ -321,15 +337,20 @@ export function delayFileReadRetry(durationMs: number, abortSignal?: AbortSignal
  * Retry briefly when the file is observed as empty so we do not treat
  * transient truncation windows as a permanent transpilation failure.
  */
-function readSourceFileWithTransientEmptyRetry(filePath: string, abortSignal?: AbortSignal): Promise<string | null> {
+function readSourceFileWithTransientEmptyRetry(
+    filePath: string,
+    retryCount: number,
+    retryDelayMs: number,
+    abortSignal?: AbortSignal
+): Promise<string | null> {
     const readAttempt = async (attempt: number): Promise<string> => {
         const content = await readFile(filePath, "utf8");
-        const isFinalAttempt = attempt >= TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT - 1;
+        const isFinalAttempt = attempt >= retryCount - 1;
         if (content.length > 0 || isFinalAttempt) {
             return content;
         }
 
-        const shouldRetry = await delayFileReadRetry(TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS, abortSignal);
+        const shouldRetry = await delayFileReadRetry(retryDelayMs, abortSignal);
         if (!shouldRetry) {
             return content;
         }
@@ -393,17 +414,34 @@ async function runAutoInjectHotReload(
  * logging while providing a case-insensitive predicate for incoming filenames.
  */
 export function createExtensionMatcher(extensions: ReadonlyArray<string>): ExtensionMatcher {
-    const normalized = extensions.map((ext) => {
-        const withDot = ext.startsWith(".") ? ext : `.${ext}`;
-        return withDot.toLowerCase();
-    });
-
+    const normalized = normalizeExtensions(extensions);
     const normalizedSet = new Set(normalized);
 
     return {
         extensions: normalizedSet,
-        matches: (fileName: string) => normalizedSet.has(path.extname(fileName).toLowerCase())
+        matches: (fileName: string) => {
+            const extension = resolveLowercaseExtension(fileName);
+            return extension === "" ? false : normalizedSet.has(extension);
+        }
     };
+}
+
+/**
+ * Resolves the lowercase extension for a filename/path without allocating via
+ * node:path. The behavior intentionally matches path.extname semantics:
+ * dotfiles such as ".gml" are treated as extension-less.
+ */
+function resolveLowercaseExtension(fileName: string): string {
+    const lastForwardSlashIndex = fileName.lastIndexOf("/");
+    const lastBackwardSlashIndex = fileName.lastIndexOf("\\");
+    const lastPathSeparatorIndex = Math.max(lastForwardSlashIndex, lastBackwardSlashIndex);
+    const lastDotIndex = fileName.lastIndexOf(".");
+
+    if (lastDotIndex <= lastPathSeparatorIndex + 1) {
+        return "";
+    }
+
+    return fileName.slice(lastDotIndex).toLowerCase();
 }
 
 /**
@@ -421,17 +459,18 @@ export function countSourceLines(source: string): number {
 }
 
 /**
- * Computes a short SHA-256 digest of source text for change-detection purposes.
+ * Computes a compact digest of source text for change-detection purposes.
  *
- * The digest is truncated to 32 hex characters (128-bit prefix of SHA-256), which
- * provides negligible collision probability even for large projects while keeping
- * per-file memory overhead minimal.
+ * MD5 is intentionally used here because this hash is not security-sensitive:
+ * we only need a fast, deterministic fingerprint to skip redundant transpilation
+ * when file bytes are unchanged. A 128-bit digest keeps memory overhead low while
+ * reducing per-change CPU cost versus SHA-256 in the watch hot path.
  *
  * @param {string} source - Source text to hash.
  * @returns {string} 32-character hex digest.
  */
 export function hashSourceContent(source: string): string {
-    return createHash("sha256").update(source, "utf8").digest("hex").slice(0, 32);
+    return createHash("md5").update(source, "utf8").digest("hex");
 }
 
 /**
@@ -444,6 +483,21 @@ export function hashSourceContent(source: string): string {
  * @returns {number} Safe unknown scan concurrency value (minimum 1).
  */
 export function resolveUnknownScanConcurrency(configuredMaximum: number): number {
+    return Math.max(1, Math.trunc(configuredMaximum));
+}
+
+/**
+ * Resolves concurrency for dependent script retranspilation.
+ *
+ * Dependent retranspilation happens on the hot-reload critical path and should
+ * remain bounded so large dependency fans do not create unbounded I/O bursts
+ * or event-loop pressure. Reuse the watch command's concurrency cap to keep
+ * throughput high while controlling latency variance.
+ *
+ * @param {number} configuredMaximum - User-configured concurrency ceiling.
+ * @returns {number} Safe retranspile concurrency value (minimum 1).
+ */
+export function resolveDependentRetranspileConcurrency(configuredMaximum: number): number {
     return Math.max(1, Math.trunc(configuredMaximum));
 }
 
@@ -465,7 +519,7 @@ export function createWatchCommand(): Command {
         .addOption(
             new Option("--polling-interval <ms>", "Polling interval in milliseconds")
                 .argParser(createMinimumValueValidator(100, "Polling interval must be at least 100ms"))
-                .default(1000)
+                .default(DEFAULT_WATCH_POLLING_INTERVAL_MS)
         )
         .addOption(new Option("--verbose", "Enable verbose logging").default(false))
         .addOption(
@@ -477,7 +531,7 @@ export function createWatchCommand(): Command {
                 "Delay in milliseconds before transpiling after file changes (0 for immediate processing)"
             )
                 .argParser(createMinimumValueValidator(0, "Debounce delay must be non-negative"))
-                .default(100)
+                .default(DEFAULT_WATCH_DEBOUNCE_DELAY_MS)
         )
         .addOption(
             new Option(
@@ -485,12 +539,30 @@ export function createWatchCommand(): Command {
                 "Maximum number of directories to scan concurrently during initial file discovery"
             )
                 .argParser(createMinimumValueValidator(1, "Max concurrent directories must be at least 1"))
-                .default(4)
+                .default(DEFAULT_WATCH_MAX_CONCURRENT_DIRS)
         )
         .addOption(
             new Option("--max-patch-history <count>", "Maximum number of patches to retain in memory")
                 .argParser(createMinimumValueValidator(1, "Max patch history must be a positive integer"))
-                .default(100)
+                .default(DEFAULT_WATCH_MAX_PATCH_HISTORY)
+        )
+        .addOption(
+            new Option(
+                "--transient-empty-file-read-retry-count <count>",
+                "Number of retry attempts when a changed file is temporarily observed as empty"
+            )
+                .argParser(
+                    createMinimumValueValidator(1, "Transient empty-file read retry count must be a positive integer")
+                )
+                .default(DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT)
+        )
+        .addOption(
+            new Option(
+                "--transient-empty-file-read-retry-delay-ms <ms>",
+                "Delay in milliseconds between transient empty-file read retry attempts"
+            )
+                .argParser(createMinimumValueValidator(0, "Transient empty-file read retry delay must be non-negative"))
+                .default(DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS)
         )
         .addOption(
             new Option("--websocket-port <port>", "WebSocket server port for streaming patches")
@@ -564,7 +636,7 @@ async function performInitialScan(
     verbose: boolean,
     quiet: boolean,
     maxConcurrentDirs: number,
-    fileDataCache?: ReadonlyMap<string, InitialFileData>
+    fileDataCache?: Map<string, InitialFileData>
 ): Promise<void> {
     const { getErrorMessage: getCoreErrorMessage } = Core;
 
@@ -574,7 +646,7 @@ async function performInitialScan(
             // available. This avoids a second disk read and a second ANTLR parse for every
             // file that was already processed during startup, cutting initial scan overhead
             // roughly in half for typical GML projects.
-            const cached = fileDataCache?.get(fullPath);
+            const cached = takeInitialFileData(fileDataCache, fullPath);
             const content = cached?.content ?? (await readFile(fullPath, "utf8"));
             const cachedAst = cached?.ast;
             const lines = countSourceLines(content);
@@ -740,15 +812,17 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const {
         extensions = [".gml"],
         polling = false,
-        pollingInterval = 1000,
+        pollingInterval = DEFAULT_WATCH_POLLING_INTERVAL_MS,
         verbose = false,
         quiet = false,
         // Optimized for minimal hot-reload latency while still batching rapid successive edits.
         // 100ms provides immediate feedback for single-file changes while preventing redundant
         // transpilations during rapid editing (e.g., auto-save + manual save).
-        debounceDelay = 100,
-        maxConcurrentDirs = 4,
-        maxPatchHistory = 100,
+        debounceDelay = DEFAULT_WATCH_DEBOUNCE_DELAY_MS,
+        maxConcurrentDirs = DEFAULT_WATCH_MAX_CONCURRENT_DIRS,
+        maxPatchHistory = DEFAULT_WATCH_MAX_PATCH_HISTORY,
+        transientEmptyFileReadRetryCount = DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT,
+        transientEmptyFileReadRetryDelayMs = DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS,
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
         websocketServer: enableWebSocket = true,
@@ -756,6 +830,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         statusHost = "127.0.0.1",
         statusServer: enableStatus = true,
         abortSignal,
+        onWebSocketServerReady,
+        onStatusServerReady,
         runtimeRoot,
         runtimePackage = DEFAULT_RUNTIME_PACKAGE,
         runtimeServer,
@@ -800,6 +876,9 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     });
     const dependencyTracker = new DependencyTracker();
     const runtimeContext: RuntimeContext = {
+        watchRoot: normalizedPath,
+        extensionMatcher,
+        maxConcurrentDirs,
         root: null,
         packageName: null,
         packageJson: null,
@@ -824,7 +903,9 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         fileSnapshots: new Map(),
         fileContentHashes: new Map(),
         fileContentLengths: new Map(),
-        dependencyTracker
+        dependencyTracker,
+        transientEmptyFileReadRetryCount,
+        transientEmptyFileReadRetryDelayMs
     };
 
     let runtimeServerController: RuntimeStaticServerInstance | null = null;
@@ -869,7 +950,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         console.log(`Patch streaming client connected: ${clientId}`);
                     }
                 },
-                prepareInitialMessages: () => Array.from(runtimeContext.lastSuccessfulPatches.values()),
+                prepareInitialMessages: () =>
+                    orderPatchesForReplay(Array.from(runtimeContext.lastSuccessfulPatches.values())),
                 onClientDisconnect: (clientId) => {
                     if (verbose) {
                         console.log(`Patch streaming client disconnected: ${clientId}`);
@@ -878,6 +960,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
 
             runtimeContext.websocketServer = websocketServerController;
+            onWebSocketServerReady?.(websocketServerController);
 
             console.log(`WebSocket patch server ready at ${websocketServerController.url}`);
         } catch (error) {
@@ -933,6 +1016,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
 
             runtimeContext.statusServer = statusServerController;
+            onStatusServerReady?.(statusServerController);
 
             console.log(`Status server ready at ${statusServerController.url}`);
         } catch (error) {
@@ -1000,8 +1084,14 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             process.off("SIGTERM", handleErrorSignal);
             removeAbortListener();
 
+            // Cancel (not flush) all pending debounced handlers. Flushing would invoke each
+            // callback immediately after the watcher has already been closed, spawning new
+            // async file reads and — for transiently-empty files — new setTimeout timers via
+            // delayFileReadRetry() that have no abort-signal protection when cleanup is
+            // triggered by SIGINT/SIGTERM. Those timers outlive the cleanup phase and
+            // constitute a resource leak. Cancelling discards the pending work cleanly.
             for (const debouncedHandler of runtimeContext.debouncedHandlers.values()) {
-                debouncedHandler.flush();
+                debouncedHandler.cancel();
             }
             runtimeContext.debouncedHandlers.clear();
 
@@ -1204,6 +1294,12 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                     runtimeContext.scanComplete = true;
                     return null;
                 })
+                .finally(() => {
+                    // The startup cache is only needed during the initial scan. Clear any
+                    // unconsumed entries (for example from transient read errors) so large
+                    // file contents and AST objects are released promptly.
+                    clearInitialFileDataCache(fileDataCache);
+                })
                 .catch(handleWatcherError);
         } catch (error) {
             handleWatcherError(error);
@@ -1281,7 +1377,12 @@ async function handleFileChange(
         }
 
         try {
-            const content = await readSourceFileWithTransientEmptyRetry(filePath, abortSignal);
+            const content = await readSourceFileWithTransientEmptyRetry(
+                filePath,
+                runtimeContext?.transientEmptyFileReadRetryCount ?? DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_COUNT,
+                runtimeContext?.transientEmptyFileReadRetryDelayMs ?? DEFAULT_TRANSIENT_EMPTY_FILE_READ_RETRY_DELAY_MS,
+                abortSignal
+            );
             if (content === null) {
                 return;
             }
@@ -1364,23 +1465,33 @@ async function handleUnknownFileChanges(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    const entries = Array.from(runtimeContext.fileSnapshots.entries());
-    if (entries.length === 0) {
-        return;
+    const discoveredFilePaths = await collectWatchedFilePaths(
+        runtimeContext.watchRoot,
+        runtimeContext.extensionMatcher,
+        runtimeContext.maxConcurrentDirs
+    );
+    const discoveredFiles = new Set(discoveredFilePaths);
+
+    for (const filePath of runtimeContext.fileSnapshots.keys()) {
+        if (!discoveredFiles.has(filePath)) {
+            cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+        }
     }
 
     const changedEntries = await Core.runInParallelWithLimit(
-        entries,
-        async ([filePath, lastModified]) => {
+        discoveredFilePaths,
+        async (filePath) => {
+            const lastModified = runtimeContext.fileSnapshots.get(filePath);
             try {
                 const stats = await stat(filePath);
-                if (stats.mtimeMs <= lastModified) {
+                if (lastModified !== undefined && stats.mtimeMs <= lastModified) {
                     return null;
                 }
 
                 return {
                     filePath,
-                    stats
+                    stats,
+                    eventType: lastModified === undefined ? "rename" : "change"
                 };
             } catch {
                 cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
@@ -1395,7 +1506,7 @@ async function handleUnknownFileChanges(
             return;
         }
 
-        await handleFileChange(entry.filePath, "change", {
+        await handleFileChange(entry.filePath, entry.eventType, {
             verbose,
             quiet,
             runtimeContext,
@@ -1450,24 +1561,27 @@ async function readFileStats(filePath: string): Promise<Stats | null> {
 async function retranspileDependentFiles(
     runtimeContext: RuntimeContext,
     filePath: string,
-    dependentFiles: Array<string>,
+    dependentFiles: ReadonlyArray<string>,
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    // Process dependent files concurrently to minimise hot-reload latency.
-    // Each callback has an independent try/catch so a single failure does not
-    // abort sibling retranspilations. Node.js single-threaded execution keeps
-    // dependency-tracker mutations safe without explicit locking.
-    await Core.runInParallel(dependentFiles, async (dependentFile) => {
-        try {
-            await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
-        } catch (error) {
-            const message = getErrorMessage(error, {
-                fallback: "Unknown file read error"
-            });
-            console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
-        }
-    });
+    // Process dependent files concurrently to minimise hot-reload latency while
+    // keeping fan-out bounded to avoid unbounded event-loop pressure on large
+    // dependency graphs.
+    await Core.runInParallelWithLimit(
+        dependentFiles,
+        async (dependentFile) => {
+            try {
+                await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
+            } catch (error) {
+                const message = getErrorMessage(error, {
+                    fallback: "Unknown file read error"
+                });
+                console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
+            }
+        },
+        resolveDependentRetranspileConcurrency(runtimeContext.maxConcurrentDirs)
+    );
 }
 
 function areSymbolSetsEqual(left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean {
@@ -1508,13 +1622,13 @@ async function processTranspileResult(
     }
 
     if (!dependencyUpdate.definitionsChanged) {
-        if (verbose && !quiet && dependencyUpdate.previousDependents.length > 0) {
+        if (verbose && !quiet && dependencyUpdate.affectedDependents.length > 0) {
             console.log("  ↳ Symbol definitions unchanged; skipping dependent retranspilation");
         }
         return;
     }
 
-    const dependentFiles = mergeDependentFiles(dependencyUpdate.previousDependents, dependencyUpdate.updatedDependents);
+    const dependentFiles = dependencyUpdate.affectedDependents;
     if (dependentFiles.length === 0) {
         return;
     }
@@ -1528,8 +1642,7 @@ async function processTranspileResult(
 
 interface DependencyUpdateSummary {
     definitionsChanged: boolean;
-    previousDependents: ReadonlyArray<string>;
-    updatedDependents: ReadonlyArray<string>;
+    affectedDependents: ReadonlyArray<string>;
 }
 
 /**
@@ -1541,20 +1654,63 @@ function updateDependencyTrackerForTranspileResult(
     result: TranspilationResult
 ): DependencyUpdateSummary {
     const previousDefinitions = runtimeContext.dependencyTracker.getFileDefinitions(filePath);
-    const previousDependents = runtimeContext.dependencyTracker.getDependentFiles(filePath);
     const nextDefinitions = result.symbols ?? [];
     const definitionsChanged = !areSymbolSetsEqual(previousDefinitions, nextDefinitions);
 
     runtimeContext.dependencyTracker.replaceFileDefines(filePath, nextDefinitions);
     runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
 
+    if (!definitionsChanged) {
+        return {
+            definitionsChanged,
+            affectedDependents: []
+        };
+    }
+
+    const changedDefinitions = resolveChangedDefinitions(previousDefinitions, nextDefinitions);
+    const affectedDependents = runtimeContext.dependencyTracker.getFilesReferencingSymbols(
+        changedDefinitions,
+        filePath
+    );
+
     return {
         definitionsChanged,
-        previousDependents,
-        updatedDependents: definitionsChanged
-            ? runtimeContext.dependencyTracker.getDependentFiles(filePath)
-            : previousDependents
+        affectedDependents
     };
+}
+
+/**
+ * Returns the symbol names whose availability changed between two definition sets.
+ * Only files that reference these specific symbols need dependent retranspilation.
+ */
+function resolveChangedDefinitions(
+    previousDefinitions: ReadonlyArray<string>,
+    nextDefinitions: ReadonlyArray<string>
+): Array<string> {
+    return mergeDependentFiles(
+        subtractSymbolSets(previousDefinitions, nextDefinitions),
+        subtractSymbolSets(nextDefinitions, previousDefinitions)
+    );
+}
+
+/**
+ * Returns symbols present in `left` that are absent from `right`.
+ */
+function subtractSymbolSets(left: ReadonlyArray<string>, right: ReadonlyArray<string>): Array<string> {
+    if (left.length === 0) {
+        return [];
+    }
+
+    const rightSet = new Set(right);
+    const difference: Array<string> = [];
+
+    for (const symbol of left) {
+        if (!rightSet.has(symbol)) {
+            difference.push(symbol);
+        }
+    }
+
+    return difference;
 }
 
 /**
@@ -1694,6 +1850,51 @@ interface InitialFileData {
 }
 
 /**
+ * Returns and removes cached startup data for a file.
+ *
+ * The watch command only needs the pre-read source text and AST once during the
+ * initial scan. Deleting the cache entry immediately after retrieval reduces the
+ * peak memory footprint of large startup scans without changing the transpilation
+ * work performed for each file.
+ *
+ * @param fileDataCache - Startup cache keyed by absolute file path.
+ * @param filePath - File whose cached source text and AST should be consumed.
+ * @returns Cached startup data when present.
+ */
+export function takeInitialFileData(
+    fileDataCache: Map<string, InitialFileData> | undefined,
+    filePath: string
+): InitialFileData | undefined {
+    if (!fileDataCache) {
+        return undefined;
+    }
+
+    const cached = fileDataCache.get(filePath);
+    if (cached) {
+        fileDataCache.delete(filePath);
+    }
+
+    return cached;
+}
+
+/**
+ * Clears any remaining startup file cache entries after the initial scan finishes.
+ *
+ * During startup, cached source text and AST objects are reused to avoid duplicate
+ * reads/parses. Once the initial scan completes (or fails), retaining leftover entries
+ * only increases steady-state memory usage.
+ *
+ * @param fileDataCache - Startup cache to clear.
+ */
+export function clearInitialFileDataCache(fileDataCache: Map<string, InitialFileData> | undefined): void {
+    if (!fileDataCache) {
+        return;
+    }
+
+    fileDataCache.clear();
+}
+
+/**
  * Return value from the initial file cache build step.
  * Provides both the complete set of known script names (for seeding the semantic oracle)
  * and the per-file content + AST cache (for avoiding re-parsing during initial transpilation).
@@ -1763,6 +1964,37 @@ async function collectScriptNames(
     }
 
     return { scriptNames, fileDataCache };
+}
+
+async function collectWatchedFilePaths(
+    rootPath: string,
+    extensionMatcher: ExtensionMatcher,
+    maxConcurrentDirs: number
+): Promise<Array<string>> {
+    const discoveredFiles: Array<string> = [];
+
+    async function scan(currentPath: string): Promise<void> {
+        const entries = await readdir(currentPath, { withFileTypes: true });
+        const { files, directories } = partitionScannedDirectoryEntries(currentPath, entries, extensionMatcher);
+
+        discoveredFiles.push(...files);
+
+        await Core.runInParallelWithLimit(
+            directories,
+            async (subDirPath) => {
+                await scan(subDirPath);
+            },
+            maxConcurrentDirs
+        );
+    }
+
+    try {
+        await scan(rootPath);
+    } catch {
+        // Fail silently; unknown filename scans should never crash the watcher.
+    }
+
+    return discoveredFiles;
 }
 
 async function addScriptNamesFromFile(

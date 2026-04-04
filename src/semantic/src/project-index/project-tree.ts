@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import { type ProjectIndexFsFacade } from "./fs-facade.js";
@@ -130,10 +130,8 @@ async function processDirectoryEntries({
     projectRoot,
     fsFacade,
     ensureNotAborted,
-    metrics,
-    signal
+    metrics
 }) {
-    void signal;
     await Core.runSequentially(entries, async (entry) => {
         ensureNotAborted();
         const descriptor = createDirectoryEntryDescriptor(directoryContext, entry, projectRoot);
@@ -188,8 +186,7 @@ export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacad
             projectRoot,
             fsFacade,
             ensureNotAborted,
-            metrics,
-            signal
+            metrics
         });
 
         return processNextDirectory();

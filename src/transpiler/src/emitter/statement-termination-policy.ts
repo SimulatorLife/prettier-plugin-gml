@@ -1,48 +1,32 @@
-/**
- * Result describing whether the emitter should append a statement terminator.
- */
-export type StatementTerminationPolicyEvaluation = {
-    shouldAppendTerminator: boolean;
-};
-
 const STATEMENT_TERMINATION_KEYWORDS = Object.freeze(["if", "for", "while", "switch", "try", "with", "do"]);
 
-function isStatementTerminated(code: string): boolean {
+/**
+ * Return true when the emitted code fragment already ends with a statement
+ * terminator and therefore does not need a trailing semicolon.
+ *
+ * This predicate is kept separate from the emitter's string concatenation so
+ * that the heuristics are testable in isolation and do not couple formatting
+ * rules to the mechanics that mutate the output buffer.
+ */
+export function isStatementTerminated(code: string): boolean {
+    const trimmedEnd = code.trimEnd();
     const trimmed = code.trimStart();
 
     return (
-        code.endsWith(";") ||
-        code.endsWith("}") ||
+        trimmedEnd.endsWith(";") ||
+        trimmedEnd.endsWith("}") ||
         STATEMENT_TERMINATION_KEYWORDS.some((keyword) => trimmed.startsWith(keyword))
     );
 }
 
 /**
- * Decide whether an emitted statement fragment requires a trailing semicolon.
- *
- * Keeping this policy separate from the emitter's string concatenation makes
- * the heuristics testable in isolation and avoids coupling formatting rules to
- * the mechanics that mutate the output buffer.
- */
-export function evaluateStatementTerminationPolicy(code: string): StatementTerminationPolicyEvaluation {
-    if (!code) {
-        return { shouldAppendTerminator: false };
-    }
-
-    return {
-        shouldAppendTerminator: !isStatementTerminated(code)
-    };
-}
-
-/**
- * Append a trailing statement terminator when the policy indicates one is
- * required, preserving existing terminators and control-flow constructs.
+ * Append a trailing statement terminator when the code fragment requires one,
+ * preserving existing terminators and control-flow constructs.
  */
 export function ensureStatementTerminated(code: string): string {
     if (!code) {
         return code;
     }
 
-    const { shouldAppendTerminator } = evaluateStatementTerminationPolicy(code);
-    return shouldAppendTerminator ? `${code};` : code;
+    return isStatementTerminated(code) ? code : `${code};`;
 }

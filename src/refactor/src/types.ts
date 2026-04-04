@@ -4,9 +4,10 @@
  * that coordinate semantic analysis, transpiler integration, and safe renaming.
  */
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
-import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/index.js";
+import type { StorageBackend } from "./backends/storage-backend.js";
+import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/types.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
 export type MaybePromise<T> = T | Promise<T>;
@@ -34,8 +35,12 @@ export type NamingCategory =
     | "shaderResourceName"
     | "fontResourceName"
     | "pathResourceName"
+    | "animationCurveResourceName"
     | "sequenceResourceName"
     | "tilesetResourceName"
+    | "particleSystemResourceName"
+    | "noteResourceName"
+    | "extensionResourceName"
     | "variable"
     | "localVariable"
     | "globalVariable"
@@ -47,14 +52,10 @@ export type NamingCategory =
     | "callable"
     | "function"
     | "constructorFunction"
-    | "eventHandlerFunction"
-    | "structMethod"
-    | "staticMethod"
     | "typeName"
     | "structDeclaration"
     | "enum"
     | "member"
-    | "structField"
     | "enumMember"
     | "constant"
     | "macro";
@@ -79,6 +80,34 @@ export interface NamingConventionPolicy {
     rules: Partial<Record<NamingCategory, NamingRuleConfig | false>>;
     exclusivePrefixes?: Record<string, NamingCategory>;
     exclusiveSuffixes?: Record<string, NamingCategory>;
+}
+
+/**
+ * Stable identifiers for codemods exposed through project configuration and the CLI.
+ */
+export type RefactorCodemodId = "loopLengthHoisting" | "namingConvention";
+
+/**
+ * Normalized config payloads keyed by registered codemod id.
+ */
+export interface RefactorCodemodConfigMap {
+    loopLengthHoisting: LoopLengthHoistingCodemodOptions;
+    namingConvention: Record<string, never>;
+}
+
+/**
+ * Config payload for a single registered codemod.
+ */
+export type RefactorCodemodConfigEntry<T extends RefactorCodemodId = RefactorCodemodId> =
+    | RefactorCodemodConfigMap[T]
+    | false;
+
+/**
+ * Refactor-specific configuration loaded from the `refactor` section of `gmloop.json`.
+ */
+export interface RefactorProjectConfig {
+    namingConventionPolicy?: NamingConventionPolicy;
+    codemods?: Partial<{ [K in RefactorCodemodId]: RefactorCodemodConfigEntry<K> }>;
 }
 
 /**
@@ -111,6 +140,10 @@ function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeNam
     type EnumValue = T[keyof T];
     const values = Object.values(enumObj);
     const validValues = values.join(", ");
+    const formatInvalidEnumMessage = (value: unknown, context?: string): string => {
+        const contextInfo = context ? ` (in ${context})` : "";
+        return `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`;
+    };
 
     const coreHelpers = createEnumeratedOptionHelpers(values, {
         caseSensitive: true,
@@ -125,20 +158,11 @@ function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeNam
             return coreHelpers.normalize(value) as EnumValue | null;
         },
         require: (value: unknown, context?: string): EnumValue => {
-            if (typeof value !== "string") {
-                const contextInfo = context ? ` (in ${context})` : "";
-                throw new TypeError(
-                    `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
-                );
+            const normalized = typeof value === "string" ? coreHelpers.normalize(value) : null;
+            if (normalized === null) {
+                throw new TypeError(formatInvalidEnumMessage(value, context));
             }
-            const normalized = coreHelpers.normalize(value);
-            if (normalized !== null) {
-                return normalized as EnumValue;
-            }
-            const contextInfo = context ? ` (in ${context})` : "";
-            throw new TypeError(
-                `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
-            );
+            return normalized as EnumValue;
         }
     };
 }
@@ -427,7 +451,7 @@ export interface SymbolResolver {
  * analysis, or other semantic operations.
  */
 export interface OccurrenceTracker {
-    getSymbolOccurrences(symbolName: string): MaybePromise<Array<SymbolOccurrence>>;
+    getSymbolOccurrences(symbolName: string, symbolId?: string | null): MaybePromise<Array<SymbolOccurrence>>;
     getAdditionalSymbolEdits?(symbolId: string, newName: string): MaybePromise<WorkspaceEdit | null>;
 }
 
@@ -463,6 +487,41 @@ export interface KeywordProvider {
 }
 
 /**
+ * Semantic adapter surface used by naming-convention codemods to enumerate
+ * renameable identifiers and resources.
+ */
+export interface NamingConventionTargetProvider {
+    listNamingConventionTargets(
+        filePaths?: Array<string>,
+        categories?: ReadonlyArray<NamingCategory>
+    ): MaybePromise<Array<NamingConventionTarget>>;
+}
+
+/**
+ * Describes caller-scoped identifiers that a referenced macro expansion reads
+ * from a specific consumer file.
+ *
+ * Naming-convention codemods use this to avoid renaming locals or parameters
+ * that a bare macro invocation expects to find unchanged at expansion time.
+ */
+export interface MacroExpansionDependency {
+    path: string;
+    macroName: string;
+    referencedNames: Array<string>;
+}
+
+/**
+ * Semantic adapter surface for macro-expansion-aware rename planning.
+ *
+ * Provides macro-to-consumer dependency data so local renames can skip
+ * identifiers that would break preprocessor-expanded code even when the raw
+ * source still parses successfully.
+ */
+export interface MacroExpansionDependencyProvider {
+    listMacroExpansionDependencies(filePaths?: Array<string>): MaybePromise<Array<MacroExpansionDependency>>;
+}
+
+/**
  * Workspace edit validation.
  *
  * Provides semantic validation of workspace edits to detect conflicts
@@ -471,6 +530,19 @@ export interface KeywordProvider {
  */
 export interface EditValidator {
     validateEdits(workspace: WorkspaceEdit): MaybePromise<SemanticValidationResult>;
+}
+
+/**
+ * Allows semantic adapters to observe progressively merged workspace edits while
+ * a batch rename plan is being assembled.
+ *
+ * Implementations can use this to stage metadata rewrites or other derived state
+ * so subsequent rename plans see the already-planned batch changes rather than a
+ * stale on-disk snapshot.
+ */
+export interface BatchWorkspaceOverlay {
+    clearWorkspaceOverlay(): MaybePromise<void>;
+    stageWorkspaceEdit(workspace: WorkspaceEdit): MaybePromise<void>;
 }
 
 /**
@@ -509,7 +581,10 @@ export type PartialSemanticAnalyzer = Partial<SymbolResolver> &
     Partial<FileSymbolProvider> &
     Partial<DependencyAnalyzer> &
     Partial<KeywordProvider> &
-    Partial<EditValidator>;
+    Partial<EditValidator> &
+    Partial<BatchWorkspaceOverlay> &
+    Partial<NamingConventionTargetProvider> &
+    Partial<MacroExpansionDependencyProvider>;
 
 export interface TranspilerBridge {
     transpileScript(request: { sourceText: string; symbolId: string }): MaybePromise<Record<string, unknown>>;
@@ -523,6 +598,7 @@ export interface RenameRequest {
 export interface ExecuteRenameRequest extends RenameRequest {
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    includeResultContent?: boolean;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
@@ -532,6 +608,7 @@ export interface ExecuteBatchRenameRequest {
     renames: Array<RenameRequest>;
     readFile: WorkspaceReadFile;
     writeFile: WorkspaceWriteFile;
+    includeResultContent?: boolean;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;
     prepareHotReload?: boolean;
@@ -566,9 +643,159 @@ export interface ExecuteLoopLengthHoistingCodemodResult {
     changedFiles: Array<LoopLengthHoistingFileSummary>;
 }
 
+/**
+ * Normalized naming-convention target emitted by semantic adapters.
+ */
+export interface NamingConventionTarget {
+    name: string;
+    category: NamingCategory;
+    path: string;
+    scopeId: string | null;
+    symbolId: string | null;
+    occurrences: Array<SymbolOccurrence>;
+}
+
+/**
+ * A single naming-policy violation detected during codemod planning.
+ */
+export interface NamingConventionViolation {
+    category: NamingCategory;
+    currentName: string;
+    suggestedName: string | null;
+    path: string;
+    symbolId: string | null;
+    message: string;
+}
+
+/**
+ * Naming-convention planning result, including collected edits and any blocking errors.
+ */
+export interface NamingConventionCodemodPlan {
+    workspace: WorkspaceEdit;
+    violations: Array<NamingConventionViolation>;
+    warnings: Array<string>;
+    errors: Array<string>;
+    topLevelRenamePlan: BatchRenamePlanSummary | null;
+    topLevelRenameRequests: Array<RenameRequest>;
+    localRenameCount: number;
+}
+
+/**
+ * Summary emitted for each configured codemod run.
+ */
+export interface ConfiguredCodemodSummary {
+    id: RefactorCodemodId;
+    changed: boolean;
+    changedFiles: Array<string>;
+    warnings: Array<string>;
+    errors: Array<string>;
+}
+
+export interface CodemodExecutionTelemetry {
+    queueCount: number;
+    requestedCodemodCount: number;
+    durationMs: number;
+    overlayEntryCount: number;
+    overlayBytes: number;
+    overlayHighWaterBytes: number;
+    overlaySpillWrites: number;
+    overlaySpilledEntries: number;
+    overlayCacheHits: number;
+    overlayCacheMisses: number;
+    appliedFileCount: number;
+    workspaceEdit?: {
+        textEditCount: number;
+        fileRenameCount: number;
+        metadataEditCount: number;
+        touchedFileCount: number;
+        totalTextBytes: number;
+        highWaterTextBytes: number;
+    };
+}
+
+/**
+ * Aggregate result for a configured codemod execution request.
+ */
+export interface ConfiguredCodemodRunResult {
+    dryRun: boolean;
+    summaries: Array<ConfiguredCodemodSummary>;
+    appliedFiles: Map<string, string>;
+    telemetry?: CodemodExecutionTelemetry;
+}
+
+/**
+ * Parameters for executing codemods selected from `gmloop.json`.
+ */
+export interface ConfiguredCodemodRunRequest {
+    projectRoot: string;
+    targetPaths: Array<string>;
+    gmlFilePaths: Array<string>;
+    config: RefactorProjectConfig;
+    readFile: WorkspaceReadFile;
+    writeFile?: WorkspaceWriteFile;
+    renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
+    deleteFile?: (path: string) => MaybePromise<void>;
+    dryRun?: boolean;
+    onlyCodemods?: Array<RefactorCodemodId>;
+    /**
+     * Upper bound for in-memory dry-run overlay bytes before entries spill.
+     *
+     * A value of 0 disables spill and retains all overlay content in memory.
+     */
+    dryRunOverlaySpillThresholdBytes?: number;
+    /**
+     * Maximum read-through cache entries for the default temp-file overlay backend.
+     */
+    dryRunOverlayReadCacheMaxEntries?: number;
+    /**
+     * Optional backend used for dry-run overlay spilling.
+     *
+     * When omitted, the engine uses the default temp-file backend. This hook
+     * keeps codemod execution backend-agnostic while preserving current defaults.
+     */
+    dryRunOverlayStorageBackend?: StorageBackend;
+    onTelemetry?: (telemetry: CodemodExecutionTelemetry) => void;
+    onAfterCodemod?: (
+        summary: ConfiguredCodemodSummary,
+        context: {
+            readFile: WorkspaceReadFile;
+        }
+    ) => MaybePromise<void>;
+}
+
+/**
+ * Public metadata describing a codemod registered with the refactor workspace.
+ */
+export interface RegisteredCodemod {
+    id: RefactorCodemodId;
+    description: string;
+}
+
+/**
+ * Effective registration state for a codemod after config normalization and CLI filtering.
+ */
+export interface RegisteredCodemodSelection {
+    id: RefactorCodemodId;
+    description: string;
+    configured: boolean;
+    selected: boolean;
+    effectiveConfig: RefactorCodemodConfigMap[RefactorCodemodId] | null;
+}
+
 export interface PrepareRenamePlanOptions {
     validateHotReload?: boolean;
     hotReloadOptions?: HotReloadValidationOptions;
+}
+
+export interface PrepareBatchRenamePlanOptions extends PrepareRenamePlanOptions {
+    includeImpactAnalyses?: boolean;
+    /**
+     * Optional precomputed batch validation for the same rename set.
+     *
+     * Callers that already validated the batch can pass the result to avoid
+     * repeating identical validation work before planning.
+     */
+    batchValidation?: BatchRenameValidation;
 }
 
 export interface HotReloadValidationOptions {
@@ -752,8 +979,39 @@ export interface RefactorEngineDependencies {
     projectAnalysisProvider: RefactorProjectAnalysisProvider | null;
 }
 
+/**
+ * Minimal engine surface used by codemod orchestration modules.
+ *
+ * This boundary keeps codemod planning/execution decoupled from the concrete
+ * `RefactorEngine` implementation and prevents registry ↔ engine import cycles.
+ */
+export interface CodemodEngine {
+    readonly semantic: PartialSemanticAnalyzer | null;
+    executeLoopLengthHoistingCodemod(
+        request: ExecuteLoopLengthHoistingCodemodRequest
+    ): Promise<ExecuteLoopLengthHoistingCodemodResult>;
+    validateRenameRequest(
+        request: RenameRequest,
+        options?: ValidateRenameRequestOptions
+    ): Promise<
+        ValidationSummary & {
+            symbolName?: string;
+            occurrenceCount?: number;
+            hotReload?: HotReloadSafetySummary;
+        }
+    >;
+    prepareBatchRenamePlan(
+        request: Array<RenameRequest>,
+        options?: PrepareBatchRenamePlanOptions
+    ): Promise<BatchRenamePlanSummary>;
+    executeBatchRename(request: ExecuteBatchRenameRequest): Promise<ExecuteRenameResult>;
+    applyWorkspaceEdit(workspace: WorkspaceEdit, options: ApplyWorkspaceEditOptions): Promise<Map<string, string>>;
+    clearQueryCaches(): void;
+}
+
 export interface ApplyWorkspaceEditOptions {
     dryRun?: boolean;
+    includeResultContent?: boolean;
     readFile: WorkspaceReadFile;
     writeFile?: WorkspaceWriteFile;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;

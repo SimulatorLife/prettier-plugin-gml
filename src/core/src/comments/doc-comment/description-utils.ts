@@ -65,6 +65,15 @@ export function resolveDescriptionIndentation(line: string) {
     return { indent, prefix };
 }
 
+function getDocCommentIndentSpaces(line: string): number {
+    const match = line.match(/^\s*\/\/\/([ \t]*)/);
+    if (!match) {
+        return 0;
+    }
+
+    return match[1].replaceAll("\t", "    ").length;
+}
+
 function formatDescriptionContinuationLine(line: string, continuationPrefix: string): string | null {
     if (typeof line !== STRING_TYPE) {
         return null;
@@ -93,15 +102,16 @@ function formatDescriptionContinuationLine(line: string, continuationPrefix: str
     return `${continuationPrefix}${suffix}`;
 }
 
-export function collectDescriptionContinuations(docCommentDocs: MutableDocCommentLines | readonly unknown[]): string[] {
+function findDescriptionLineIndex(docCommentDocs: MutableDocCommentLines | readonly unknown[]): number {
     if (!Array.isArray(docCommentDocs)) {
-        return [];
+        return -1;
     }
 
-    const descriptionIndex = docCommentDocs.findIndex(
-        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
-    );
+    return docCommentDocs.findIndex((line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim()));
+}
 
+export function collectDescriptionContinuations(docCommentDocs: MutableDocCommentLines | readonly unknown[]): string[] {
+    const descriptionIndex = findDescriptionLineIndex(docCommentDocs);
     if (descriptionIndex === -1) {
         return [];
     }
@@ -126,6 +136,49 @@ export function collectDescriptionContinuations(docCommentDocs: MutableDocCommen
     return continuations;
 }
 
+/**
+ * Collect normalized continuation payloads that immediately follow a specific
+ * `@description` line, while preserving indentation contributed by deeper
+ * comment-prefix indentation on subsequent lines.
+ */
+export function collectDescriptionContinuationText(
+    docCommentDocs: MutableDocCommentLines | readonly unknown[],
+    startIndex: number,
+    baseIndentSpaces: number
+): { continuations: string[]; linesConsumed: number } {
+    if (!Array.isArray(docCommentDocs) || startIndex < 0 || startIndex >= docCommentDocs.length) {
+        return { continuations: [], linesConsumed: 0 };
+    }
+
+    const continuations: string[] = [];
+    let lookahead = startIndex + 1;
+
+    while (lookahead < docCommentDocs.length) {
+        const candidate = docCommentDocs[lookahead];
+        const classification = classifyDescriptionContinuationLine(candidate);
+        if (classification.kind === "stop") {
+            break;
+        }
+
+        if (classification.kind === "empty") {
+            continuations.push("");
+            lookahead += 1;
+            continue;
+        }
+
+        if (typeof candidate === "string") {
+            const indentSpaces = getDocCommentIndentSpaces(candidate);
+            const extraIndent = Math.max(0, indentSpaces - baseIndentSpaces);
+            continuations.push(`${" ".repeat(extraIndent)}${classification.suffix}`);
+        } else {
+            continuations.push(classification.suffix);
+        }
+        lookahead += 1;
+    }
+
+    return { continuations, linesConsumed: lookahead - startIndex };
+}
+
 export function applyDescriptionContinuations(
     docCommentDocs: MutableDocCommentLines,
     continuations: string[]
@@ -134,10 +187,7 @@ export function applyDescriptionContinuations(
         return docCommentDocs;
     }
 
-    const descriptionIndex = docCommentDocs.findIndex(
-        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
-    );
-
+    const descriptionIndex = findDescriptionLineIndex(docCommentDocs);
     if (descriptionIndex === -1) {
         return docCommentDocs;
     }
@@ -187,21 +237,14 @@ export function applyDescriptionContinuations(
     }
 
     if (continuations.length > 0) {
-        (docCommentDocs as any)._preserveDescriptionBreaks = true;
+        docCommentDocs._preserveDescriptionBreaks = true;
     }
 
     return docCommentDocs;
 }
 
 export function ensureDescriptionContinuations(docCommentDocs: MutableDocCommentLines) {
-    if (!Array.isArray(docCommentDocs)) {
-        return;
-    }
-
-    const descriptionIndex = docCommentDocs.findIndex(
-        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
-    );
-
+    const descriptionIndex = findDescriptionLineIndex(docCommentDocs);
     if (descriptionIndex === -1) {
         return;
     }
@@ -237,6 +280,6 @@ export function ensureDescriptionContinuations(docCommentDocs: MutableDocComment
     }
 
     if (foundContinuation) {
-        (docCommentDocs as any)._preserveDescriptionBreaks = true;
+        docCommentDocs._preserveDescriptionBreaks = true;
     }
 }

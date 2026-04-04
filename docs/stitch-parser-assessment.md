@@ -35,7 +35,7 @@
 - Our CLI wrapper sits in `src/cli/` and exposes commands through `src/cli/src/commands/`, so we expose all tooling through a single, discoverable entry point (per `AGENTS.md`). We do not currently maintain a full `.yyp` project model or asset rename helpers within the formatter workspace; that logic lives externally in Stitch.
 
 ## Side-by-side comparison
-| Concern | Stitch (`@bscotch/gml-parser`) | Our workspace (`prettier-plugin-gml` + `@gml-modules/parser`) |
+| Concern | Stitch (`@bscotch/gml-parser`) | Our workspace (`GMLoop` + `/parser`) |
 | --- | --- | --- |
 | Parser generator | Chevrotain with hand-written lexer, parser, and visitor layers (`packages/parser/src/lexer.ts`, `parser.ts`, `visitor/`). | ANTLR 4 grammars (`GameMakerLanguage*.g4`) with generated runtime under `src/parser/generated`. |
 | AST/CST | Produces a typed CST (`gml-cst.d.ts`) plus visitors; comments are attached at the project/asset level. | Produces formatted AST nodes for Prettier/Transpiler via `src/parser/src/ast/`; comment/whitespace attachment is built into `gml-parser.ts`. |
@@ -43,7 +43,7 @@
 | Metadata feeds | Relies on `@bscotch/gamemaker-releases`, release-specific specs, and `@bscotch/yy` topologies for `.yy` XML handling. | Maintains `resources/feather` and semantic metadata plus future plans for identifier casing and live reload (see `docs/semantic-scope-plan.md`). |
 | Diagnostics | Evented diagnostics carried via `onDiagnostics` payloads from `Project`. | Formatter diagnostics mostly surface through Prettier errors and semantic checks; no project-level event emitter yet. |
 | Runtime/platform | Built/tested mostly on Windows; script logs show fallback to embedded spec data when config is absent. | Node.js 25+ with macOS/Linux support baked into repo instructions; `AGENTS.md` forbids `.js` sources or dynamic imports. |
-| Dependencies | `chevrotain`, `magic-string`, `zod`, `@bscotch/yy`, `@bscotch/stitch-config`, `@bscotch/gamemaker-releases`. | Prettier + ANTLR + our shared `@gml-modules/*` packages; per workspace instructions keep formatting deps localized to `plugin`. |
+| Dependencies | `chevrotain`, `magic-string`, `zod`, `@bscotch/yy`, `@bscotch/stitch-config`, `@bscotch/gamemaker-releases`. | Prettier + ANTLR + our shared `/*` packages; per workspace instructions keep formatting deps localized to `plugin`. |
 
 ## Operational experiment
 Ran this script from the stitch root after building the workspace:
@@ -214,7 +214,7 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
   - Reads resource metadata with `Core.parseJsonWithContext` and writes with `Core.stringifyJsonForFile`.
   - Updates references via generic `propertyPath` traversal and performs file renames directly.
   - This is the highest-value replacement target for `Yy.read`/`Yy.write`.
-- `src/semantic/src/identifier-case/asset-renames.ts`
+- `src/semantic/src/identifier-case/asset-renames/planner.ts`
   - Plans asset renames and reference mutations from project-index data.
   - Depends on `resourcePath`, `gmlRenames`, and `referenceMutations`; these structures should remain, but executor internals can move to `@bscotch/yy` I/O.
 - `src/cli/src/modules/refactor/semantic-bridge.ts`
@@ -291,6 +291,8 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
   - Routed metadata rewrite callers (`src/semantic/src/identifier-case/asset-rename-executor.ts`, `src/cli/src/modules/refactor/semantic-bridge.ts`) through the schema-aware adapter path so rename/refactor operations delegate more responsibility to `@bscotch/yy`.
 - Completed additional Phase 4 follow-up (project-manifest metadata rewrites):
   - Updated `src/cli/src/modules/refactor/semantic-bridge.ts` so metadata rewrite planning now covers both resource metadata (`.yy`) and project manifests (`.yyp`) when applying rename-driven reference updates.
+  - Tightened rename-time metadata mutation to patch targeted string literals in-place when possible, preserving untouched room/object numeric literals instead of reserializing whole documents for simple `name`/`path` updates.
+  - Hardened metadata reference matching for case-only resource-path drift so repeated rename/codemod runs can realign `.yyp` entries with on-disk resource casing instead of leaving stale manifest paths behind.
   - Added manifest rewrite verification to `src/cli/test/gml-semantic-bridge.test.ts` to confirm `resources[].id` references are rewritten via the same schema-aware metadata pipeline.
 - Completed additional Phase 4 follow-up (strict schema-gated mutation parsing):
   - Added `parseProjectMetadataDocumentForMutation` in `src/semantic/src/project-metadata/yy-adapter.ts`, which enforces inferred `@bscotch/yy` schema validation for rename/refactor mutation workflows and throws a dedicated schema-validation error on mismatch.
@@ -357,7 +359,7 @@ The parser also emitted a `SYNTAX ERROR` for `scripts/Recovery/Recovery.gml` whi
 - `packages/yy/src/Yy.parse.ts`
 - `packages/yy/src/Yy.stringify.ts`
 - `src/semantic/src/identifier-case/asset-rename-executor.ts`
-- `src/semantic/src/identifier-case/asset-renames.ts`
+- `src/semantic/src/identifier-case/asset-renames/planner.ts`
 - `src/semantic/src/project-index/resource-analysis.ts`
 - `src/cli/src/modules/refactor/semantic-bridge.ts`
 - `src/refactor/src/refactor-engine.ts`

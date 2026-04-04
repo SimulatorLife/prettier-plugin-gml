@@ -1,53 +1,16 @@
 import { test } from "node:test";
 
-import * as LintWorkspace from "@gml-modules/lint";
+import * as LintWorkspace from "@gmloop/lint";
 
 import { assertEquals } from "../assertions.js";
-import { applyFixOperations, createLocResolver, type ReplaceTextRangeFixOperation } from "./rule-test-harness.js";
+import { runGmlRule } from "./rule-test-harness.js";
 
 function runRemoveDefaultCommentsRule(code: string): { messageCount: number; output: string } {
-    const rule = LintWorkspace.Lint.plugin.rules["remove-default-comments"];
-    const fixes: Array<ReplaceTextRangeFixOperation> = [];
-    let messageCount = 0;
-    const getLocFromIndex = createLocResolver(code);
-
-    const context = {
-        options: [{}],
-        sourceCode: {
-            text: code,
-            getLocFromIndex
-        },
-        report(payload: {
-            fix?: (fixer: {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation;
-            }) => ReplaceTextRangeFixOperation | null;
-        }) {
-            messageCount += 1;
-
-            if (!payload.fix) {
-                return;
-            }
-
-            const fixer = {
-                replaceTextRange(range: [number, number], text: string): ReplaceTextRangeFixOperation {
-                    return { kind: "replace", range, text };
-                }
-            };
-
-            const fix = payload.fix(fixer);
-            if (fix) {
-                fixes.push(fix);
-            }
-        }
-    } as never;
-
-    const listeners = rule.create(context);
-    listeners.Program?.({ type: "Program" } as never);
-
-    return {
-        messageCount,
-        output: applyFixOperations(code, fixes)
-    };
+    return runGmlRule({
+        rule: LintWorkspace.Lint.plugin.rules["remove-default-comments"],
+        code,
+        programNode: { type: "Program" }
+    });
 }
 
 void test("remove-default-comments deletes GameMaker migration banner comments", () => {

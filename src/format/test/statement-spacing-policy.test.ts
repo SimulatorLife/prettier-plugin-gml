@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 import * as Printer from "../src/printer/index.js";
 
@@ -49,39 +49,6 @@ void describe("statement spacing policy", () => {
                 block,
                 unrelatedContainer
             ),
-            false
-        );
-    });
-
-    void it("enforces padding between divergent return paths", () => {
-        const guardedReturn = {
-            type: "IfStatement",
-            alternate: null,
-            consequent: {
-                type: "BlockStatement",
-                body: [
-                    {
-                        type: "ReturnStatement",
-                        argument: { type: "Literal", value: "true" }
-                    }
-                ]
-            }
-        };
-        const fallbackReturn = {
-            type: "ReturnStatement",
-            argument: { type: "Literal", value: "false" }
-        };
-        const matchingFallback = {
-            type: "ReturnStatement",
-            argument: { type: "Literal", value: "true" }
-        };
-
-        assert.equal(
-            Printer.StatementSpacingPolicy.shouldForceBlankLineBetweenReturnPaths(guardedReturn, fallbackReturn),
-            true
-        );
-        assert.equal(
-            Printer.StatementSpacingPolicy.shouldForceBlankLineBetweenReturnPaths(guardedReturn, matchingFallback),
             false
         );
     });

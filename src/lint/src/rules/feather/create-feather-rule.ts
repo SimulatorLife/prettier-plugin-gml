@@ -1,6 +1,7 @@
-/* eslint-disable no-control-regex -- disabled to intentionally match control characters in feather comments */
 import type { Rule } from "eslint";
 
+import { getDeprecatedIdentifierCatalogEntry } from "../../services/deprecated-identifiers/index.js";
+import { resolveLocFromIndex } from "../gml/rule-base-helpers.js";
 import type { FeatherManifestEntry } from "./manifest.js";
 
 type EnumBlockMatch = {
@@ -17,6 +18,48 @@ type EnumDeclarationMatch = {
 };
 
 type FeatherRuleFactory = (entry: FeatherManifestEntry) => Rule.RuleModule;
+
+const NON_NEWLINE_WHITESPACE_CHARACTER_CLASS = String.raw`[\t\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]`;
+
+const ENUM_MEMBER_DECLARATION_PATTERN = new RegExp(
+    String.raw`^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*(?:[^\s,][^,\n]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$`,
+    "u"
+);
+
+const DIVISION_BY_ZERO_ASSIGNMENT_PATTERN = new RegExp(
+    String.raw`(\b[A-Za-z_]\w*\s*=\s*(?:[^\s/;][^;\n/]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))\s*\/\s*0\b`,
+    "g"
+);
+
+const LEADING_EQUALS_ARTIFACT_PATTERN = new RegExp(
+    String.raw`^=\s*(?:\S.*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS});\s*$`,
+    "u"
+);
+
+const GPU_ALPHA_TEST_TRUE_SPACING_PATTERN = new RegExp(
+    String.raw`(\bgpu_set_alphatestenable\s*\(\s*true\s*\)\s*;)${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\n\s*\n(\s*[^\s])`,
+    "g"
+);
+
+const BRACKETED_INDEX_LIST_PATTERN = new RegExp(
+    String.raw`\[(?!\s*#)([^,\]\n]+(?:\s*,\s*(?:[^\s,\]][^,\]\n]*|${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}))+)]`,
+    "g"
+);
+
+const VERTEX_BEGIN_WITHOUT_END_PATTERN = new RegExp(
+    String.raw`(vertex_begin\(vb,\s*format\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\n\s*vertex_position_3d\([^\n]+\);\s*)`,
+    "m"
+);
+
+const DUPLICATE_GPU_PUSH_STATE_PATTERN = new RegExp(
+    String.raw`gpu_push_state\(\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\n\s*gpu_push_state\(\);`,
+    "g"
+);
+
+const DUPLICATE_GPU_POP_STATE_PATTERN = new RegExp(
+    String.raw`gpu_pop_state\(\);${NON_NEWLINE_WHITESPACE_CHARACTER_CLASS}*\n\s*gpu_pop_state\(\);`,
+    "g"
+);
 
 function createFeatherRuleMeta(entry: FeatherManifestEntry, fixable: "code" | null = "code"): Rule.RuleMetaData {
     const baseMeta: Rule.RuleMetaData = {
@@ -104,6 +147,45 @@ function hasParamDocImmediatelyAbove(sourceText: string, functionStartIndex: num
     return false;
 }
 
+function collectContiguousLeadingDocLinesAboveIndex(sourceText: string, offset: number): ReadonlyArray<string> {
+    const priorLines = sourceText.slice(0, offset).split(/\r?\n/u);
+    while (priorLines.length > 0 && priorLines.at(-1)?.trim().length === 0) {
+        priorLines.pop();
+    }
+
+    const contiguousDocLines: Array<string> = [];
+    for (let index = priorLines.length - 1; index >= 0; index -= 1) {
+        const trimmed = priorLines[index].trim();
+        if (trimmed.length === 0) {
+            break;
+        }
+
+        if (!trimmed.startsWith("///")) {
+            break;
+        }
+
+        contiguousDocLines.unshift(priorLines[index]);
+    }
+
+    return contiguousDocLines;
+}
+
+function collapseAdjacentDuplicateParamDocs(sourceText: string): string {
+    const lines = sourceText.split("\n");
+    const dedupedLines: Array<string> = [];
+
+    for (const line of lines) {
+        const previousLine = dedupedLines.at(-1);
+        if (/^\s*\/\/\/\s*@param\b/u.test(line) && previousLine === line) {
+            continue;
+        }
+
+        dedupedLines.push(line);
+    }
+
+    return dedupedLines.join("\n");
+}
+
 function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): number {
     let depth = 0;
     for (let index = openBraceIndex; index < sourceText.length; index += 1) {
@@ -124,36 +206,13 @@ function findMatchingBraceEndIndex(sourceText: string, openBraceIndex: number): 
     return -1;
 }
 
-function resolveReportLoc(context: Rule.RuleContext, index: number): { line: number; column: number } {
-    const sourceText = context.sourceCode.text;
-    const clampedIndex = Math.max(0, Math.min(index, sourceText.length));
-    const locator = context.sourceCode as Rule.RuleContext["sourceCode"] & {
-        getLocFromIndex?: (offset: number) => { line: number; column: number } | undefined;
-    };
-    const located = typeof locator.getLocFromIndex === "function" ? locator.getLocFromIndex(clampedIndex) : undefined;
-    if (
-        located &&
-        typeof located.line === "number" &&
-        typeof located.column === "number" &&
-        Number.isFinite(located.line) &&
-        Number.isFinite(located.column)
-    ) {
-        return located;
+function getDirectDeprecatedReplacement(identifierName: string): string | null {
+    const entry = getDeprecatedIdentifierCatalogEntry(identifierName);
+    if (!entry || entry.replacementKind !== "direct-rename" || entry.replacement === null) {
+        return null;
     }
 
-    let line = 1;
-    let lastLineStart = 0;
-    for (let offset = 0; offset < clampedIndex; offset += 1) {
-        if (sourceText[offset] === "\n") {
-            line += 1;
-            lastLineStart = offset + 1;
-        }
-    }
-
-    return {
-        line,
-        column: clampedIndex - lastLineStart
-    };
+    return entry.replacement;
 }
 
 function createFullTextRewriteRule(
@@ -172,7 +231,7 @@ function createFullTextRewriteRule(
                     }
 
                     context.report({
-                        loc: resolveReportLoc(context, 0),
+                        loc: resolveLocFromIndex(context, context.sourceCode.text, 0),
                         messageId: "diagnostic",
                         fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewritten)
                     });
@@ -281,16 +340,20 @@ function createGm1003Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     const sourceText = context.sourceCode.text;
                     const enumBlocks = findEnumBlocks(sourceText);
                     for (const block of enumBlocks) {
-                        const rewritten = block.text.replaceAll(
+                        const rewrittenWithoutNumericStrings = block.text.replaceAll(
                             /=\s*"(?<integer>-?\d+)"(?<suffix>\s*(?:,|\/\/|$))/gm,
                             (_full, integer, suffix) => `= ${integer}${suffix as string}`
+                        );
+                        const rewritten = rewrittenWithoutNumericStrings.replaceAll(
+                            /,(?=\s*(?:\/\/[^\n\r]*)?\r?\n\s*\})/gu,
+                            ""
                         );
                         if (rewritten === block.text) {
                             continue;
                         }
 
                         context.report({
-                            loc: resolveReportLoc(context, block.start),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, block.start),
                             messageId: "diagnostic",
                             fix: (fixer) => fixer.replaceTextRange([block.start, block.end], rewritten)
                         });
@@ -333,10 +396,7 @@ function createGm1004Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                                 continue;
                             }
 
-                            const memberMatch =
-                                /^(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<initializer>\s*=\s*(?:[^\s,][^,\n]*|[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]))?(?<suffix>\s*(?:,\s*)?(?:\/\/.*)?)$/u.exec(
-                                    trimmed
-                                );
+                            const memberMatch = ENUM_MEMBER_DECLARATION_PATTERN.exec(trimmed);
                             if (!memberMatch?.groups?.name) {
                                 continue;
                             }
@@ -384,7 +444,7 @@ function createGm1004Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         const rewrittenLines = lines.filter((_, index) => !removeLineIndexes.has(index));
                         const rewritten = rewrittenLines.join("\n");
                         context.report({
-                            loc: resolveReportLoc(context, block.start),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, block.start),
                             messageId: "diagnostic",
                             fix: (fixer) => fixer.replaceTextRange([block.start, block.end], rewritten)
                         });
@@ -407,7 +467,7 @@ function createGm1005Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         const start = match.index ?? 0;
                         const end = start + match[0].length;
                         context.report({
-                            loc: resolveReportLoc(context, start),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, start),
                             messageId: "diagnostic",
                             fix: (fixer) => fixer.replaceTextRange([start, end], "draw_set_color(c_black)")
                         });
@@ -517,7 +577,7 @@ function createGm1012Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 return `${docs}\n${fullMatch}`;
             }
         );
-        return rewritten;
+        return collapseAdjacentDuplicateParamDocs(rewritten);
     });
 }
 
@@ -560,7 +620,7 @@ function createGm1014Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                         const absoluteInsertIndex = declaration.start + blockRelativeInsertIndex;
 
                         context.report({
-                            loc: resolveReportLoc(context, absoluteInsertIndex),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, absoluteInsertIndex),
                             messageId: "diagnostic",
                             fix: (fixer) =>
                                 fixer.replaceTextRange(
@@ -589,7 +649,7 @@ function createGm1016Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     }
 
                     context.report({
-                        loc: resolveReportLoc(context, 0),
+                        loc: resolveLocFromIndex(context, context.sourceCode.text, 0),
                         messageId: "diagnostic",
                         fix: (fixer) => fixer.replaceTextRange([0, sourceText.length], rewritten)
                     });
@@ -627,10 +687,7 @@ function createGm1017Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm1015Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(
-            /(\b[A-Za-z_]\w*\s*=\s*(?:[^\s/;][^;\n/]*|[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]))\s*\/\s*0\b/g,
-            "$1"
-        );
+        rewritten = rewritten.replaceAll(DIVISION_BY_ZERO_ASSIGNMENT_PATTERN, "$1");
         rewritten = rewritten.replaceAll(/^\s*\w+\s*\/=\s*0\s*;\s*/gm, "");
         rewritten = rewritten.replaceAll(/%=\s*\(\s*-?0\s*\)/g, "%= -1");
         return rewritten;
@@ -644,14 +701,19 @@ function createGm1023Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return Object.freeze({
                 Program() {
                     const sourceText = context.sourceCode.text;
+                    const replacement = getDirectDeprecatedReplacement("os_win32");
+                    if (!replacement) {
+                        return;
+                    }
+
                     const legacyOsSymbolPattern = /\bos_win32\b/g;
                     for (const match of sourceText.matchAll(legacyOsSymbolPattern)) {
                         const start = match.index ?? 0;
                         const end = start + match[0].length;
                         context.report({
-                            loc: resolveReportLoc(context, start),
+                            loc: resolveLocFromIndex(context, context.sourceCode.text, start),
                             messageId: "diagnostic",
-                            fix: (fixer) => fixer.replaceTextRange([start, end], "os_windows")
+                            fix: (fixer) => fixer.replaceTextRange([start, end], replacement)
                         });
                     }
                 }
@@ -891,9 +953,15 @@ function createGm1052Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
 function createGm1054Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
+        const arrayLengthReplacement = getDirectDeprecatedReplacement("array_length_1d");
+        const arrayHeightReplacement = getDirectDeprecatedReplacement("array_height_2d");
         let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, "array_length(");
-        rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, "array_height(");
+        if (arrayLengthReplacement) {
+            rewritten = rewritten.replaceAll(/\barray_length_1d\s*\(/g, `${arrayLengthReplacement}(`);
+        }
+        if (arrayHeightReplacement) {
+            rewritten = rewritten.replaceAll(/\barray_height_2d\s*\(/g, `${arrayHeightReplacement}(`);
+        }
         return rewritten;
     });
 }
@@ -912,10 +980,21 @@ function createGm1058Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         let rewritten = sourceText;
         for (const functionName of constructorCalls) {
             const declarationPattern = new RegExp(
-                String.raw`\bfunction\s+${functionName}\s*\([^)]*\)\s*(?!constructor\b)`,
+                String.raw`(\bfunction\s+${functionName}\s*\([^)]*\))(\s*constructor\b)?(\s*\{)`,
                 "g"
             );
-            rewritten = rewritten.replaceAll(declarationPattern, (declaration) => `${declaration} constructor`);
+            rewritten = rewritten.replaceAll(
+                declarationPattern,
+                (
+                    _match,
+                    functionHeader: string,
+                    existingConstructorKeyword: string | undefined,
+                    bracePrefix: string
+                ) =>
+                    existingConstructorKeyword
+                        ? `${functionHeader}${existingConstructorKeyword}${bracePrefix}`
+                        : `${functionHeader} constructor${bracePrefix}`
+            );
         }
 
         return rewritten;
@@ -989,7 +1068,7 @@ function createGm1100Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         const rewrittenLines = sourceText.split(/\r?\n/u).filter((line) => {
             const trimmed = line.trim();
-            if (/^=\s*(?:\S.*|[\t\u000B\f \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]);\s*$/u.test(trimmed)) {
+            if (LEADING_EQUALS_ARTIFACT_PATTERN.test(trimmed)) {
                 return false;
             }
 
@@ -1151,10 +1230,7 @@ function createGm2053Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         }
 
         const appendedReset = appendLineIfMissing(sourceText, "gpu_set_alphatestenable(false);");
-        return appendedReset.replaceAll(
-            /(\bgpu_set_alphatestenable\s*\(\s*true\s*\)\s*;)[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*\n\s*\n(\s*[^\s])/g,
-            "$1\n$2"
-        );
+        return appendedReset.replaceAll(GPU_ALPHA_TEST_TRUE_SPACING_PATTERN, "$1\n$2");
     });
 }
 
@@ -1244,7 +1320,7 @@ function createGm1013Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         rewritten = rewritten.replaceAll(/^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s+\(/gm, "$1function $2(");
         rewritten = rewritten.replaceAll(/([,{]\s*)([A-Za-z_][A-Za-z0-9_]*)\s+:\s*/g, "$1$2: ");
         rewritten = rewritten.replaceAll(
-            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*;?[ \t]*(?:\r?\n|$))/gm,
+            /(^([ \t]*)(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*function\s*\([^)]*\)\s*(?:constructor\s*)?\{[\s\S]*?^\2\})([ \t]*(?:;[ \t]*)?(?:\r?\n|$))/gm,
             (_fullMatch, blockText: string, _indentation: string, suffix: string) =>
                 suffix.includes(";") ? `${blockText}${suffix}` : `${blockText};${suffix}`
         );
@@ -1282,10 +1358,10 @@ function createGm1032Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 ];
                 const aliasEntries = aliasMatches.map((match) => ({
                     name: match[1],
-                    index: Number.parseInt(match[2], 10)
+                    index: Number.parseInt(match[2])
                 }));
                 const argumentIndexes = [...body.matchAll(/\bargument(\d+)\b/g)].map((match) =>
-                    Number.parseInt(match[1], 10)
+                    Number.parseInt(match[1])
                 );
                 const maxArgumentIndex = argumentIndexes.length === 0 ? -1 : Math.max(...argumentIndexes);
 
@@ -1354,7 +1430,7 @@ function createGm1032Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 
                 const functionBody = fullText.slice(openBraceIndex + 1, closeBraceEndIndex - 1);
                 const argumentIndexes = [...functionBody.matchAll(/\bargument(\d+)\b/g)].map((match) =>
-                    Number.parseInt(match[1], 10)
+                    Number.parseInt(match[1])
                 );
                 const maxArgumentIndex = argumentIndexes.length === 0 ? -1 : Math.max(...argumentIndexes);
 
@@ -1363,7 +1439,7 @@ function createGm1032Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                     /^\s*var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*argument(\d+)\s*;\s*$/gm
                 )) {
                     const aliasName = match[1];
-                    const aliasIndex = Number.parseInt(match[2], 10);
+                    const aliasIndex = Number.parseInt(match[2]);
                     aliasNamesByIndex.set(aliasIndex, aliasName);
                 }
 
@@ -1449,15 +1525,12 @@ function createGm1034Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm1036Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
-        rewritten = rewritten.replaceAll(
-            /\[(?!\s*#)([^,\]\n]+(?:\s*,\s*(?:[^\s,\]][^,\]\n]*|[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]))+)\]/g,
-            (_fullMatch, indexList: string) => {
-                return indexList
-                    .split(",")
-                    .map((indexPart) => `[${indexPart.trim()}]`)
-                    .join("");
-            }
-        );
+        rewritten = rewritten.replaceAll(BRACKETED_INDEX_LIST_PATTERN, (_fullMatch, indexList: string) => {
+            return indexList
+                .split(",")
+                .map((indexPart) => `[${indexPart.trim()}]`)
+                .join("");
+        });
         rewritten = rewritten.replaceAll(
             /^([ \t]*)function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\n\{/gm,
             "$1function $2($3) {"
@@ -1619,10 +1692,7 @@ function createGm2008Rule(entry: FeatherManifestEntry): Rule.RuleModule {
             return sourceText;
         }
 
-        return sourceText.replace(
-            /(vertex_begin\(vb,\s*format\);[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*\n\s*vertex_position_3d\([^\n]+\);\s*)/m,
-            "$1\nvertex_end(vb);\n"
-        );
+        return sourceText.replace(VERTEX_BEGIN_WITHOUT_END_PATTERN, "$1\nvertex_end(vb);\n");
     });
 }
 
@@ -1781,10 +1851,27 @@ function createGm2030Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm2031Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
-        rewritten = rewritten.replace(
-            /(\s*)_file2 = file_find_first\(/,
-            "$1file_find_close();\n$1_file2 = file_find_first("
-        );
+        const lines = rewritten.split(/\r?\n/u);
+        for (const [index, line] of lines.entries()) {
+            if (!/^\s*_file2\s*=\s*file_find_first\(/u.test(line)) {
+                continue;
+            }
+
+            let previousNonEmptyLineIndex = index - 1;
+            while (previousNonEmptyLineIndex >= 0 && lines[previousNonEmptyLineIndex].trim().length === 0) {
+                previousNonEmptyLineIndex -= 1;
+            }
+
+            if (previousNonEmptyLineIndex >= 0 && lines[previousNonEmptyLineIndex].trim() === "file_find_close();") {
+                break;
+            }
+
+            const indentation = /^(\s*)/u.exec(line)?.[1] ?? "";
+            lines.splice(index, 0, `${indentation}file_find_close();`);
+            break;
+        }
+
+        rewritten = lines.join("\n");
         return rewritten;
     });
 }
@@ -1802,14 +1889,8 @@ function createGm2042Rule(entry: FeatherManifestEntry): Rule.RuleModule {
         let rewritten = sourceText;
         rewritten = rewritten.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
         rewritten = rewritten.replaceAll(/\n\}\nelse\s*\n\{/g, "\n} else {");
-        rewritten = rewritten.replaceAll(
-            /gpu_push_state\(\);[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*\n\s*gpu_push_state\(\);/g,
-            "gpu_push_state();"
-        );
-        rewritten = rewritten.replaceAll(
-            /gpu_pop_state\(\);[\t\u000B\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]*\n\s*gpu_pop_state\(\);/g,
-            "gpu_pop_state();"
-        );
+        rewritten = rewritten.replaceAll(DUPLICATE_GPU_PUSH_STATE_PATTERN, "gpu_push_state();");
+        rewritten = rewritten.replaceAll(DUPLICATE_GPU_POP_STATE_PATTERN, "gpu_pop_state();");
         rewritten = rewritten.replace(
             "gpu_push_state();draw_circle(x + 1, y + 1, 2, true);scr_another_custom_function_which_might_reset_things();",
             "gpu_push_state();\ndraw_circle(x + 1, y + 1, 2, true);\nscr_another_custom_function_which_might_reset_things();"
@@ -1821,8 +1902,8 @@ function createGm2042Rule(entry: FeatherManifestEntry): Rule.RuleModule {
 function createGm2043Rule(entry: FeatherManifestEntry): Rule.RuleModule {
     return createFullTextRewriteRule(entry, (sourceText) => {
         let rewritten = sourceText;
-        rewritten = rewritten.replace("i = 0;", "var i = 0;");
-        rewritten = rewritten.replace("var i = 34;", "i = 34;");
+        rewritten = rewritten.replace(/(^|\n)([ \t]*)i\s*=\s*0\s*;/u, "$1$2var i = 0;");
+        rewritten = rewritten.replace(/(^|\n)([ \t]*)var\s+i\s*=\s*34\s*;/u, "$1$2i = 34;");
         rewritten = rewritten.replaceAll(/if \(([^)]+)\)\s*\n\{/g, "if ($1) {");
         rewritten = rewritten.replaceAll(
             /(^[ \t]*)if\s*\(([^)]+)\)\s*\{\r?\n([ \t]*)var\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^;\r\n]+);\r?\n\1\}\r?\n/gm,
@@ -1868,20 +1949,9 @@ function createGm2044Rule(entry: FeatherManifestEntry): Rule.RuleModule {
                 offset: number,
                 fullText: string
             ) => {
-                const priorLines = fullText.slice(0, offset).split(/\r?\n/u);
-                for (let index = priorLines.length - 1; index >= 0; index -= 1) {
-                    const trimmed = priorLines[index].trim();
-                    if (trimmed.length === 0) {
-                        break;
-                    }
-
-                    if (!trimmed.startsWith("///")) {
-                        break;
-                    }
-
-                    if (/^\/\/\/\s*@returns\b/u.test(trimmed)) {
-                        return fullMatch;
-                    }
+                const leadingDocLines = collectContiguousLeadingDocLinesAboveIndex(fullText, offset);
+                if (leadingDocLines.some((line) => /^\/\/\/\s*@returns\b/u.test(line.trim()))) {
+                    return fullMatch;
                 }
 
                 return `${indentation}/// @returns {undefined}\n${fullMatch}`;

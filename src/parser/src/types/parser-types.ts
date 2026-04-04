@@ -1,5 +1,6 @@
-import type { ScopeTrackerOptions } from "@gml-modules/core";
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
+
+import type { ScopeTrackerOptions } from "./scope-tracker.js";
 
 export type ParserContext =
     | (ParserRuleContext & {
@@ -21,14 +22,18 @@ export interface ParserToken extends Token {
     symbol?: Token | null;
 }
 
-// Re-export scope tracker types from Core for convenience
+// Re-export scope tracker types from the parser's type surface. These
+// contracts are parser-owned because they define the parser/semantic boundary,
+// not the shared AST model owned by Core.
 export type {
     GlobalIdentifierTracker,
+    IdentifierRoleApplicator,
+    IdentifierRoleContextController,
     IdentifierRoleManager,
     ScopeLifecycle,
     ScopeTracker,
     ScopeTrackerOptions
-} from "@gml-modules/core";
+} from "./scope-tracker.js";
 
 /**
  * Comment extraction options.
@@ -101,6 +106,27 @@ export interface ScopeTrackingOptions {
 }
 
 /**
+ * Doc-comment attachment options.
+ *
+ * Controls parser-owned AST attachment passes that wire existing doc-comment
+ * nodes onto nearby declarations without rewriting comment text.
+ */
+export interface DocCommentAttachmentOptions {
+    /**
+     * Whether the parser should attach `@function`/`@func` line comments to
+     * the nearest reachable function-like declaration.
+     *
+     * This is an AST attachment pass only; it never mutates comment text.
+     * Formatter callers can disable this to enforce strict formatter/lint
+     * ownership boundaries where comment-attachment normalization is handled by
+     * lint transforms.
+     *
+     * @default true
+     */
+    attachFunctionDocComments: boolean;
+}
+
+/**
  * Output format options.
  *
  * Controls the structural representation and serialization format
@@ -149,6 +175,7 @@ export interface ParserOptions
     extends CommentProcessingOptions,
         LocationMetadataOptions,
         ScopeTrackingOptions,
+        DocCommentAttachmentOptions,
         OutputFormatOptions {}
 
 const DEFAULT_SCOPE_TRACKER_OPTIONS: ScopeTrackerOptions = Object.freeze({
@@ -160,6 +187,7 @@ export const defaultParserOptions: ParserOptions = Object.freeze({
     getComments: true,
     getLocations: true,
     simplifyLocations: true,
+    attachFunctionDocComments: true,
     scopeTrackerOptions: DEFAULT_SCOPE_TRACKER_OPTIONS,
     astFormat: "gml",
     asJSON: false

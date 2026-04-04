@@ -53,6 +53,25 @@ integration coverage and run only through `pnpm run test`.
 Fixtures under `src/format/test/` and `src/parser/test/input/` are golden—do not
 edit them unless you are intentionally changing formatter or parser output.
 
+Use the fixture profiling commands when performance work touches fixture runners
+or adapters:
+
+```bash
+pnpm run test:fixtures:profile
+pnpm run test:fixtures:profile:deep-cpu
+```
+
+Fixture profiling owns memory diagnostics. The generated `reports/fixture-profile.json`
+now includes per-fixture memory summaries alongside stage-level metrics, so there is
+no separate CLI memory benchmark command.
+
+Both profiling commands use incremental TypeScript builds (`tsc -b`) so repeated
+profiling iterations avoid full clean rebuilds.
+
+The deep CPU command now profiles batched fixture cases in a single pass and
+writes per-case failures to a JSON report consumed by the profile harness,
+avoiding an expensive fallback rerun of every case after the first batch error.
+
 ## 4. Sanity-check the formatter
 
 Use these commands to verify the formatter wiring before experimenting on a
@@ -68,7 +87,9 @@ The `format:gml` workspace script now pins the `format` subcommand so the help
 output spotlights formatter-specific flags. Pair it with the
 [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) when
 scripting automation, and fall back to `pnpm run cli -- --help` for the global
-command inventory.
+command inventory. The global CLI help also notes that passing just a file or
+directory path runs the `format` command implicitly, which is useful for quick
+one-off formatting checks.
 
 When you're ready to try the wrapper against a project, provide the target
 directory explicitly so the command has GameMaker sources to process:
@@ -83,9 +104,6 @@ pnpm run format:gml -- path/to/project
   notes.
 * Review the [semantic subsystem reference](../src/semantic/README.md) before
   adjusting identifier-case discovery or project-index caching.
-* Keep the archived [legacy identifier-case plan](legacy-identifier-case-plan.md)
-  available when enabling renames in a project to understand the historical
-  safeguards and rollout steps.
 
 Check back with this document when you swap machines or return from a long break
 to stay aligned with the latest workflow expectations.

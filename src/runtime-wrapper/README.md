@@ -592,13 +592,13 @@ Creates a WebSocket client for receiving live patches from a development server.
 - `autoConnect` (optional): When `true`, connects immediately. Default is `true`.
 - `logger` (optional): Logger instance for structured diagnostic logging. See [Diagnostic Logging](#diagnostic-logging) for details.
 - `patchQueue` (optional): Configuration for patch queuing and batching:
-  - `enabled` (optional): When `true`, enables patch queuing. Default is `false`.
+  - `enabled` (optional): When `true`, enables patch queuing. Default is `false`. Requires `wrapper`; otherwise queuing is automatically disabled.
   - `maxQueueSize` (optional): Maximum patches to buffer before forcing a flush. Default is `100`.
   - `flushIntervalMs` (optional): Time in milliseconds to wait before flushing queued patches. Default is `50`ms.
 
 **Patch Queuing:**
 
-When `patchQueue.enabled` is `true`, incoming patches are buffered and flushed in batches rather than applied immediately. This provides several benefits:
+When `patchQueue.enabled` is `true` **and** a `wrapper` is provided, incoming patches are buffered and flushed in batches rather than applied immediately. This provides several benefits:
 
 - **Reduced overhead**: Multiple patches are applied as a single atomic batch operation
 - **Improved throughput**: During rapid file changes, patches accumulate and are flushed together
@@ -798,7 +798,7 @@ import {
     createRuntimeWrapper,
     createWebSocketClient,
     createLogger
-} from "@prettier-plugin-gml/runtime-wrapper";
+} from "@gmloop/runtime-wrapper";
 
 // Create logger for structured diagnostics
 const logger = createLogger({
@@ -970,7 +970,7 @@ Emitted when the entire registry is cleared via `wrapper.clearRegistry()`.
 ### Usage Example
 
 ```javascript
-import { createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+import { createRuntimeWrapper } from "@gmloop/runtime-wrapper";
 
 const auditLog: Array<unknown> = [];
 
@@ -1289,7 +1289,7 @@ Creates a diagnostic logger for runtime wrapper operations.
 **Example:**
 
 ```javascript
-import { createLogger, createChangeEventLogger, createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+import { createLogger, createChangeEventLogger, createRuntimeWrapper } from "@gmloop/runtime-wrapper";
 
 // Create logger with info level for development
 const logger = createLogger({
@@ -1465,7 +1465,7 @@ The `RuntimeWebSocketClient` interface follows the Interface Segregation Princip
 
 ### Browser-Compatible Core Helpers
 
-The runtime wrapper ships into the GameMaker HTML5 build as part of the hot-reload runtime bundle. Because that bundle runs inside a browser environment, it cannot statically resolve workspace-import specifiers such as `@gml-modules/core`. The runtime wrapper therefore carries its own miniature helper module (`src/runtime/runtime-core-helpers.ts`) that reimplements just the predicates and utilities (`isErrorLike`, `isNonEmptyString`, `cloneObjectEntries`, `areNumbersApproximatelyEqual`, `toArray`) required by `runtime-wrapper.ts`, `patch-utils.ts`, and the WebSocket client. Keeping this helper module narrow avoids bundling the entire `@gml-modules/core` namespace into the injected assets while still letting the runtime wrapper reuse well-tested core-like helpers.
+The runtime wrapper ships into the GameMaker HTML5 build as part of the hot-reload runtime bundle. Because that bundle runs inside a browser environment, it cannot statically resolve workspace-import specifiers such as `@gmloop/core`. The runtime wrapper therefore carries its own miniature helper module (`src/runtime/runtime-core-helpers.ts`) that reimplements just the predicates and utilities (`isErrorLike`, `isNonEmptyString`, `cloneObjectEntries`, `areNumbersApproximatelyEqual`, `toArray`) required by `runtime-wrapper.ts`, `patch-utils.ts`, and the WebSocket client. Keeping this helper module narrow avoids bundling the entire `@gmloop/core` namespace into the injected assets while still letting the runtime wrapper reuse well-tested core-like helpers.
 
 **Example - Depending on minimal interfaces:**
 

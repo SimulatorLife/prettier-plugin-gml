@@ -11,9 +11,30 @@ import path from "node:path";
 import { after, before, describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
-import { findAvailablePort } from "./test-helpers/free-port.js";
+import type { StatusServerHandle } from "../src/modules/status/server.js";
+import type { PatchWebSocketServer } from "../src/modules/websocket/server.js";
 import { waitForScanComplete } from "./test-helpers/status-polling.js";
 import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-helpers/websocket-client.js";
+
+interface DeferredValue<T> {
+    promise: Promise<T>;
+    resolve: (value: T) => void;
+}
+
+function createDeferredValue<T>(): DeferredValue<T> {
+    let resolveValue: ((value: T) => void) | null = null;
+    const promise = new Promise<T>((resolve) => {
+        resolveValue = resolve;
+    });
+
+    return {
+        promise,
+        resolve(value: T): void {
+            assert.ok(resolveValue, "Deferred value resolver must be initialized before use.");
+            resolveValue(value);
+        }
+    };
+}
 
 void describe("Hot reload integration loop", () => {
     let testDir;
@@ -46,25 +67,37 @@ void describe("Hot reload integration loop", () => {
     });
 
     void it("should stream patches via WebSocket when files change", async () => {
-        const websocketPort = await findAvailablePort();
-        const statusPort = await findAvailablePort();
         const abortController = new AbortController();
+        const websocketServerReady = createDeferredValue<string>();
+        const statusServerReady = createDeferredValue<string>();
+
+        // Use ephemeral ports reported by the running servers instead of a
+        // preflight 'find free port' probe. The probe had a TOCTOU race where
+        // another test process could bind the port before watch() started.
 
         const watchPromise = runWatchCommand(testDir, {
             extensions: [".gml"],
             verbose: false,
-            websocketPort,
+            websocketPort: 0,
             websocketHost: "127.0.0.1",
             runtimeServer: false,
             statusServer: true,
-            statusPort,
-            abortSignal: abortController.signal
+            statusPort: 0,
+            abortSignal: abortController.signal,
+            onWebSocketServerReady: (server: PatchWebSocketServer) => {
+                websocketServerReady.resolve(server.url);
+            },
+            onStatusServerReady: (server: StatusServerHandle) => {
+                statusServerReady.resolve(server.url.replace(/\/status$/u, ""));
+            }
         });
 
         let context: WebSocketPatchStream | null = null;
 
         try {
-            const contextPromise = connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+            const websocketUrl = await websocketServerReady.promise;
+            const statusBaseUrl = await statusServerReady.promise;
+            const contextPromise = connectToHotReloadWebSocket(websocketUrl, {
                 connectionTimeoutMs: 4000,
                 retryIntervalMs: 25,
                 onParseError: (error) => {
@@ -75,7 +108,7 @@ void describe("Hot reload integration loop", () => {
             websocketContextPromise = contextPromise;
             context = await contextPromise;
 
-            await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 5000, 25);
+            await waitForScanComplete(statusBaseUrl, 5000, 25);
             await writeFile(testFile, "// Updated content\nvar y = 20;", "utf8");
             await context.waitForPatches({ timeoutMs: 10_000 });
         } finally {

@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core } from "@gmloop/core";
 
 const DEFAULT_WARNING_FALLBACK = "Unknown error";
 
