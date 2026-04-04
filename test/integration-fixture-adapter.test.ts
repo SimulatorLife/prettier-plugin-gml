@@ -61,14 +61,10 @@ void test("integration fixture adapter runs the real refactor -> lint -> format 
         assert.deepEqual(stageNames, ["load", "refactor", "lint", "format", "compare", "total"]);
         assert.equal(typeof report.entries[0]?.memorySummary.totalHeapUsedDeltaBytes, "number");
         assert.equal(typeof report.entries[0]?.memorySummary.peakStageHeapUsedDeltaBytes, "number");
-        assert.deepEqual(report.stageAggregates.map((aggregate) => aggregate.stageName).sort(), [
-            "compare",
-            "format",
-            "lint",
-            "load",
-            "refactor",
-            "total"
-        ]);
+        assert.deepEqual(
+            report.stageAggregates.map((aggregate) => aggregate.stageName).sort(),
+            ["compare", "format", "lint", "load", "refactor", "total"]
+        );
     } finally {
         await rm(rootPath, { recursive: true, force: true });
     }

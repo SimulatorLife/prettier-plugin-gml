@@ -17,13 +17,7 @@ const fixtureRoots: ReadonlyArray<FixtureRootDefinition> = Object.freeze(
     }))
 );
 
-const LEGACY_FILE_PATTERNS = [
-    /^options\.json$/u,
-    /^fixed\.gml$/u,
-    /^input\.fixed\.gml$/u,
-    /^.+\.input\.gml$/u,
-    /^.+\.output\.gml$/u
-];
+const LEGACY_FILE_PATTERNS = [/^options\.json$/u, /^fixed\.gml$/u, /^input\.fixed\.gml$/u, /^.+\.input\.gml$/u, /^.+\.output\.gml$/u];
 const REMOVED_FORMATTER_OPTION_KEYS = new Set([
     "applyFeatherFixes",
     "preserveGlobalVarStatements",
@@ -50,9 +44,7 @@ async function collectFixtureCaseDirectories(rootPath: string): Promise<Array<st
             return;
         }
 
-        await Promise.all(
-            entries.filter((entry) => entry.isDirectory()).map((entry) => walk(path.join(currentPath, entry.name)))
-        );
+        await Promise.all(entries.filter((entry) => entry.isDirectory()).map((entry) => walk(path.join(currentPath, entry.name))));
     }
 
     await walk(rootPath);
@@ -60,9 +52,7 @@ async function collectFixtureCaseDirectories(rootPath: string): Promise<Array<st
 }
 
 function assertNoLegacyFiles(caseDirectory: string, fileNames: ReadonlySet<string>): void {
-    const legacyFiles = [...fileNames].filter((fileName) =>
-        LEGACY_FILE_PATTERNS.some((pattern) => pattern.test(fileName))
-    );
+    const legacyFiles = [...fileNames].filter((fileName) => LEGACY_FILE_PATTERNS.some((pattern) => pattern.test(fileName)));
     assert.deepEqual(legacyFiles, [], `${caseDirectory} contains legacy fixture files: ${legacyFiles.join(", ")}`);
 }
 
@@ -73,11 +63,7 @@ function assertRemovedFormatterKeysAreAbsent(configPath: string, parsed: Record<
 
 function assertRemovedFixtureKeysAreAbsent(configPath: string, parsed: Record<string, unknown>): void {
     const removedKeys = Object.keys(parsed).filter((key) => REMOVED_FIXTURE_CONFIG_KEYS.has(key));
-    assert.deepEqual(
-        removedKeys,
-        [],
-        `${configPath} contains removed fixture config key(s): ${removedKeys.join(", ")}`
-    );
+    assert.deepEqual(removedKeys, [], `${configPath} contains removed fixture config key(s): ${removedKeys.join(", ")}`);
 }
 
 function assertFixtureCaseLayout(
@@ -87,10 +73,7 @@ function assertFixtureCaseLayout(
     directoryNames: ReadonlySet<string>
 ): void {
     if (fixtureRoot.kind === "refactor") {
-        assert.deepEqual(
-            [...fileNames].sort((left, right) => left.localeCompare(right)),
-            ["gmloop.json"]
-        );
+        assert.deepEqual([...fileNames].sort((left, right) => left.localeCompare(right)), ["gmloop.json"]);
         assert.deepEqual(
             [...directoryNames].sort((left, right) => left.localeCompare(right)),
             ["expected", "project"],
@@ -101,9 +84,7 @@ function assertFixtureCaseLayout(
 
     assert.equal(fileNames.has("gmloop.json"), true, `${caseDirectory} is missing gmloop.json.`);
     assert.equal(fileNames.has("input.gml"), true, `${caseDirectory} is missing input.gml.`);
-    const unexpectedFiles = [...fileNames].filter(
-        (fileName) => fileName !== "gmloop.json" && fileName !== "input.gml" && fileName !== "expected.gml"
-    );
+    const unexpectedFiles = [...fileNames].filter((fileName) => fileName !== "gmloop.json" && fileName !== "input.gml" && fileName !== "expected.gml");
     assert.deepEqual(unexpectedFiles, [], `${caseDirectory} contains unexpected files: ${unexpectedFiles.join(", ")}`);
     assert.deepEqual(
         [...directoryNames],

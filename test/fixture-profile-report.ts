@@ -127,10 +127,7 @@ async function runProfileCollection(): Promise<void> {
         }> = [];
 
         for (const fixtureCase of result.fixtureCases) {
-            if (
-                fixtureCase.config.fixture.profile?.deepCpuProfile !== true &&
-                process.env.GMLOOP_FIXTURE_DEEP_CPU !== "1"
-            ) {
+            if (fixtureCase.config.fixture.profile?.deepCpuProfile !== true && process.env.GMLOOP_FIXTURE_DEEP_CPU !== "1") {
                 continue;
             }
 
@@ -185,9 +182,7 @@ async function runProfileCollection(): Promise<void> {
     if (runFailures.length > 0 || deepCpuFailures.length > 0) {
         throw new Error(
             [
-                runFailures.length > 0
-                    ? `Fixture profiling encountered failing cases:\n- ${runFailures.join("\n- ")}`
-                    : "",
+                runFailures.length > 0 ? `Fixture profiling encountered failing cases:\n- ${runFailures.join("\n- ")}` : "",
                 deepCpuFailures.length > 0
                     ? `Fixture deep CPU profiling encountered failing cases:\n- ${deepCpuFailures.join("\n- ")}`
                     : ""

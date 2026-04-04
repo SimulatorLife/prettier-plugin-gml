@@ -122,10 +122,7 @@ void test("fixture deep cpu worker reports batched failures without aborting rem
             message: string;
         }>;
         assert.equal(failures.length > 0, true);
-        assert.equal(
-            failures.some((failure) => failure.caseId === "missing-case-id"),
-            true
-        );
+        assert.equal(failures.some((failure) => failure.caseId === "missing-case-id"), true);
 
         const successfulCpuProfile = JSON.parse(await readFile(successfulOutputPath, "utf8")) as {
             nodes?: ReadonlyArray<unknown>;
