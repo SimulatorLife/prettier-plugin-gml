@@ -1608,6 +1608,21 @@ async function processProjectGmlFile({
 function createProjectIndexAggregationState(resourceAnalysis) {
     const scopeMap = new Map();
     const filesMap = new Map();
+
+    // Add default entries for .yy resource files so they are available in the index.
+    for (const [_, resourceRecord] of resourceAnalysis.resourcesMap) {
+        if (!filesMap.has(resourceRecord.path)) {
+            filesMap.set(resourceRecord.path, {
+                filePath: resourceRecord.path,
+                scopeId: null,
+                declarations: [],
+                references: [],
+                ignoredIdentifiers: [],
+                scriptCalls: []
+            });
+        }
+    }
+
     const relationships = {
         scriptCalls: [],
         assetReferences: resourceAnalysis.assetReferences.map((reference) => cloneAssetReference(reference))

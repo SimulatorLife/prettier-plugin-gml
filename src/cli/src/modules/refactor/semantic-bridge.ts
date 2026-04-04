@@ -212,6 +212,7 @@ const SCRIPT_CALLABLE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCat
 const RESOURCE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> = [
     "animationCurveResourceName",
     "audioResourceName",
+    "constructorFunction",
     "extensionResourceName",
     "fontResourceName",
     "noteResourceName",
@@ -223,6 +224,7 @@ const RESOURCE_NAMING_CATEGORIES: ReadonlyArray<BridgeNamingConventionCategory> 
     "sequenceResourceName",
     "shaderResourceName",
     "spriteResourceName",
+    "structDeclaration",
     "tilesetResourceName",
     "timelineResourceName"
 ];
@@ -275,7 +277,7 @@ function createNamingTargetPathPredicate(
     );
     const selectedOwnerDirectories = new Set(
         [...normalizedIncludedPaths]
-            .filter((candidatePath) => candidatePath.endsWith(".gml"))
+            .filter((candidatePath) => candidatePath.endsWith(".gml") || candidatePath.endsWith(".yy"))
             .map((candidatePath) => path.posix.dirname(candidatePath))
     );
 
