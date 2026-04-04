@@ -1,7 +1,7 @@
 import test from "node:test";
-import assert from "node:assert";
-import { Parser } from "@gml-modules/parser";
-import { AST, Traverser } from "@gml-modules/core";
+
+import { Traverser } from "@gmloop/core";
+import { Parser } from "@gmloop/parser";
 
 test("should parse oPlayer", () => {
     const code = `
