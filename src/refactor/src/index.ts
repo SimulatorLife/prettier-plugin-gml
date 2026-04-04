@@ -188,9 +188,13 @@ export type {
 export { isSymbolKind, parseSymbolKind, requireSymbolKind, SymbolKind } from "./types.js";
 export { ConflictType, isConflictType, parseConflictType, requireConflictType } from "./types.js";
 export { isOccurrenceKind, OccurrenceKind, parseOccurrenceKind, requireOccurrenceKind } from "./types.js";
+export type { CrossRenameConfusion, DuplicateSymbolIdEntry, DuplicateTargetNameEntry } from "./validation.js";
 export {
     batchValidateScopeConflicts,
     detectCircularRenames,
+    detectCrossRenameNameConfusion,
+    detectDuplicateSourceSymbolIds,
+    detectDuplicateTargetNames,
     detectRenameConflicts,
     validateCrossFileConsistency,
     validateRenameStructure

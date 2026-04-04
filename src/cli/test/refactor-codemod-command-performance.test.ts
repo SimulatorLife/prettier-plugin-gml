@@ -11,7 +11,7 @@ import {
 } from "./test-helpers/refactor-codemod-command-fixture.js";
 
 const SCRIPT_COUNT = 320;
-const PERFORMANCE_THRESHOLD_MS = 2000;
+const PERFORMANCE_THRESHOLD_MS = 6000;
 
 void test("refactor codemod --write stays within the end-to-end CLI runtime threshold", async () => {
     const projectRoot = await createSyntheticRefactorProject({

@@ -608,12 +608,12 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             resourceAbsolute,
-            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
             refAbsolute,
-            `{"name":"oRef","resourceType":"GMObject","spriteId":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",},}`,
+            `{"name":"oRef","resourceType":"GMObject","spriteId":{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}`,
             "utf8"
         );
         fs.writeFileSync(
@@ -621,7 +621,7 @@ void describe("GmlSemanticBridge tests", () => {
             `{
                 "name":"MyGame",
                 "resourceType":"GMProject",
-                "resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
+                "resources":[{"id":{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
             }`,
             "utf8"
         );
@@ -692,7 +692,7 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             resourceAbsolute,
-            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
@@ -700,7 +700,7 @@ void describe("GmlSemanticBridge tests", () => {
             `{
                 "name":"MyGame",
                 "resourceType":"GMProject",
-                "resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
+                "resources":[{"id":{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
             }`,
             "utf8"
         );
@@ -851,12 +851,12 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             resourceAbsolute,
-            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
             projectManifestAbsolute,
-            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy"}}]}`,
+            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy"}}]}`,
             "utf8"
         );
 
@@ -907,12 +907,12 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             resourceAbsolute,
-            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourcePath":"objects/oGravitySphere/oGravitySphere.yy","resourceType":"GMObject"}`,
+            `{"%Name":"oGravitySphere","name":"oGravitySphere","resourcePath":"objects/oGravitySphere/oGravitySphere.yy","resourceType":"GMObject"}`,
             "utf8"
         );
         fs.writeFileSync(
             projectManifestAbsolute,
-            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy"}}]}`,
+            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy"}}]}`,
             "utf8"
         );
 
@@ -972,7 +972,7 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             objectAbsolute,
-            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
@@ -986,7 +986,7 @@ void describe("GmlSemanticBridge tests", () => {
                 "name":"MyGame",
                 "resourceType":"GMProject",
                 "resources":[
-                    {"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}},
+                    {"id":{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}},
                     {"id":{"name":"sEnemy","path":"sprites/sEnemy/sEnemy.yy",}}
                 ],
             }`,
@@ -1303,12 +1303,12 @@ void describe("GmlSemanticBridge tests", () => {
 
         fs.writeFileSync(
             objectAbsolute,
-            `"{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            `{"%Name":"oGravitySphere","name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
             "utf8"
         );
         fs.writeFileSync(
             projectManifestAbsolute,
-            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":"{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],}`,
+            `{"name":"MyGame","resourceType":"GMProject","resources":[{"id":{"%Name":"oGravitySphere","name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],}`,
             "utf8"
         );
         fs.writeFileSync(
@@ -1363,7 +1363,7 @@ void describe("GmlSemanticBridge tests", () => {
               "preMultiplyAlpha":false,
               "resourceType":"GMSprite",
               "resourceVersion":"2.0",
-              "sequence":{"$GMSequence":"v1","%Name":"sprPlayer","autoRecord":true,"backdropHeight":768,"backdropImageOpacity":0.5,"backdropImagePath":"","backdropWidth":1366,"backdropXOffset":0.0,"backdropYOffset":0.0,"events":{"$KeyframeStore<MessageEventKeyframe>":"","Keyframes":[],"resourceType":"KeyframeStore<MessageEventKeyframe>","resourceVersion":"2.0",},"eventStubScript":null,"eventToFunction":{},"length":1.0,"lockOrigin":false,"moments":{"$KeyframeStore<MomentsEventKeyframe>":"","Keyframes":[],"resourceType":"KeyframeStore<MomentsEventKeyframe>","resourceVersion":"2.0",},"name":"sprPlayer","playback":1,"playbackSpeed":30.0,"playbackSpeedType":0,"resourceType":"GMSequence","resourceVersion":"2.0","seqHeight":32.0,"seqWidth":32.0,"showBackdrop":true,"showBackdropImage":false,"timeUnits":1,"tracks":[{"$GMSpriteFramesTrack":"","builtinName":0,"events":[],"inheritsTrackColour":true,"interpolation":1,"isCreationTrack":false,"keyframes":{"$KeyframeStore<SpriteFrameKeyframe>":"","Keyframes":[{"$Keyframe<SpriteFrameKeyframe>":"","Channels":{"0":{"$SpriteFrameKeyframe":"","Id":{"name":"a777fc4d-ac59-4464-b4bd-e93704762166","path":"sprites/sprPlayer/sprPlayer.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},},"Disabled":false,"id":"213eb663-edd6-48de-82c6-c2a8d2c0ebb7","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},],"resourceType":"KeyframeStore<SpriteFrameKeyframe>","resourceVersion":"2.0",},"modifiers":[],"name":"frames","resourceType":"GMSpriteFramesTrack","resourceVersion":"2.0","spriteId":null,"trackColour":0,"tracks":[],"traits":0,},],"visibleRange":null,"volume":1.0,"xorigin":16,"yorigin":16,},
+              "sequence":{"$GMSequence":"v1","%Name":"sprPlayer","autoRecord":true,"backdropHeight":768,"backdropImageOpacity":0.5,"backdropImagePath":"","backdropWidth":1366,"backdropXOffset":0.0,"backdropYOffset":0.0,"events":{"$KeyframeStore<MessageEventKeyframe>":"","Keyframes":[],"resourceType":"KeyframeStore<MessageEventKeyframe>","resourceVersion":"2.0",},"eventStubScript":null,"eventToFunction":{},"length":1.0,"lockOrigin":false,"moments":{"$KeyframeStore<MomentsEventKeyframe>":"","Keyframes":[],"resourceType":"KeyframeStore<MomentsEventKeyframe>","resourceVersion":"2.0",},"name":"sprPlayer","playback":1,"playbackSpeed":30.0,"playbackSpeedType":0,"resourceType":"GMSequence","resourceVersion":"2.0","seqHeight":32.0,"seqWidth":32.0,"showBackdrop":true,"showBackdropImage":false,"timeUnits":1,"tracks":[{"$GMSpriteFramesTrack":"","builtinName":0,"events":[],"inheritsTrackColour":true,"interpolation":1,"isCreationTrack":false,"keyframes":{"$KeyframeStore<SpriteFrameKeyframe>":"","Keyframes":[{"$Keyframe<SpriteFrameKeyframe>":"","Channels":{"0":{"$SpriteFrameKeyframe":"","Id":{"name":"a777fc4d-ac59-4464-b4bd-e93704762166","path":"sprites/sprPlayer/sprPlayer.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",}},"Disabled":false,"id":"213eb663-edd6-48de-82c6-c2a8d2c0ebb7","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},],"resourceType":"KeyframeStore<SpriteFrameKeyframe>","resourceVersion":"2.0",},"modifiers":[],"name":"frames","resourceType":"GMSpriteFramesTrack","resourceVersion":"2.0","spriteId":null,"trackColour":0,"tracks":[],"traits":0,},],"visibleRange":null,"volume":1.0,"xorigin":16,"yorigin":16,},
               "swatchColours":null,
               "swfPrecision":2.525,
               "textureGroupId":{"name":"Default","path":"texturegroups/Default",},
@@ -2997,6 +2997,7 @@ void describe("GmlSemanticBridge tests", () => {
         });
         assert.equal(result, true);
     });
+
     void it("collectGlobalAndInstanceNamingTargets skips instance and global variables shadowing macros and enums", async () => {
         const bridge = new GmlSemanticBridge(
             {
