@@ -1200,6 +1200,7 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
     const normalizedExpressionRanges: SourceTextRange[] = [];
     const commentTokenRangeIndex = createCommentTokenRangeIndex(sourceText);
     const replacementByCandidateText = new Map<string, string | null>();
+    let lastScheduledEdit: SourceTextEdit | null = null;
 
     walkAstNodesWithParent(node, (visitContext) => {
         const { node: visitedNode, parent, parentKey } = visitContext;
@@ -1247,6 +1248,26 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
 
             const targetRange: SourceTextRange = { start, end };
             if (isRangeInsideAnyRange(targetRange, normalizedExpressionRanges)) {
+                return;
+            }
+
+            const fastDotProductReplacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
+            if (
+                fastDotProductReplacement &&
+                !rangeContainsCommentToken(commentTokenRangeIndex, start, end) &&
+                !(
+                    (lastScheduledEdit !== null && start < lastScheduledEdit.end && end > lastScheduledEdit.start) ||
+                    hasOverlappingRange(start, end, edits)
+                )
+            ) {
+                const replacementText =
+                    isIfTest && !fastDotProductReplacement.startsWith("(")
+                        ? `(${fastDotProductReplacement})`
+                        : fastDotProductReplacement;
+                const scheduledEdit = { start, end, text: replacementText };
+                edits.push(scheduledEdit);
+                lastScheduledEdit = scheduledEdit;
+                normalizedExpressionRanges.push(targetRange);
                 return;
             }
 
@@ -1341,8 +1362,17 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                         replacement = `(${replacement})`;
                     }
 
-                    if (!hasOverlappingRange(start, end, edits)) {
-                        edits.push({ start, end, text: replacement });
+                    if (
+                        !(
+                            (lastScheduledEdit !== null &&
+                                start < lastScheduledEdit.end &&
+                                end > lastScheduledEdit.start) ||
+                            hasOverlappingRange(start, end, edits)
+                        )
+                    ) {
+                        const scheduledEdit = { start, end, text: replacement };
+                        edits.push(scheduledEdit);
+                        lastScheduledEdit = scheduledEdit;
                         normalizedExpressionRanges.push(targetRange);
                     }
                 }
@@ -1378,14 +1408,16 @@ export function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition)
                     let rewrittenByAstEdits = sourceText;
                     if (edits.length > 0) {
                         const deduplicated: SourceTextEdit[] = [];
+                        let deduplicatedLastEnd = -1;
                         for (const edit of edits.toSorted(
                             (left, right) => left.start - right.start || left.end - right.end
                         )) {
-                            if (hasOverlappingRange(edit.start, edit.end, deduplicated)) {
+                            if (edit.start < deduplicatedLastEnd) {
                                 continue;
                             }
 
                             deduplicated.push(edit);
+                            deduplicatedLastEnd = edit.end;
                         }
 
                         rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);

@@ -1106,6 +1106,10 @@ void test("executeConfiguredCodemods applies cross-file enum + enumMember rename
     ].join("\n");
     const enumDefinitionStart = definitionSourceText.indexOf("CM_RAY");
     const enumReferenceInDefinitionStart = definitionSourceText.indexOf("CM_RAY", enumDefinitionStart + 1);
+    const secondEnumReferenceInDefinitionStart = definitionSourceText.indexOf(
+        "CM_RAY",
+        enumReferenceInDefinitionStart + 1
+    );
     const enumDefinitionMaskStart = definitionSourceText.indexOf("MASK");
     const enumDefinitionNumStart = definitionSourceText.indexOf("NUM");
     const enumReferenceMaskInDefinitionStart = definitionSourceText.indexOf("MASK", enumDefinitionMaskStart + 1);
@@ -1196,6 +1200,12 @@ void test("executeConfiguredCodemods applies cross-file enum + enumMember rename
                     path: "scripts/cm_defs.gml",
                     start: enumReferenceInDefinitionStart,
                     end: enumReferenceInDefinitionStart + "CM_RAY".length,
+                    kind: Refactor.OccurrenceKind.REFERENCE
+                },
+                {
+                    path: "scripts/cm_defs.gml",
+                    start: secondEnumReferenceInDefinitionStart,
+                    end: secondEnumReferenceInDefinitionStart + "CM_RAY".length,
                     kind: Refactor.OccurrenceKind.REFERENCE
                 },
                 {
