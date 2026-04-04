@@ -302,6 +302,8 @@ export function resolveNamingConventionRules(policy: NamingConventionPolicy): Re
 
         if (!disabled) {
             runtimeRule.enforceCaseStyle = sawCaseStyle;
+            runtimeRule.bannedPrefixes = [...runtimeRule.bannedPrefixes].sort((a, b) => b.length - a.length);
+            runtimeRule.bannedSuffixes = [...runtimeRule.bannedSuffixes].sort((a, b) => b.length - a.length);
             resolved[category] = runtimeRule;
         }
     }
@@ -515,7 +517,6 @@ export function evaluateNamingConvention(
             message: null
         };
     }
-
     let issueMessage: string | null = null;
     // When the case-style branch detects a violation it already computes the
     // expected name, so we capture it here to avoid a second identical call to
@@ -542,8 +543,8 @@ export function evaluateNamingConvention(
     } else if (rule.maxChars !== null && coreName.length > rule.maxChars) {
         issueMessage = `Identifier ${JSON.stringify(currentName)} exceeds the maximum core length ${rule.maxChars}.`;
     } else if (rule.enforceCaseStyle) {
-        const expectedName = composeExpectedIdentifierName(coreName, rule);
-        if (expectedName !== currentName) {
+        precomputedSuggestedName = composeExpectedIdentifierName(coreName, rule);
+        if (precomputedSuggestedName !== currentName) {
             issueMessage = `Identifier ${JSON.stringify(currentName)} does not match ${rule.caseStyle} case.`;
             precomputedSuggestedName = expectedName;
         }
