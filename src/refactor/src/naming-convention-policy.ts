@@ -462,11 +462,6 @@ function stripOneAffixDirection(
         return stripAffix(coreName, exclusive[0], position);
     }
 
-<<<<<<< HEAD
-    for (const banned of bannedAffixes) {
-        if (banned.length > 0 && hasAffix(coreName, banned)) {
-            return stripAffix(coreName, banned, position);
-=======
     // bannedAffixes is pre-sorted descending by length in resolveNamingConventionRules,
     // so we can iterate without creating an intermediate sorted copy.
     for (const banned of bannedAffixes) {
@@ -475,7 +470,6 @@ function stripOneAffixDirection(
             if (matches) {
                 return stripAffix(coreName, banned, position);
             }
->>>>>>> 33846f47c (perf(refactor): eliminate hot-path bottlenecks in naming-convention codemod)
         }
     }
 
@@ -524,14 +518,10 @@ export function evaluateNamingConvention(
         };
     }
     let issueMessage: string | null = null;
-<<<<<<< HEAD
-    let precomputedSuggestedName: string | null = null;
-=======
     // When the case-style branch detects a violation it already computes the
     // expected name, so we capture it here to avoid a second identical call to
     // composeExpectedIdentifierName at the bottom of the function.
     let precomputedSuggestedName: string | undefined;
->>>>>>> 33846f47c (perf(refactor): eliminate hot-path bottlenecks in naming-convention codemod)
     const coreName = stripKnownAffixes(currentName, rule, policy, category);
     const exclusivePrefix = longestMatchingAffix(currentName, policy.exclusivePrefixes, "prefix");
     const exclusiveSuffix = longestMatchingAffix(currentName, policy.exclusiveSuffixes, "suffix");
@@ -556,7 +546,6 @@ export function evaluateNamingConvention(
         precomputedSuggestedName = composeExpectedIdentifierName(coreName, rule);
         if (precomputedSuggestedName !== currentName) {
             issueMessage = `Identifier ${JSON.stringify(currentName)} does not match ${rule.caseStyle} case.`;
-            precomputedSuggestedName = expectedName;
         }
     }
 
@@ -579,14 +568,9 @@ export function evaluateNamingConvention(
         };
     }
 
-<<<<<<< HEAD
-    const suggestedName =
-        precomputedSuggestedName === null ? composeExpectedIdentifierName(coreName, rule) : precomputedSuggestedName;
-=======
     // Reuse the expected name already computed in the case-style branch when
     // available; otherwise compute it now for other violation types.
     const suggestedName = precomputedSuggestedName ?? composeExpectedIdentifierName(coreName, rule);
->>>>>>> 33846f47c (perf(refactor): eliminate hot-path bottlenecks in naming-convention codemod)
 
     return {
         compliant: suggestedName === currentName,
