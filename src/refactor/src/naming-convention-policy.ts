@@ -291,12 +291,10 @@ export function resolveNamingConventionRules(policy: NamingConventionPolicy): Re
                 runtimeRule.maxChars = entry.rule.maxChars;
             }
             if (entry.rule.bannedPrefixes !== undefined) {
-                // Sort descending by length so stripOneAffixDirection can iterate
-                // without creating a sorted copy on every identifier evaluation.
-                runtimeRule.bannedPrefixes = [...entry.rule.bannedPrefixes].sort((a, b) => b.length - a.length);
+                runtimeRule.bannedPrefixes = [...entry.rule.bannedPrefixes];
             }
             if (entry.rule.bannedSuffixes !== undefined) {
-                runtimeRule.bannedSuffixes = [...entry.rule.bannedSuffixes].sort((a, b) => b.length - a.length);
+                runtimeRule.bannedSuffixes = [...entry.rule.bannedSuffixes];
             }
         }
 
@@ -311,21 +309,62 @@ export function resolveNamingConventionRules(policy: NamingConventionPolicy): Re
     return resolved;
 }
 
-function splitIdentifierWords(value: string): Array<string> {
-    const normalized = value
-        .replaceAll(/([a-z])([A-Z])/g, "$1 $2")
-        .replaceAll(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-        .replaceAll(/[_\-\s]+/g, " ")
-        .trim();
+function isWordDelimiter(character: string): boolean {
+    return character === "_" || character === "-" || /\s/u.test(character);
+}
 
-    if (normalized.length === 0) {
-        return [];
+function isUppercaseAscii(character: string): boolean {
+    return character >= "A" && character <= "Z";
+}
+
+function isLowercaseAscii(character: string): boolean {
+    return character >= "a" && character <= "z";
+}
+
+function splitIdentifierWords(value: string): Array<string> {
+    const words: Array<string> = [];
+    let currentWord = "";
+
+    for (let index = 0; index < value.length; index += 1) {
+        const character = value[index];
+        if (character === undefined) {
+            continue;
+        }
+
+        if (isWordDelimiter(character)) {
+            if (currentWord.length > 0) {
+                words.push(currentWord);
+                currentWord = "";
+            }
+            continue;
+        }
+
+        const previousCharacter = index > 0 ? value[index - 1] : undefined;
+        const nextCharacter = index + 1 < value.length ? value[index + 1] : undefined;
+
+        const startsCamelCaseBoundary =
+            previousCharacter !== undefined && isLowercaseAscii(previousCharacter) && isUppercaseAscii(character);
+        const startsAcronymBoundary =
+            previousCharacter !== undefined &&
+            nextCharacter !== undefined &&
+            isUppercaseAscii(previousCharacter) &&
+            isUppercaseAscii(character) &&
+            isLowercaseAscii(nextCharacter);
+
+        if ((startsCamelCaseBoundary || startsAcronymBoundary) && currentWord.length > 0) {
+            words.push(currentWord);
+            currentWord = character.toLowerCase();
+            continue;
+        }
+
+        currentWord += character.toLowerCase();
     }
 
-    return normalized
-        .split(" ")
-        .map((word) => word.toLowerCase())
-        .filter((word) => word.length > 0);
+    if (currentWord.length > 0) {
+        words.push(currentWord);
+    }
+
+    return words;
 }
 
 function capitalize(word: string): string {
@@ -367,7 +406,7 @@ export function formatNamingCaseStyle(value: string, caseStyle: NamingCaseStyle)
 
     const formattedCore =
         caseStyle === "lower"
-            ? words.join("").toLowerCase()
+            ? words.join("")
             : caseStyle === "upper"
               ? words.join("").toUpperCase()
               : caseStyle === "camel"

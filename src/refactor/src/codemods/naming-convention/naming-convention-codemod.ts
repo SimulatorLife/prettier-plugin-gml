@@ -139,6 +139,7 @@ function processLocalNamingConventionRename(parameters: {
     localScopeNames: Map<string, Map<string, number>>;
     localDeclarationRenameDecisions: Map<string, LocalDeclarationRenameDecision>;
     macroDependencyNamesByFile: MacroDependencyNamesByFile | null;
+    normalizedCurrentName: string;
 }): number {
     const { target, suggestedName } = parameters;
     const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
@@ -163,7 +164,7 @@ function processLocalNamingConventionRename(parameters: {
 
     const existingNames = parameters.localScopeNames.get(scopeKey) ?? new Map<string, number>();
     const normalizedSuggestedName = suggestedName.toLowerCase();
-    const normalizedCurrentName = target.name.toLowerCase();
+    const normalizedCurrentName = parameters.normalizedCurrentName;
     const existingSuggestedNameCount = existingNames.get(normalizedSuggestedName) ?? 0;
     const isCaseOnlyRename = normalizedSuggestedName === normalizedCurrentName;
     const hasSameScopeNameConflict = isCaseOnlyRename ? existingSuggestedNameCount > 1 : existingSuggestedNameCount > 0;
@@ -196,7 +197,7 @@ function processLocalNamingConventionRename(parameters: {
     const dependentMacroNames =
         parameters.macroDependencyNamesByFile === null
             ? []
-            : findDependentMacroNames(parameters.macroDependencyNamesByFile, target.path, target.name);
+            : findDependentMacroNames(parameters.macroDependencyNamesByFile, target.path, normalizedCurrentName);
     if (dependentMacroNames.length > 0) {
         parameters.warnings.push(
             `Skipping local rename '${target.name}' -> '${suggestedName}' in ${target.path} because macro expansion${dependentMacroNames.length === 1 ? "" : "s"} ${dependentMacroNames.map((macroName) => `'${macroName}'`).join(", ")} ${dependentMacroNames.length === 1 ? "depends" : "depend"} on '${target.name}'.`
@@ -349,17 +350,27 @@ function collectMacroDependencyNamesByFile(
     return dependencyNamesByFile;
 }
 
+function createLowercaseNameCache(
+    selectedTargets: ReadonlyArray<LocalNamingConventionTarget>
+): Map<LocalNamingConventionTarget, string> {
+    const normalizedNames = new Map<LocalNamingConventionTarget, string>();
+
+    for (const target of selectedTargets) {
+        normalizedNames.set(target, target.name.toLowerCase());
+    }
+
+    return normalizedNames;
+}
+
 function findDependentMacroNames(
     dependenciesByFile: MacroDependencyNamesByFile,
     filePath: string,
-    identifierName: string
+    normalizedIdentifierName: string
 ): Array<string> {
     const dependenciesForFile = dependenciesByFile.get(filePath);
     if (!dependenciesForFile) {
         return [];
     }
-
-    const normalizedIdentifierName = identifierName.toLowerCase();
     const dependentMacroNames: Array<string> = [];
 
     for (const [macroName, referencedNames] of dependenciesForFile) {
@@ -468,6 +479,7 @@ export async function planNamingConventionCodemod(
         requestedCategories
     );
     const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));
+    const normalizedTargetNames = createLowercaseNameCache(selectedTargets);
     const requiresMacroDependencyAnalysis = selectedTargets.some((target) => target.symbolId === null);
     const macroDependencyNamesByFile =
         requiresMacroDependencyAnalysis && typeof semantic.listMacroExpansionDependencies === "function"
@@ -515,7 +527,8 @@ export async function planNamingConventionCodemod(
             warnings,
             localScopeNames,
             localDeclarationRenameDecisions,
-            macroDependencyNamesByFile
+            macroDependencyNamesByFile,
+            normalizedCurrentName: normalizedTargetNames.get(target) ?? target.name.toLowerCase()
         });
     }
 
