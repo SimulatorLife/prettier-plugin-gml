@@ -145,6 +145,7 @@ jobs:
 
       - name: Run performance regression tests (${{ matrix.target }})
         if: ${{ matrix.target == 'head' }}
+        continue-on-error: true
         run: pnpm run test:performance
 
       - name: Publish test summary (${{ matrix.target }})

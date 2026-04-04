@@ -17,7 +17,7 @@ import type {
 } from "../../types.js";
 import { detectCircularRenames, detectCrossRenameNameConfusion, detectDuplicateTargetNames } from "../../validation.js";
 import { type WorkspaceEdit, WorkspaceEdit as WorkspaceEditClass } from "../../workspace-edit.js";
-import { createPathSelectionMatcher } from "./path-selection.js";
+import { createPathSelectionMatcher, resolveProjectPath } from "./path-selection.js";
 
 const RESERVED_LOCAL_RENAME_CATEGORIES = new Set([
     "globalVariable",
@@ -213,6 +213,40 @@ function findDependentMacroNames(
 }
 
 /**
+ * Build the expanded list of file paths to pass to `listNamingConventionTargets`.
+ *
+ * For each selected GML file the semantic analyzer is also given:
+ * - The project-absolute form of the GML path, since indexers may store absolute paths.
+ * - The companion `.yy` metadata file path (GameMaker resource descriptor), in both
+ *   relative and absolute forms, because some semantic adapters key their symbol tables
+ *   on the resource path rather than the GML source path.
+ *
+ * Passing all four variants ensures the analyzer can surface targets regardless of how
+ * it has indexed the project.
+ *
+ * @param projectRoot - Absolute project root path used to resolve relative entries.
+ * @param selectedFilePaths - Relative or absolute GML file paths that passed selection.
+ * @returns Deduplicated list of paths to query.
+ */
+function buildNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: Array<string>): Array<string> {
+    const queryPaths = new Set<string>();
+
+    for (const filePath of selectedFilePaths) {
+        queryPaths.add(filePath);
+        queryPaths.add(resolveProjectPath(projectRoot, filePath));
+
+        // Companion .yy resource descriptor (sibling of every GML script file).
+        const yyPath = filePath.replace(/\.gml$/i, ".yy");
+        if (yyPath !== filePath) {
+            queryPaths.add(yyPath);
+            queryPaths.add(resolveProjectPath(projectRoot, yyPath));
+        }
+    }
+
+    return [...queryPaths];
+}
+
+/**
  * Plan naming-policy-driven edits for the selected project paths.
  */
 export async function planNamingConventionCodemod(
@@ -267,8 +301,9 @@ export async function planNamingConventionCodemod(
     const isSelectedTargetPath = createPathSelectionMatcher(parameters.projectRoot, parameters.targetPaths, []);
 
     const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) => isSelectedTargetPath(filePath));
+    const queryPaths = buildNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths);
     const queriedTargets = await semantic.listNamingConventionTargets(
-        selectedFilePaths.length === 0 ? undefined : selectedFilePaths,
+        queryPaths.length === 0 ? undefined : queryPaths,
         requestedCategories
     );
     const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));

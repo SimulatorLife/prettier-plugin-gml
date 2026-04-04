@@ -923,14 +923,12 @@ export class GmlSemanticBridge {
             this.collectConstructorRuntimeTypeReferenceOccurrences(symbolName, occurrences);
         }
 
-        // Fallback to file-system scanning when a resource rename still has no
-        // GML occurrences. Synthetic resource declarations in `.yy` files count
-        // as occurrences, but they are not enough to update cross-file code
-        // references such as `instance_create_depth(..., oCamera)`.
-        if (
-            this.shouldCollectDiskOccurrences(symbolName, symbolId) &&
-            !occurrences.some((occurrence) => occurrence.path.endsWith(".gml"))
-        ) {
+        // Fallback to file-system scanning for resource renames. Synthetic
+        // resource declarations in `.yy` files count as occurrences, but they
+        // are not enough to update cross-file code references such as
+        // `instance_create_depth(..., oCamera)`. We always run this fallback
+        // for resources because semantic index references can be incomplete.
+        if (this.shouldCollectDiskOccurrences(symbolName, symbolId)) {
             this.collectOccurrencesFromGmlFiles(symbolName, occurrences);
         }
 
@@ -1586,7 +1584,6 @@ export class GmlSemanticBridge {
         for (const filePath of Object.keys(files)) {
             if (filePath.endsWith(".gml")) {
                 const hits = this.findIdentifierOccurrences(filePath, symbolName);
-                // console.log("HITS for", filePath, ":", hits);
                 for (const hit of hits) {
                     occurrences.push({
                         path: filePath,
@@ -2162,6 +2159,11 @@ export class GmlSemanticBridge {
                 knownEnumNames.add(entry.name);
             }
         }
+        for (const entry of Object.values(this.identifiers.macros ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownResourceNames.add(entry.name.toLowerCase());
+            }
+        }
 
         for (const entry of Object.values(this.identifiers.instanceVariables ?? {})) {
             const declarationFilePath = this.getDeclarationFilePath(entry);
@@ -2194,6 +2196,17 @@ export class GmlSemanticBridge {
     ): void {
         const scopes = (this.projectIndex.scopes ?? {}) as Record<string, SemanticScopeRecord>;
         const files = (this.projectIndex.files ?? {}) as Record<string, SemanticFileRecord>;
+        const knownGlobalNames = new Set<string>();
+        for (const entry of Object.values(this.identifiers.macros ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownGlobalNames.add(entry.name);
+            }
+        }
+        for (const entry of Object.values(this.identifiers.enums ?? {})) {
+            if (typeof entry?.name === "string") {
+                knownGlobalNames.add(entry.name);
+            }
+        }
 
         for (const [filePath, fileRecord] of Object.entries(files)) {
             const fileDeclarations = fileRecord?.declarations ?? [];
@@ -2205,6 +2218,10 @@ export class GmlSemanticBridge {
             let indexedReferenceOccurrences: LocalReferenceIndex | null = null;
             for (const declaration of fileDeclarations) {
                 if (!declaration || declaration.isBuiltIn || typeof declaration.name !== "string") {
+                    continue;
+                }
+
+                if (knownGlobalNames.has(declaration.name)) {
                     continue;
                 }
 
@@ -2616,7 +2633,10 @@ export class GmlSemanticBridge {
             return occurrences;
         }
 
-        this.collectUnresolvedConstructorStaticMemberOccurrences(declaration.name, occurrences);
+        if (!this.tryCollectUnresolvedConstructorStaticMemberOccurrences(declaration.name, occurrences)) {
+            return [];
+        }
+
         return this.deduplicateOccurrences(occurrences);
     }
 
@@ -2834,13 +2854,11 @@ export class GmlSemanticBridge {
         }
     }
 
-    private collectUnresolvedConstructorStaticMemberOccurrences(
+    private tryCollectUnresolvedConstructorStaticMemberOccurrences(
         symbolName: string,
         occurrences: Array<SymbolOccurrence>
-    ): void {
-        if ((this.getConstructorStaticMemberNameCounts().get(symbolName) ?? 0) !== 1) {
-            return;
-        }
+    ): boolean {
+        const collected: Array<SymbolOccurrence> = [];
 
         for (const unresolvedReference of this.getIndexes().unresolvedReferencesByExactName.get(symbolName) ?? []) {
             const classifications = Core.asArray(unresolvedReference.reference.classifications);
@@ -2867,7 +2885,7 @@ export class GmlSemanticBridge {
                 continue;
             }
 
-            occurrences.push({
+            collected.push({
                 path: unresolvedReference.filePath,
                 start,
                 end,
@@ -2878,6 +2896,13 @@ export class GmlSemanticBridge {
                 kind: "reference"
             });
         }
+
+        if (collected.length > 0 && (this.getConstructorStaticMemberNameCounts().get(symbolName) ?? 0) !== 1) {
+            return false;
+        }
+
+        occurrences.push(...collected);
+        return true;
     }
 
     private isConstructorStaticMemberBareCallReferenceSourceMatch(
