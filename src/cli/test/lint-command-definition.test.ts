@@ -24,6 +24,23 @@ void test("lint --help output shows a --fix example", async () => {
     assert.match(stdout, /pnpm dlx prettier-plugin-gml lint --fix/);
 });
 
+void test("lint --help output documents --path and --list options", async () => {
+    const { stdout } = await runCliTestCommand({ argv: ["lint", "--help"] });
+
+    assert.match(stdout, /--path <path>/);
+    assert.match(stdout, /--list/);
+    assert.match(stdout, /--verbose/);
+});
+
+void test("lint --list prints command settings and exits without linting", async () => {
+    const { stdout, stderr, exitCode } = await runCliTestCommand({ argv: ["lint", "--list"] });
+
+    assert.equal(exitCode, 0);
+    assert.match(stdout, /Path override:/);
+    assert.match(stdout, /Fix mode:/);
+    assert.equal(stderr, "");
+});
+
 void test("lint --help output shows a --max-warnings CI example with a .gml path", async () => {
     const { stdout } = await runCliTestCommand({ argv: ["lint", "--help"] });
 

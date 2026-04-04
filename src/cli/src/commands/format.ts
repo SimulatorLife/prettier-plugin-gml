@@ -21,6 +21,7 @@ import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
+import { createListOption, createVerboseOption } from "../cli-core/shared-command-options.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
@@ -396,6 +397,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .argument("[targetPath]", "Directory or file to format. Defaults to the current working directory.")
         .option("--path <path>", "Directory or file to format (alias for positional argument).")
         .option("--check", "Check formatting without writing changes (dry-run mode)")
+        .addOption(createListOption())
         .addOption(skippedDirectorySampleLimitOption)
         .addOption(skippedDirectorySamplesAliasOption)
         .addOption(ignoredFileSampleLimitOption)
@@ -412,7 +414,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             (value) => parseErrorActionOption.requireValue(value, InvalidArgumentError),
             DEFAULT_PARSE_ERROR_ACTION
         )
-        .option("--verbose", "Enable verbose output with detailed diagnostics and timing")
+        .addOption(createVerboseOption())
         .addHelpText("after", () =>
             [
                 "",
@@ -1486,6 +1488,27 @@ async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, or
     });
 }
 
+function printFormatCommandSettings(commandOptions: ReturnType<typeof collectFormatCommandOptions>): void {
+    console.log(
+        `Target path: ${typeof commandOptions.targetPathInput === "string" ? commandOptions.targetPathInput : "(cwd)"}`
+    );
+    console.log(`Check mode: ${commandOptions.checkMode ? "enabled (--check)" : "disabled"}`);
+    console.log(`Verbose mode: ${commandOptions.verbose ? "enabled" : "disabled"}`);
+    console.log(`Log level: ${commandOptions.prettierLogLevel}`);
+    console.log(`Parse error mode: ${commandOptions.onParseError}`);
+    console.log(
+        `Ignored directory sample limit: ${String(commandOptions.skippedDirectorySampleLimit ?? getDefaultSkippedDirectorySampleLimit())}`
+    );
+    console.log(
+        `Ignored file sample limit: ${String(commandOptions.ignoredFileSampleLimit ?? getDefaultIgnoredFileSampleLimit())}`
+    );
+    console.log(
+        `Unsupported extension sample limit: ${String(
+            commandOptions.unsupportedExtensionSampleLimit ?? getDefaultUnsupportedExtensionSampleLimit()
+        )}`
+    );
+}
+
 export async function runFormatCommand(command) {
     const commandOptions = collectFormatCommandOptions(command, {
         defaultParseErrorAction: DEFAULT_PARSE_ERROR_ACTION,
@@ -1493,6 +1516,7 @@ export async function runFormatCommand(command) {
     });
     const {
         usage,
+        list,
         targetPathInput,
         targetPathProvided,
         rawTargetPathInput,
@@ -1500,6 +1524,11 @@ export async function runFormatCommand(command) {
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit
     } = commandOptions;
+
+    if (list) {
+        printFormatCommandSettings(commandOptions);
+        return;
+    }
 
     // If the targetPath looks like a help flag, display help instead of treating it as a path.
     // This handles cases where --help is passed after -- (e.g., `pnpm run format:gml -- --help`)
