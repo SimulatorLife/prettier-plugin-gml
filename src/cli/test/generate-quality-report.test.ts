@@ -610,6 +610,81 @@ void test("still counts a file-level crash as a regression when no inner tests p
     assert.ok(regressions[0].key.includes("broken.test.js"));
 });
 
+void test("readTestResults prefers canonical tests.xml results over auxiliary XML reports for duplicate test keys", () => {
+    const resultsDir = path.join(workspace, "reports");
+
+    writeXml(
+        resultsDir,
+        "tests",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="shared test" classname="suite" file="/repo/src/refactor/dist/test/naming-convention-performance.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        resultsDir,
+        "performance",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="shared test" classname="suite" file="/repo/src/refactor/dist/test/naming-convention-performance.test.js">
+          <failure message="performance threshold exceeded" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const head = readTestResults(["reports"], { workspace });
+    const record = head.results.get("root :: suite :: shared test");
+
+    assert.ok(record);
+    assert.strictEqual(record.status, "passed");
+});
+
+void test("does not report regressions when only auxiliary performance.xml differs for the same test key", () => {
+    const baseDir = path.join(workspace, "base/reports");
+    const headDir = path.join(workspace, "reports");
+
+    writeXml(
+        baseDir,
+        "tests",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="shared test" classname="suite" file="/repo/src/refactor/dist/test/naming-convention-performance.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "tests",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="shared test" classname="suite" file="/repo/src/refactor/dist/test/naming-convention-performance.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "performance",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="shared test" classname="suite" file="/repo/src/refactor/dist/test/naming-convention-performance.test.js">
+          <failure message="performance threshold exceeded" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/reports"], { workspace });
+    const head = readTestResults(["reports"], { workspace });
+    const regressions = detectRegressions(base, head);
+
+    assert.strictEqual(regressions.length, 0);
+});
+
 void test("readTestResults preserves project health stats when present", () => {
     const resultsDir = path.join(workspace, "reports");
 
