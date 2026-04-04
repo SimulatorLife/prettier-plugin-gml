@@ -17,7 +17,12 @@ import { Command, Option } from "commander";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { CliUsageError, isCliUsageError } from "../cli-core/errors.js";
-import { createApplyFixesOption, createProjectPathOption } from "../cli-core/shared-command-options.js";
+import {
+    createApplyFixesOption,
+    createListOption,
+    createPathOption,
+    createVerboseOption
+} from "../cli-core/shared-command-options.js";
 import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
 import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 import { resolveIndexedRootTargetGmlFiles } from "./refactor-target-gml-files.js";
@@ -40,9 +45,8 @@ type RefactorCommandOptions = {
     symbolId?: string;
     oldName?: string;
     newName?: string;
-    project?: string;
+    path?: string;
     config?: string;
-    dryRun?: boolean;
     fix?: boolean;
     only?: string;
     list?: boolean;
@@ -61,7 +65,18 @@ type ValidatedRenameOptions = RefactorContext & {
     newName: string;
     dryRun: boolean;
     checkHotReload: boolean;
+    list: boolean;
 };
+
+function printRenameSettings(options: ValidatedRenameOptions): void {
+    console.log(`Mode: rename`);
+    console.log(`Project root: ${options.projectRoot}`);
+    console.log(`Target: ${options.symbolId ?? options.oldName ?? "(unresolved)"}`);
+    console.log(`New name: ${options.newName}`);
+    console.log(`Verbose mode: ${options.verbose ? "enabled" : "disabled"}`);
+    console.log(`Execution mode: ${options.dryRun ? "dry-run (default)" : "apply changes (--fix)"}`);
+    console.log(`Hot reload validation: ${options.checkHotReload ? "enabled" : "disabled"}`);
+}
 
 type ValidatedCodemodOptions = RefactorContext & {
     configPath: string;
@@ -120,7 +135,7 @@ function hasExplicitRenameIntent(options: RefactorCommandOptions): boolean {
 }
 
 function hasExplicitCodemodIntentHint(options: RefactorCommandOptions): boolean {
-    return Boolean(options.project || options.config || options.fix || options.only || options.list);
+    return Boolean(options.path || options.config || options.fix || options.only || options.list);
 }
 
 function validateRenameOptions(options: RefactorCommandOptions): ValidatedRenameOptions {
@@ -137,13 +152,14 @@ function validateRenameOptions(options: RefactorCommandOptions): ValidatedRename
     }
 
     return {
-        projectRoot: path.resolve(options.project ?? process.cwd()),
+        projectRoot: path.resolve(options.path ?? process.cwd()),
         verbose: Boolean(options.verbose),
         symbolId: options.symbolId,
         oldName: options.oldName,
         newName: options.newName,
-        dryRun: Boolean(options.dryRun),
-        checkHotReload: Boolean(options.checkHotReload)
+        dryRun: !options.fix,
+        checkHotReload: Boolean(options.checkHotReload),
+        list: Boolean(options.list)
     };
 }
 
@@ -151,7 +167,7 @@ async function validateCodemodOptions(
     options: RefactorCommandOptions,
     pathArguments: Array<string>
 ): Promise<ValidatedCodemodOptions> {
-    const projectRoot = await resolveDiscoveredProjectRoot(options.project, options.config);
+    const projectRoot = await resolveDiscoveredProjectRoot(options.path, options.config);
     const targetPaths = pathArguments.length === 0 ? [projectRoot] : pathArguments.map((entry) => path.resolve(entry));
 
     return {
@@ -390,8 +406,13 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
     const selectedCodemodLines = formatCodemodSelectionSummary(config, onlyCodemods);
 
     if (list) {
+        const selectedCodemods = onlyCodemods.length > 0 ? onlyCodemods.join(", ") : "(all configured codemods)";
         console.log(`Project root: ${projectRoot}`);
         console.log(`Config path: ${configPath}`);
+        console.log(`Selected codemods: ${selectedCodemods}`);
+        console.log(`Target paths: ${targetPaths.join(", ")}`);
+        console.log(`Verbose mode: ${verbose ? "enabled" : "disabled"}`);
+        console.log(`Execution mode: ${dryRun ? "dry-run (default)" : "apply changes (--fix)"}`);
         for (const line of selectedCodemodLines) {
             console.log(line);
         }
@@ -505,13 +526,12 @@ export function createRefactorCommand(): Command {
             )
         )
         .addOption(new Option("--new-name <name>", "New name for the symbol"))
-        .addOption(createProjectPathOption())
+        .addOption(createPathOption())
         .addOption(new Option("--config <path>", "Path to gmloop.json for configured codemod execution"))
-        .addOption(new Option("--dry-run", "Show what would be changed without modifying files").default(false))
         .addOption(createApplyFixesOption())
         .addOption(new Option("--only <ids>", "Comma-separated list of configured codemod ids to run"))
-        .addOption(new Option("--list", "List configured codemods and exit").default(false))
-        .addOption(new Option("--verbose", "Enable verbose output with detailed diagnostics").default(false))
+        .addOption(createListOption())
+        .addOption(createVerboseOption())
         .addOption(
             new Option("--check-hot-reload", "Validate that the refactored code is compatible with hot reload").default(
                 false
@@ -523,7 +543,7 @@ export function createRefactorCommand(): Command {
                 "",
                 "Examples:",
                 "  pnpm dlx prettier-plugin-gml refactor --old-name my_script --new-name my_renamed_script path/to/project",
-                "  pnpm dlx prettier-plugin-gml refactor --symbol-id gml/script/my_func --new-name my_func_v2 --dry-run",
+                "  pnpm dlx prettier-plugin-gml refactor --symbol-id gml/script/my_func --new-name my_func_v2",
                 "  pnpm dlx prettier-plugin-gml refactor codemod --list",
                 "  pnpm dlx prettier-plugin-gml refactor codemod --fix path/to/project"
             ].join("\n")
@@ -539,6 +559,10 @@ export function createRefactorCommand(): Command {
  */
 export async function executeRefactorCommand(command: CommanderCommandLike): Promise<void> {
     const intent = await validateRefactorIntent(command);
+    if (intent.mode === "rename" && intent.options.list) {
+        printRenameSettings(intent.options);
+        return;
+    }
     await (intent.mode === "codemod" ? performConfiguredCodemods(intent.options) : performRename(intent.options));
 }
 

@@ -16,3 +16,10 @@ void test("createFormatCommand help no longer documents extension overrides", ()
 
     assert.doesNotMatch(helpText, /--extensions/);
 });
+
+void test("createFormatCommand exposes shared --list and --verbose options", () => {
+    const command = createFormatCommand();
+
+    assert.ok(command.options.some((option) => option.long === "--list"));
+    assert.ok(command.options.some((option) => option.long === "--verbose"));
+});

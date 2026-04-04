@@ -1789,7 +1789,7 @@ void test("refactor infers codemod mode from project config when no rename targe
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "--project", projectRoot, "--fix"]
+            argv: ["refactor", "--path", projectRoot, "--fix"]
         });
 
         assert.equal(result.exitCode, 0);

@@ -47,6 +47,7 @@ void test("collectFormatCommandOptions tolerates commands without option state",
     assert.strictEqual(result.ignoredFileSampleLimit, undefined);
     assert.strictEqual(result.unsupportedExtensionSampleLimit, undefined);
     assert.strictEqual(result.usage, "usage");
+    assert.strictEqual(result.list, false);
 });
 
 void test("collectFormatCommandOptions derives target path from --path option", () => {
@@ -60,6 +61,16 @@ void test("collectFormatCommandOptions derives target path from --path option", 
     assert.strictEqual(result.targetPathInput, "./project");
     assert.strictEqual(result.targetPathProvided, true);
     assert.strictEqual(result.rawTargetPathInput, " ./project  ");
+});
+
+void test("collectFormatCommandOptions reads --list option", () => {
+    const command = createStubCommand({
+        opts: () => ({ list: true })
+    });
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.strictEqual(result.list, true);
 });
 
 void test("collectFormatCommandOptions treats blank --path as provided but empty", () => {
