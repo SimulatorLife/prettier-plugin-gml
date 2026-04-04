@@ -77,7 +77,7 @@ an example invocation.
 
 Runs the project-wide write workflow in one command:
 
-1. `refactor codemod --write`
+1. `refactor codemod --fix`
 2. `lint --fix`
 3. `format`
 
@@ -88,7 +88,7 @@ pnpm run cli -- fix --only namingConvention
 
 **Options:**
 - `[projectPath]` - Project directory or `.yyp` path (default: current project)
-- `--project-root <path>` - Explicit GameMaker project root directory or `.yyp` path
+- `--project <path>` - Explicit GameMaker project root directory or `.yyp` path
 - `--config <path>` - Explicit `gmloop.json` path for the refactor stage
 - `--only <ids>` - Comma-separated list of configured refactor codemod ids to run
 - `--verbose` - Enable verbose diagnostics for all three stages
@@ -567,30 +567,30 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --verbose
 pnpm run cli -- refactor codemod --list
 
 # Dry-run configured codemods inferred from the project config
-pnpm run cli -- refactor --project-root path/to/project
+pnpm run cli -- refactor --project path/to/project
 
 # Dry-run configured codemods
 pnpm run cli -- refactor codemod
 
 # Apply configured codemods to selected paths only
-pnpm run cli -- refactor codemod scripts/player --write
+pnpm run cli -- refactor codemod scripts/player --fix
 
 # Apply only one configured codemod
-pnpm run cli -- refactor codemod --only namingConvention --write
+pnpm run cli -- refactor codemod --only namingConvention --fix
 ```
 
 **Options:**
 - `--symbol-id <id>` - SCIP-style symbol identifier to rename (e.g., gml/script/scr_player)
 - `--old-name <name>` - Current name of the symbol to rename
 - `--new-name <name>` - New name for the symbol (required)
-- `--project-root <path>` - Root directory of the GameMaker project (default: current directory)
+- `--project <path>` - Root directory of the GameMaker project (default: current directory)
 - `--dry-run` - Show what would be changed without modifying files
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
 
 **Codemod options (`refactor codemod`):**
 - `--config <path>` - Explicit path to `gmloop.json`
-- `--write` - Apply configured codemods (default is dry-run)
+- `--fix` - Apply configured codemods (default is dry-run)
 - `--only <ids>` - Comma-separated list of configured codemod ids to run
 - `--list` - Print discovered codemods and their effective normalized config
 

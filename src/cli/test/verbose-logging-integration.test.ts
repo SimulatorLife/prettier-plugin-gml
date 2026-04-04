@@ -131,7 +131,7 @@ void describe("CLI Verbose Logging", () => {
             const { stdout } = await execFileAsync("node", [
                 wrapperPath,
                 "refactor",
-                "--project-root",
+                "--project",
                 tempDirectory,
                 "--old-name",
                 "script1",
@@ -156,7 +156,7 @@ void describe("CLI Verbose Logging", () => {
             const { stdout } = await execFileAsync("node", [
                 wrapperPath,
                 "refactor",
-                "--project-root",
+                "--project",
                 tempDirectory,
                 "--old-name",
                 "script1",

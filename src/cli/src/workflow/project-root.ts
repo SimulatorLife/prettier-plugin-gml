@@ -46,7 +46,7 @@ export async function discoverProjectRoot(parameters: {
         filepath: path.resolve(process.cwd(), "gmloop.json")
     });
     if (!discoveredProjectRoot) {
-        throw new Error("Could not locate a GameMaker project root. Pass --project-root or run inside a project tree.");
+        throw new Error("Could not locate a GameMaker project root. Pass --project or run inside a project tree.");
     }
 
     return discoveredProjectRoot;

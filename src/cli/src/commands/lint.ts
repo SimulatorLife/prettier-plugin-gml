@@ -11,6 +11,12 @@ import { ESLint } from "eslint";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import {
+    APPLY_FIXES_OPTION_DESCRIPTION,
+    APPLY_FIXES_OPTION_FLAGS,
+    PROJECT_PATH_OPTION_DESCRIPTION,
+    PROJECT_PATH_OPTION_FLAGS
+} from "../cli-core/shared-command-options.js";
+import {
     calculateElapsedNanoseconds,
     formatElapsedNanosecondsAsMilliseconds,
     readMonotonicNanoseconds
@@ -30,7 +36,7 @@ const GML_FILE_EXTENSION = ".gml";
 const LINT_RUNTIME_ERROR_RULE_ID = "gml/internal-runtime-error";
 
 const LINT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml lint path/to/project";
-const LINT_COMMAND_FIX_EXAMPLE = "pnpm dlx prettier-plugin-gml lint --fix path/to/project";
+const LINT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml lint ${APPLY_FIXES_OPTION_FLAGS} path/to/project`;
 const LINT_COMMAND_CI_EXAMPLE = `pnpm dlx prettier-plugin-gml lint --max-warnings 0 path/to/script${GML_FILE_EXTENSION}`;
 
 const LINT_NAMESPACE = LintWorkspace.Lint;
@@ -1104,13 +1110,13 @@ export function createLintCommand(): Command {
         new Command("lint")
             .description("Lint GameMaker Language files using @gmloop/lint")
             .argument("[paths...]", "File or directory paths to lint")
-            .option("--fix", "Apply automatic fixes", false)
+            .option(APPLY_FIXES_OPTION_FLAGS, APPLY_FIXES_OPTION_DESCRIPTION, false)
             .option("--warn-ignored", "Report ignored-file warnings from ESLint output", false)
             .option("--formatter <name>", "Formatter output (stylish|json|checkstyle)", "stylish")
             .option("--max-warnings <count>", "Maximum warning count before exit code 1", "-1")
             .option("--config <path>", "Explicit eslint flat config path")
             .option("--no-default-config", "Disable bundled default config fallback")
-            .option("--project <path>", "Force a project root directory or .yyp file path")
+            .option(PROJECT_PATH_OPTION_FLAGS, PROJECT_PATH_OPTION_DESCRIPTION)
             .option("--project-strict", "Fail when lint targets fall outside forced --project root", false)
             .option("--quiet", "Suppress fallback warnings", false)
             .option("--verbose", "Enable verbose command output and timing diagnostics", false)

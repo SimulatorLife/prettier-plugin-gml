@@ -21,10 +21,12 @@ void describe("Refactor command", () => {
         const symbolIdOption = options.find((opt) => opt.long === "--symbol-id");
         const oldNameOption = options.find((opt) => opt.long === "--old-name");
         const newNameOption = options.find((opt) => opt.long === "--new-name");
-        const projectRootOption = options.find((opt) => opt.long === "--project-root");
+        const projectRootOption = options.find((opt) => opt.long === "--project");
+        const legacyProjectRootOption = options.find((opt) => opt.long === "--project-root");
         const configOption = options.find((opt) => opt.long === "--config");
         const dryRunOption = options.find((opt) => opt.long === "--dry-run");
-        const writeOption = options.find((opt) => opt.long === "--write");
+        const writeOption = options.find((opt) => opt.long === "--fix");
+        const legacyWriteOption = options.find((opt) => opt.long === "--write");
         const onlyOption = options.find((opt) => opt.long === "--only");
         const listOption = options.find((opt) => opt.long === "--list");
         const verboseOption = options.find((opt) => opt.long === "--verbose");
@@ -33,10 +35,12 @@ void describe("Refactor command", () => {
         assert.ok(symbolIdOption, "Should have --symbol-id option");
         assert.ok(oldNameOption, "Should have --old-name option");
         assert.ok(newNameOption, "Should have --new-name option");
-        assert.ok(projectRootOption, "Should have --project-root option");
+        assert.ok(projectRootOption, "Should have --project option");
+        assert.equal(legacyProjectRootOption, undefined, "Should not expose legacy --project-root option");
         assert.ok(configOption, "Should have --config option");
         assert.ok(dryRunOption, "Should have --dry-run option");
-        assert.ok(writeOption, "Should have --write option");
+        assert.ok(writeOption, "Should have --fix option");
+        assert.equal(legacyWriteOption, undefined, "Should not expose legacy --write option");
         assert.ok(onlyOption, "Should have --only option");
         assert.ok(listOption, "Should have --list option");
         assert.ok(verboseOption, "Should have --verbose option");
@@ -47,9 +51,9 @@ void describe("Refactor command", () => {
         const command = createRefactorCommand();
         const options = command.options;
 
-        const projectRootOption = options.find((opt) => opt.long === "--project-root");
+        const projectRootOption = options.find((opt) => opt.long === "--project");
         const dryRunOption = options.find((opt) => opt.long === "--dry-run");
-        const writeOption = options.find((opt) => opt.long === "--write");
+        const writeOption = options.find((opt) => opt.long === "--fix");
         const listOption = options.find((opt) => opt.long === "--list");
         const verboseOption = options.find((opt) => opt.long === "--verbose");
         const checkHotReloadOption = options.find((opt) => opt.long === "--check-hot-reload");

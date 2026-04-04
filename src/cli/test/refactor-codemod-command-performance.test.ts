@@ -13,7 +13,7 @@ import {
 const SCRIPT_COUNT = 320;
 const PERFORMANCE_THRESHOLD_MS = 6000;
 
-void test("refactor codemod --write stays within the end-to-end CLI runtime threshold", async () => {
+void test("refactor codemod --fix stays within the end-to-end CLI runtime threshold", async () => {
     const projectRoot = await createSyntheticRefactorProject({
         refactor: {
             namingConventionPolicy: {
@@ -42,7 +42,7 @@ void test("refactor codemod --write stays within the end-to-end CLI runtime thre
 
         const startTime = performance.now();
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--write"],
+            argv: ["refactor", "codemod", "--fix"],
             cwd: projectRoot
         });
         const durationMs = performance.now() - startTime;
@@ -52,7 +52,7 @@ void test("refactor codemod --write stays within the end-to-end CLI runtime thre
         await access(path.join(projectRoot, "scripts/demoScript0/demoScript0.gml"));
         assert.ok(
             durationMs <= PERFORMANCE_THRESHOLD_MS,
-            `Expected refactor codemod --write runtime under ${PERFORMANCE_THRESHOLD_MS}ms, received ${durationMs.toFixed(2)}ms`
+            `Expected refactor codemod --fix runtime under ${PERFORMANCE_THRESHOLD_MS}ms, received ${durationMs.toFixed(2)}ms`
         );
     } finally {
         await rm(projectRoot, { recursive: true, force: true });

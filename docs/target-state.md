@@ -139,7 +139,7 @@ Running the refactor codemod pipeline on a large real project can exceed 15 GB o
 
 Example workload:
 
-- `pnpm run cli -- fix --project-root /Users/henrykirk/GameMakerStudio2/InterplanetaryFootball`
+- `pnpm run cli -- fix --project /Users/henrykirk/GameMakerStudio2/InterplanetaryFootball`
 
 Root-cause pattern:
 
@@ -213,7 +213,7 @@ Primary seam:
 
 Observed pattern:
 
-- End-to-end `refactor codemod --write` latency includes the semantic project-index build, so forcing `buildProjectIndex` down to `concurrency: { gml: 1 }` turns large codemod runs into an avoidable serial bottleneck before refactor planning even begins.
+- End-to-end `refactor codemod --fix` latency includes the semantic project-index build, so forcing `buildProjectIndex` down to `concurrency: { gml: 1 }` turns large codemod runs into an avoidable serial bottleneck before refactor planning even begins.
 
 ### 5.4 Option Set and Trade-Offs
 
@@ -414,7 +414,7 @@ Allowed variation:
 
 1. `pnpm run test:fixtures:profile`
 2. `pnpm run test:fixtures:profile:deep-cpu`
-3. `pnpm run cli -- fix --project-root /Users/henrykirk/GameMakerStudio2/InterplanetaryFootball`
+3. `pnpm run cli -- fix --project /Users/henrykirk/GameMakerStudio2/InterplanetaryFootball`
 
 Track:
 
@@ -536,7 +536,7 @@ Profiling suites:
 Real-project workload:
 
 1. Run the fix workflow against the target project.
-   - `pnpm run cli -- fix --project-root /Users/henrykirk/GameMakerStudio2/InterplanetaryFootball`
+   - `pnpm run cli -- fix --project /Users/henrykirk/GameMakerStudio2/InterplanetaryFootball`
 2. Capture telemetry emitted by:
    - `src/cli/src/commands/fix.ts` stage telemetry (duration plus RSS and heap high-water)
    - semantic project-index metrics metadata (`maxRss`, `maxHeapUsed`)

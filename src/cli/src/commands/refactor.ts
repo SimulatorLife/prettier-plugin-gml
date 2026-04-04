@@ -17,6 +17,7 @@ import { Command, Option } from "commander";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { CliUsageError, isCliUsageError } from "../cli-core/errors.js";
+import { createApplyFixesOption, createProjectPathOption } from "../cli-core/shared-command-options.js";
 import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
 import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 import { resolveIndexedRootTargetGmlFiles } from "./refactor-target-gml-files.js";
@@ -39,10 +40,10 @@ type RefactorCommandOptions = {
     symbolId?: string;
     oldName?: string;
     newName?: string;
-    projectRoot?: string;
+    project?: string;
     config?: string;
     dryRun?: boolean;
-    write?: boolean;
+    fix?: boolean;
     only?: string;
     list?: boolean;
     verbose?: boolean;
@@ -119,7 +120,7 @@ function hasExplicitRenameIntent(options: RefactorCommandOptions): boolean {
 }
 
 function hasExplicitCodemodIntentHint(options: RefactorCommandOptions): boolean {
-    return Boolean(options.projectRoot || options.config || options.write || options.only || options.list);
+    return Boolean(options.project || options.config || options.fix || options.only || options.list);
 }
 
 function validateRenameOptions(options: RefactorCommandOptions): ValidatedRenameOptions {
@@ -136,7 +137,7 @@ function validateRenameOptions(options: RefactorCommandOptions): ValidatedRename
     }
 
     return {
-        projectRoot: path.resolve(options.projectRoot ?? process.cwd()),
+        projectRoot: path.resolve(options.project ?? process.cwd()),
         verbose: Boolean(options.verbose),
         symbolId: options.symbolId,
         oldName: options.oldName,
@@ -150,14 +151,14 @@ async function validateCodemodOptions(
     options: RefactorCommandOptions,
     pathArguments: Array<string>
 ): Promise<ValidatedCodemodOptions> {
-    const projectRoot = await resolveDiscoveredProjectRoot(options.projectRoot, options.config);
+    const projectRoot = await resolveDiscoveredProjectRoot(options.project, options.config);
     const targetPaths = pathArguments.length === 0 ? [projectRoot] : pathArguments.map((entry) => path.resolve(entry));
 
     return {
         projectRoot,
         verbose: Boolean(options.verbose),
         configPath: await resolveCodemodConfigPath(projectRoot, options.config),
-        dryRun: !options.write,
+        dryRun: !options.fix,
         onlyCodemods: normalizeRequestedCodemods(options.only),
         list: Boolean(options.list),
         targetPaths
@@ -504,10 +505,10 @@ export function createRefactorCommand(): Command {
             )
         )
         .addOption(new Option("--new-name <name>", "New name for the symbol"))
-        .addOption(new Option("--project-root <path>", "Root directory of the GameMaker project"))
+        .addOption(createProjectPathOption())
         .addOption(new Option("--config <path>", "Path to gmloop.json for configured codemod execution"))
         .addOption(new Option("--dry-run", "Show what would be changed without modifying files").default(false))
-        .addOption(new Option("--write", "Apply configured codemods instead of running in dry-run mode").default(false))
+        .addOption(createApplyFixesOption())
         .addOption(new Option("--only <ids>", "Comma-separated list of configured codemod ids to run"))
         .addOption(new Option("--list", "List configured codemods and exit").default(false))
         .addOption(new Option("--verbose", "Enable verbose output with detailed diagnostics").default(false))
@@ -524,7 +525,7 @@ export function createRefactorCommand(): Command {
                 "  pnpm dlx prettier-plugin-gml refactor --old-name my_script --new-name my_renamed_script path/to/project",
                 "  pnpm dlx prettier-plugin-gml refactor --symbol-id gml/script/my_func --new-name my_func_v2 --dry-run",
                 "  pnpm dlx prettier-plugin-gml refactor codemod --list",
-                "  pnpm dlx prettier-plugin-gml refactor codemod --write path/to/project"
+                "  pnpm dlx prettier-plugin-gml refactor codemod --fix path/to/project"
             ].join("\n")
         );
 

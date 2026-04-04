@@ -66,7 +66,12 @@ void test("createFixCommand exposes the project fix workflow", () => {
 
     assert.equal(command.name(), "fix");
     assert.equal(command.description(), "Run project codemods, lint fixes, and formatting in sequence");
-    assert.ok(command.options.some((option) => option.long === "--project-root"));
+    assert.ok(command.options.some((option) => option.long === "--project"));
+    assert.equal(
+        command.options.some((option) => option.long === "--project-root"),
+        false,
+        "Should not expose legacy --project-root option"
+    );
     assert.ok(command.options.some((option) => option.long === "--config"));
     assert.ok(command.options.some((option) => option.long === "--only"));
     assert.ok(command.options.some((option) => option.long === "--verbose"));
