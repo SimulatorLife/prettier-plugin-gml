@@ -89,10 +89,6 @@ function resolveHelpAliasArguments(args) {
 }
 
 function normalizeFormatCommandHelpShortcut(args) {
-    if (!containsHelpFlag(args)) {
-        return args;
-    }
-
     const firstArgument = args[0];
     if (typeof firstArgument !== "string") {
         return args;
@@ -111,7 +107,11 @@ function normalizeFormatCommandHelpShortcut(args) {
         return args;
     }
 
-    return [FORMAT_ACTION, "--help"];
+    if (containsHelpFlag(args)) {
+        return [FORMAT_ACTION, "--help"];
+    }
+
+    return [FORMAT_ACTION, "--path", firstArgument, ...args.slice(1)];
 }
 
 function containsHelpFlag(args) {
