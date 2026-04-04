@@ -283,11 +283,13 @@ function createLintStageCommand(options: ValidatedFixCommandOptions): CommanderC
 
 function createFormatStageCommand(options: ValidatedFixCommandOptions): CommanderCommandLike {
     return createStubCommand({
-        args: [options.projectRoot],
+        args: [],
         options: {
+            path: options.projectRoot,
+            fix: true,
             verbose: options.verbose
         },
-        helpText: "format [targetPath]"
+        helpText: "format [options]"
     });
 }
 

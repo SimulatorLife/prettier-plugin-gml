@@ -21,7 +21,12 @@ import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
-import { createListOption, createVerboseOption } from "../cli-core/shared-command-options.js";
+import {
+    createApplyFixesOption,
+    createListOption,
+    createPathOption,
+    createVerboseOption
+} from "../cli-core/shared-command-options.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
@@ -104,7 +109,7 @@ const logLevelOption = createEnumeratedOptionHelpers(VALID_PRETTIER_LOG_LEVELS, 
 
 const FORMAT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml format path/to/project";
 const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "pnpm run format:gml -- path/to/project";
-const FORMAT_COMMAND_CHECK_EXAMPLE = `pnpm dlx prettier-plugin-gml format --check path/to/script${GML_EXTENSION}`;
+const FORMAT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml format --fix --path path/to/script${GML_EXTENSION}`;
 
 const PRETTIER_MODULE_ID = process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 const TARGET_EXTENSIONS = Object.freeze([GML_EXTENSION]);
@@ -391,12 +396,11 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     return applyStandardCommandOptions(
         new Command()
             .name(name)
-            .usage("[options] [targetPath]")
+            .usage("[options]")
             .description("Format GameMaker Language files using the prettier plugin.")
     )
-        .argument("[targetPath]", "Directory or file to format. Defaults to the current working directory.")
-        .option("--path <path>", "Directory or file to format (alias for positional argument).")
-        .option("--check", "Check formatting without writing changes (dry-run mode)")
+        .addOption(createPathOption())
+        .addOption(createApplyFixesOption())
         .addOption(createListOption())
         .addOption(skippedDirectorySampleLimitOption)
         .addOption(skippedDirectorySamplesAliasOption)
@@ -421,7 +425,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 "Examples:",
                 `  ${FORMAT_COMMAND_CLI_EXAMPLE}`,
                 `  ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}`,
-                `  ${FORMAT_COMMAND_CHECK_EXAMPLE}`,
+                `  ${FORMAT_COMMAND_FIX_EXAMPLE}`,
                 ""
             ].join("\n")
         );
@@ -483,14 +487,14 @@ const skippedDirectorySummary = {
     ignoredSamples: []
 };
 
-let checkModeEnabled = false;
+let dryRunModeEnabled = true;
 let pendingFormatCount = 0;
 let formattedFileCount = 0;
 let verboseTimingEnabled = false;
 let formattingRunStartedAtNanoseconds = 0n;
 let timedFormattableFileCount = 0;
 
-function resetCheckModeTracking() {
+function resetDryRunModeTracking() {
     pendingFormatCount = 0;
 }
 
@@ -504,9 +508,9 @@ function resetVerboseTimingTracking() {
     timedFormattableFileCount = 0;
 }
 
-function configureCheckMode(enabled) {
-    checkModeEnabled = Boolean(enabled);
-    resetCheckModeTracking();
+function configureDryRunMode(enabled) {
+    dryRunModeEnabled = Boolean(enabled);
+    resetDryRunModeTracking();
 }
 
 function formatTimingSuffixFromNanoseconds(elapsedNanoseconds: bigint): string {
@@ -790,7 +794,7 @@ async function resetFormattingSession(onParseError: ParseErrorActionValue) {
     resetRegisteredIgnorePaths();
     resetNegatedIgnoreRulesFlag();
     encounteredFormattableFile = false;
-    resetCheckModeTracking();
+    resetDryRunModeTracking();
     resetFormattedFileTracking();
     resetVerboseTimingTracking();
     clearFormattingCache();
@@ -1298,7 +1302,7 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
             return;
         }
 
-        if (checkModeEnabled) {
+        if (dryRunModeEnabled) {
             pendingFormatCount += 1;
             logVerbosePerFileTiming({
                 filePath,
@@ -1356,7 +1360,7 @@ async function prepareFormattingRun({
     skippedDirectorySampleLimit,
     ignoredFileSampleLimit,
     unsupportedExtensionSampleLimit,
-    checkMode,
+    dryRunMode,
     verbose
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
@@ -1365,7 +1369,7 @@ async function prepareFormattingRun({
     unsupportedExtensionSampleLimitState.configureLimit(unsupportedExtensionSampleLimit);
     const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError) as ParseErrorActionValue;
     await resetFormattingSession(normalizedParseErrorAction);
-    configureCheckMode(checkMode);
+    configureDryRunMode(dryRunMode);
     verboseTimingEnabled = verbose;
     formattingRunStartedAtNanoseconds = readMonotonicNanoseconds();
 }
@@ -1428,8 +1432,8 @@ async function formatResolvedTarget({ targetPath, targetIsDirectory, projectRoot
  */
 function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvided }) {
     if (encounteredFormattableFile) {
-        if (checkModeEnabled) {
-            logCheckModeSummary();
+        if (dryRunModeEnabled) {
+            logDryRunModeSummary();
         } else {
             logWriteModeSummary({
                 targetPath,
@@ -1447,7 +1451,7 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
         });
     }
 
-    if (checkModeEnabled && pendingFormatCount > 0) {
+    if (dryRunModeEnabled && pendingFormatCount > 0) {
         process.exitCode = 1;
     }
     if (encounteredFormattingError) {
@@ -1492,7 +1496,9 @@ function printFormatCommandSettings(commandOptions: ReturnType<typeof collectFor
     console.log(
         `Target path: ${typeof commandOptions.targetPathInput === "string" ? commandOptions.targetPathInput : "(cwd)"}`
     );
-    console.log(`Check mode: ${commandOptions.checkMode ? "enabled (--check)" : "disabled"}`);
+    console.log(
+        `Execution mode: ${commandOptions.dryRunMode ? "dry-run (default, no writes)" : "apply changes (--fix)"}`
+    );
     console.log(`Verbose mode: ${commandOptions.verbose ? "enabled" : "disabled"}`);
     console.log(`Log level: ${commandOptions.prettierLogLevel}`);
     console.log(`Parse error mode: ${commandOptions.onParseError}`);
@@ -1553,7 +1559,7 @@ export async function runFormatCommand(command) {
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit,
-        checkMode: commandOptions.checkMode,
+        dryRunMode: commandOptions.dryRunMode,
         verbose: commandOptions.verbose
     });
 
@@ -1646,14 +1652,14 @@ function describeDirectoryWithoutMatches({ formattedTargetPath, targetPathProvid
     return `in ${formattedTargetPath}`;
 }
 
-function logCheckModeSummary() {
+function logDryRunModeSummary() {
     if (pendingFormatCount === 0) {
         console.log("All matched files are already formatted.");
         return;
     }
 
     const label = pendingFormatCount === 1 ? "file requires" : "files require";
-    console.log(`${pendingFormatCount} ${label} formatting. Re-run without --check to write changes.`);
+    console.log(`${pendingFormatCount} ${label} formatting. Re-run with --fix to write changes.`);
 }
 
 function logWriteModeSummary({
