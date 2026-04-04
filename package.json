@@ -122,7 +122,7 @@
     "tree:ts": "tree -F -I \"(?<!tsconfig|tsconfig\\.base)\\.(?!ts$)[^/]+$|node_modules|vendor|dist\" ./src"
   },
   "jscpd": {
-    "threshold": 0.3,
+    "threshold": 0.1,
     "reporters": [
       "json",
       "console"
