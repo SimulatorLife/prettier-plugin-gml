@@ -53,6 +53,37 @@ function getPredictionMode(modeName: "SLL" | "LL"): unknown {
     return mode;
 }
 
+function throwNormalizedParserError(error: unknown): never {
+    if (!error) {
+        throw new Error("Unknown syntax error while parsing GML source.");
+    }
+
+    if (Core.isErrorLike(error)) {
+        throw error;
+    }
+
+    throw new Error(Core.getErrorMessageOrFallback(error));
+}
+
+function parseProgramWithLlPredictionMode(sourceText: string): unknown {
+    try {
+        const llChars = new antlr4.InputStream(sourceText);
+        const llLexer = new GameMakerLanguageLexer(llChars);
+        llLexer.removeErrorListeners();
+        llLexer.addErrorListener(createGameMakerLexerErrorListener());
+        llLexer.strictMode = false;
+
+        const llTokens = new antlr4.CommonTokenStream(llLexer);
+        const llParser = new GameMakerLanguageParser(llTokens);
+        llParser.removeErrorListeners();
+        llParser.addErrorListener(createGameMakerParseErrorListener());
+        llParser._interp.predictionMode = getPredictionMode("LL");
+        return llParser.program();
+    } catch (error) {
+        throwNormalizedParserError(error);
+    }
+}
+
 const MAX_SOURCE_LENGTH_FOR_SLL_PARSING = 8000;
 
 function shouldUseSllPredictionMode(sourceText: string): boolean {
@@ -241,55 +272,13 @@ export class GMLParser {
                 tree = parser.program();
             } catch (error) {
                 try {
-                    const llChars = new antlr4.InputStream(this.text);
-                    const llLexer = new GameMakerLanguageLexer(llChars);
-                    llLexer.removeErrorListeners();
-                    llLexer.addErrorListener(createGameMakerLexerErrorListener());
-                    llLexer.strictMode = false;
-
-                    const llTokens = new antlr4.CommonTokenStream(llLexer);
-                    const llParser = new GameMakerLanguageParser(llTokens);
-                    llParser.removeErrorListeners();
-                    llParser.addErrorListener(createGameMakerParseErrorListener());
-                    llParser._interp.predictionMode = getPredictionMode("LL");
-                    tree = llParser.program();
+                    tree = parseProgramWithLlPredictionMode(this.text);
                 } catch {
-                    if (!error) {
-                        throw new Error("Unknown syntax error while parsing GML source.");
-                    }
-
-                    if (Core.isErrorLike(error)) {
-                        throw error;
-                    }
-
-                    throw new Error(String(error));
+                    throwNormalizedParserError(error);
                 }
             }
         } else {
-            try {
-                const llChars = new antlr4.InputStream(this.text);
-                const llLexer = new GameMakerLanguageLexer(llChars);
-                llLexer.removeErrorListeners();
-                llLexer.addErrorListener(createGameMakerLexerErrorListener());
-                llLexer.strictMode = false;
-
-                const llTokens = new antlr4.CommonTokenStream(llLexer);
-                const llParser = new GameMakerLanguageParser(llTokens);
-                llParser.removeErrorListeners();
-                llParser.addErrorListener(createGameMakerParseErrorListener());
-                llParser._interp.predictionMode = getPredictionMode("LL");
-                tree = llParser.program();
-            } catch (error) {
-                if (!error) {
-                    throw new Error("Unknown syntax error while parsing GML source.");
-                }
-
-                if (Core.isErrorLike(error)) {
-                    throw error;
-                }
-
-                throw new Error(String(error));
-            }
+            tree = parseProgramWithLlPredictionMode(this.text);
         }
 
         if (this.options.getComments) {
