@@ -122,6 +122,30 @@ export class SemanticQueryCache {
     }
 
     /**
+     * Replace the occurrence cache entry for the given symbol with an already-processed
+     * (deduplicated and range-merged) array. This prevents repeated deduplication work
+     * on every subsequent cache hit for the same symbol.
+     *
+     * Call this once after the first `getSymbolOccurrences` fetch has been deduplicated
+     * so that all future lookups in the same session return the clean array directly.
+     *
+     * Entries exceeding `maxOccurrenceCacheEntries` are silently skipped, matching the
+     * same skip-cache policy that `getOrFetch` applies on the initial miss.
+     */
+    primeOccurrenceCache(symbolName: string, symbolId: string | null, deduplicated: Array<SymbolOccurrence>): void {
+        if (!this.config.enabled) {
+            return;
+        }
+
+        if (this.shouldSkipOccurrenceCacheStore(deduplicated)) {
+            return;
+        }
+
+        const cacheKey = symbolId === null ? symbolName : `${symbolId}::${symbolName}`;
+        this.setCached(this.occurrenceCache, cacheKey, deduplicated);
+    }
+
+    /**
      * Get symbols defined in a file, using cached results if available.
      */
     getFileSymbols(filePath: string): Promise<Array<FileSymbol>> {
