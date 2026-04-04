@@ -454,7 +454,10 @@ function rewriteManualMathCanonicalForms(sourceText: string): string {
         /sqrt\(\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\1\s*\+\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\2\s*\+\s*([A-Za-z0-9_.[\]]+)\s*\*\s*\3\s*\)/g,
         "point_distance_3d(0, 0, 0, $1, $2, $3)"
     );
-
+    rewritten = rewritten.replaceAll(
+        /sqrt\(\s*dot_product_3d\(\s*([A-Za-z0-9_.[\]]+)\s*,\s*([A-Za-z0-9_.[\]]+)\s*,\s*([A-Za-z0-9_.[\]]+)\s*,\s*\1\s*,\s*\2\s*,\s*\3\s*\)\s*\)/g,
+        "point_distance_3d(0, 0, 0, $1, $2, $3)"
+    );
     // Collapse explicit undefined guard multiplication into the nullish-coalescing
     // shorthand.
     rewritten = rewritten.replaceAll(
@@ -650,7 +653,7 @@ function tryBuildGroupedSquareSumReplacement(sourceText: string, node: unknown):
     }
 
     const [first, second, third] = operandTexts as [string, string, string];
-    return `(sqr(${first}) + sqr(${second})) + sqr(${third})`;
+    return `dot_product_3d(${first}, ${second}, ${third}, ${first}, ${second}, ${third})`;
 }
 
 function tryReadHalfScaledBase(node: unknown) {
@@ -861,6 +864,19 @@ function collectAdditiveTermsForDotProduct(node: any, terms: any[]): boolean {
     return true;
 }
 
+function isFastDotProductOperandCandidate(node: unknown): boolean {
+    const expression = unwrapParenthesized(node as Parameters<typeof unwrapParenthesized>[0]);
+    if (!expression || hasComment(expression)) {
+        return false;
+    }
+
+    return (
+        expression.type === "Identifier" ||
+        expression.type === "MemberDotExpression" ||
+        expression.type === "MemberIndexExpression"
+    );
+}
+
 function tryBuildFastDotProductReplacement(sourceText: string, node: any): string | null {
     const expression = unwrapParenthesized(node);
     if (
@@ -901,9 +917,7 @@ function tryBuildFastDotProductReplacement(sourceText: string, node: any): strin
             return null;
         }
 
-        // Preserve existing behavior: avoid rewriting square-style terms (x*x)
-        // so those cases can continue through the full normalization pipeline.
-        if (areExpressionNodesEquivalentIgnoringParentheses(leftOperand, rightOperand)) {
+        if (!isFastDotProductOperandCandidate(leftOperand) || !isFastDotProductOperandCandidate(rightOperand)) {
             return null;
         }
 
