@@ -18,8 +18,9 @@ export const RESERVED_CONFLICT_CODE = "reserved";
  * Returns `null` when `configConflict` is falsy, allowing callers to skip message
  * creation when no conflict exists.
  *
- * @param configConflict - Conflict descriptor returned by {@link resolveIdentifierConfigurationConflict},
- *        or a falsy value when there is no conflict.
+ * @param configConflict - Conflict descriptor returned by {@link resolveIdentifierConfigurationConflict}
+ *        (an object with at minimum a `code` string property, and optionally an `ignoreMatch` string),
+ *        or any falsy value when there is no conflict.
  * @param identifierName - Name of the identifier involved in the conflict.
  * @param noun - Display label for the identifier kind (e.g. `"Variable"`, `"Asset"`).
  *        Defaults to `"Identifier"`.
