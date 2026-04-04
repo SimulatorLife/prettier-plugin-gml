@@ -750,23 +750,29 @@ function enqueueObjectChildValues(queue, object) {
 }
 
 function recordTestCases(aggregates, testCases) {
-    const { results, stats } = aggregates;
+    const { results } = aggregates;
 
     for (const testCase of testCases) {
         const existingRecord = results.get(testCase.key);
         const preferredRecord = choosePreferredTestRecord(existingRecord, testCase);
         results.set(testCase.key, preferredRecord);
-        stats.total += 1;
-        stats.time += testCase.time || 0;
+    }
+}
 
-        if (testCase.status === TestCaseStatus.FAILED) {
+function computeAggregateStatsFromResults(results: Map<string, AggregatedTestRecord>) {
+    const stats = { total: 0, passed: 0, failed: 0, skipped: 0, time: 0 };
+    for (const record of results.values()) {
+        stats.total += 1;
+        stats.time += Number(record.time) || 0;
+        if (record.status === TestCaseStatus.FAILED) {
             stats.failed += 1;
-        } else if (testCase.status === TestCaseStatus.SKIPPED) {
+        } else if (record.status === TestCaseStatus.SKIPPED) {
             stats.skipped += 1;
         } else {
             stats.passed += 1;
         }
     }
+    return stats;
 }
 
 type AggregatedTestRecord = TestRecordEntry & {
@@ -900,9 +906,11 @@ function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions 
         recordTestCases(aggregates, scan.cases);
 
         const duplicates = resolveDuplicatesWithFallback(scan, directory);
+        const stats = computeAggregateStatsFromResults(aggregates.results);
 
         return {
             ...aggregates,
+            stats,
             usedDir: directory.resolved,
             displayDir: directory.display,
             notes,
