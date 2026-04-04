@@ -350,18 +350,15 @@ jobs:
             const reportFile = 'reports/summary-report.md';
             let regressionSummaryLine = '';
             try {
-              if (fs.existsSync(reportFile)) {
-                const reportBody = fs.readFileSync(reportFile, 'utf8');
-                for (const rawLine of reportBody.split(/\r?\n/u)) {
-                  const line = rawLine.trim();
-                  if (line.startsWith('❌ Test regressions detected.')) {
-                    regressionSummaryLine = line;
-                    break;
-                  }
-                }
-              }
+              const reportBody = fs.readFileSync(reportFile, 'utf8');
+              const matchingLine = reportBody
+                .split(/\r?\n/u)
+                .find((line) => line.trim().startsWith('❌ Test regressions detected.'));
+              regressionSummaryLine = matchingLine ? matchingLine.trim() : '';
             } catch (error) {
-              core.warning(`Unable to read regression summary from ${reportFile}: ${error.message}`);
+              if (error?.code !== 'ENOENT') {
+                core.warning(`Unable to read regression summary from ${reportFile}: ${error.message}`);
+              }
             }
 
             const lines = [
