@@ -101,6 +101,10 @@ type RuleMetaOverrides = Readonly<{
     messageText?: string;
 }>;
 
+const DEFAULT_EMPTY_GML_RULE_SCHEMA: ReadonlyArray<unknown> = Object.freeze([
+    { type: "object", additionalProperties: false, properties: {} }
+]);
+
 export function createMeta(definition: GmlRuleDefinition, overrides: RuleMetaOverrides = {}): Rule.RuleMetaData {
     const docs = {
         description: `Rule for ${definition.messageId}.`,
@@ -116,7 +120,7 @@ export function createMeta(definition: GmlRuleDefinition, overrides: RuleMetaOve
     const meta: Rule.RuleMetaData = {
         type: "suggestion",
         docs: Object.freeze(docs),
-        schema: definition.schema,
+        schema: definition.schema ?? DEFAULT_EMPTY_GML_RULE_SCHEMA,
         messages: Object.freeze(messages)
     };
 

@@ -42,7 +42,7 @@ void test("collectFormatCommandOptions tolerates commands without option state",
     assert.strictEqual(result.targetPathProvided, false);
     assert.strictEqual(result.prettierLogLevel, DEFAULTS.defaultPrettierLogLevel);
     assert.strictEqual(result.onParseError, DEFAULTS.defaultParseErrorAction);
-    assert.strictEqual(result.checkMode, false);
+    assert.strictEqual(result.dryRunMode, true);
     assert.strictEqual(result.skippedDirectorySampleLimit, undefined);
     assert.strictEqual(result.ignoredFileSampleLimit, undefined);
     assert.strictEqual(result.unsupportedExtensionSampleLimit, undefined);
@@ -52,7 +52,6 @@ void test("collectFormatCommandOptions tolerates commands without option state",
 
 void test("collectFormatCommandOptions derives target path from --path option", () => {
     const command = createStubCommand({
-        args: ["ignored"],
         opts: () => ({ path: " ./project  " })
     });
 
@@ -75,7 +74,6 @@ void test("collectFormatCommandOptions reads --list option", () => {
 
 void test("collectFormatCommandOptions treats blank --path as provided but empty", () => {
     const command = createStubCommand({
-        args: ["ignored"],
         opts: () => ({ path: "   " })
     });
 
@@ -85,7 +83,7 @@ void test("collectFormatCommandOptions treats blank --path as provided but empty
     assert.strictEqual(result.targetPathProvided, true);
 });
 
-void test("collectFormatCommandOptions falls back to positional target", () => {
+void test("collectFormatCommandOptions ignores positional targets", () => {
     const command = createStubCommand({
         args: [" ./script.gml  "],
         opts: () => ({})
@@ -93,8 +91,20 @@ void test("collectFormatCommandOptions falls back to positional target", () => {
 
     const result = collectFormatCommandOptions(command, DEFAULTS);
 
-    assert.strictEqual(result.targetPathInput, "./script.gml");
-    assert.strictEqual(result.targetPathProvided, true);
+    assert.strictEqual(result.targetPathInput, null);
+    assert.strictEqual(result.targetPathProvided, false);
+});
+
+void test("collectFormatCommandOptions sets apply mode when --fix is provided", () => {
+    const command = createStubCommand({
+        opts: () => ({
+            fix: true
+        })
+    });
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.strictEqual(result.dryRunMode, false);
 });
 
 void test("collectFormatCommandOptions honours ignored directory samples alias", () => {
