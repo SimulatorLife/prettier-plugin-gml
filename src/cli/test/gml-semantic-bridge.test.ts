@@ -2915,6 +2915,51 @@ void describe("GmlSemanticBridge tests", () => {
         );
     });
 
+    void it("collectImplicitInstanceVariableTargets excludes script-scope property references", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-implicit-script-scope-"));
+        const scriptFilePath = "scripts/conveniencefunctions/conveniencefunctions.gml";
+        const scriptSource = "var anim = playerModel = 1;";
+
+        try {
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "conveniencefunctions"), { recursive: true });
+            fs.writeFileSync(path.join(tmpRoot, scriptFilePath), scriptSource, "utf8");
+
+            const playerModelStart = scriptSource.indexOf("playerModel");
+
+            const targets = collectImplicitInstanceVariableTargets({
+                files: {
+                    [scriptFilePath]: {
+                        references: [
+                            {
+                                name: "playerModel",
+                                scopeId: "scope:script:conveniencefunctions",
+                                start: { index: playerModelStart },
+                                end: { index: playerModelStart + "playerModel".length - 1 },
+                                declaration: null,
+                                classifications: ["property"],
+                                isBuiltIn: false,
+                                isGlobalIdentifier: false
+                            }
+                        ]
+                    }
+                },
+                knownEnumNames: new Set<string>(),
+                knownNamesByObjectDirectory: new Map<string, Set<string>>(),
+                knownResourceNames: new Set<string>(),
+                projectRoot: tmpRoot,
+                shouldIncludePath: () => true
+            });
+
+            assert.equal(
+                targets.find((target) => target.name === "playerModel"),
+                undefined,
+                "script-scope property should not be collected as an implicit instance-variable target"
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { force: true, recursive: true });
+        }
+    });
+
     void it("shouldCollectUnresolvedProjectFileReferences correctly authorizes collection of instance variables", () => {
         const mockProjectIndex = {};
         const bridge = new GmlSemanticBridge(mockProjectIndex, "/tmp");
@@ -2952,44 +2997,6 @@ void describe("GmlSemanticBridge tests", () => {
         });
         assert.equal(result, true);
     });
-    void it("collectImplicitInstanceVariableTargets handles variable instances dynamically accessed in external global script files", () => {
-        fs.mkdirSync("/tmp/scripts/conveniencefunctions", { recursive: true });
-        fs.writeFileSync("/tmp/scripts/conveniencefunctions/conveniencefunctions.gml", "var anim = playerModel = 1;");
-        const mockProjectIndex = {
-            files: {
-                "scripts/conveniencefunctions/conveniencefunctions.gml": {
-                    declarations: [],
-                    references: [
-                        {
-                            name: "playerModel",
-                            scopeId: "scope:script:conveniencefunctions",
-                            start: { index: 10 },
-                            end: { index: 21 },
-                            declaration: null,
-                            classifications: ["property"],
-                            isBuiltIn: false,
-                            isGlobalIdentifier: false
-                        }
-                    ]
-                }
-            }
-        };
-
-        // unused bridge
-        const targets = collectImplicitInstanceVariableTargets({
-            files: mockProjectIndex.files as any,
-            knownEnumNames: new Set<string>(),
-            knownNamesByObjectDirectory: new Map<string, Set<string>>(),
-            knownResourceNames: new Set<string>(),
-            projectRoot: "/tmp",
-            shouldIncludePath: () => true
-        });
-
-        const playerTarget = targets.find((t) => t.name === "playerModel");
-        assert.ok(playerTarget);
-        assert.equal(playerTarget?.occurrences?.[0]?.start, 10);
-    });
-
     void it("collectGlobalAndInstanceNamingTargets skips instance and global variables shadowing macros and enums", async () => {
         const bridge = new GmlSemanticBridge(
             {
