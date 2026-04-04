@@ -105,17 +105,17 @@ function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Arr
         const deduplicated: Array<SymbolOccurrence> = [];
 
         for (const occurrence of occurrences) {
-            const existingOccurrence = deduplicated.find(
+            const existingIndex = deduplicated.findIndex(
                 (candidate) => candidate.path === occurrence.path && candidate.start === occurrence.start
             );
 
-            if (!existingOccurrence) {
+            if (existingIndex === -1) {
                 deduplicated.push(occurrence);
                 continue;
             }
 
-            if (occurrence.end > existingOccurrence.end) {
-                existingOccurrence.end = occurrence.end;
+            if (occurrence.end > deduplicated[existingIndex].end) {
+                deduplicated[existingIndex] = occurrence;
             }
         }
 
