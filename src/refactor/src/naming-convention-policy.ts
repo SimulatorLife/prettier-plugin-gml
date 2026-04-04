@@ -561,6 +561,7 @@ export function evaluateNamingConvention(
         precomputedSuggestedName = composeExpectedIdentifierName(coreName, rule);
         if (precomputedSuggestedName !== currentName) {
             issueMessage = `Identifier ${JSON.stringify(currentName)} does not match ${rule.caseStyle} case.`;
+            precomputedSuggestedName = expectedName;
         }
     }
 
