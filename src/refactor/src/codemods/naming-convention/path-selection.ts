@@ -56,9 +56,10 @@ export function createPathSelectionMatcher(
             return false;
         }
 
-        const result = !absoluteDeniedPaths.some((absoluteSelectionPath) =>
+        const isDenied = absoluteDeniedPaths.some((absoluteSelectionPath) =>
             isPathInsideSelection(absoluteTargetPath, absoluteSelectionPath)
         );
+        const result = !isDenied;
         resultCache.set(targetPath, result);
         return result;
     };
