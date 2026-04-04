@@ -1669,6 +1669,135 @@ void test("executeConfiguredCodemods requests naming targets by selected GML fil
     assert.ok(listCalls[0]?.includes("/project/scripts/example.yy"));
 });
 
+void test("executeConfiguredCodemods applies duplicate same-scope case-only local renames without false conflicts", async () => {
+    const sourceText = [
+        "for (var i = 0; i < arm_num; i++) {",
+        "    var IK = twojointik(i);",
+        "    draw_sprite(IK[0], IK[1]);",
+        "}",
+        "for (var i = 0; i < arm_num; i++) {",
+        "    var IK = twojointik(i + 1);",
+        "    draw_sprite(IK[0], IK[1]);",
+        "}",
+        ""
+    ].join("\n");
+
+    const firstDefinitionStart = sourceText.indexOf("IK =");
+    const firstReferenceStart = sourceText.indexOf("IK[0]");
+    const firstReferenceSecondTokenStart = sourceText.indexOf("IK[1]");
+    const secondDefinitionStart = sourceText.lastIndexOf("IK =");
+    const secondReferenceStart = sourceText.lastIndexOf("IK[0]");
+    const secondReferenceSecondTokenStart = sourceText.lastIndexOf("IK[1]");
+
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "IK",
+                category: "localVariable",
+                path: "objects/obj_o_spider/Draw_0.gml",
+                scopeId: "scope:function:draw",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "objects/obj_o_spider/Draw_0.gml",
+                        start: firstDefinitionStart,
+                        end: firstDefinitionStart + 2,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:draw"
+                    },
+                    {
+                        path: "objects/obj_o_spider/Draw_0.gml",
+                        start: firstReferenceStart,
+                        end: firstReferenceStart + 2,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:draw"
+                    },
+                    {
+                        path: "objects/obj_o_spider/Draw_0.gml",
+                        start: firstReferenceSecondTokenStart,
+                        end: firstReferenceSecondTokenStart + 2,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:draw"
+                    }
+                ]
+            },
+            {
+                name: "IK",
+                category: "localVariable",
+                path: "objects/obj_o_spider/Draw_0.gml",
+                scopeId: "scope:function:draw",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: "objects/obj_o_spider/Draw_0.gml",
+                        start: secondDefinitionStart,
+                        end: secondDefinitionStart + 2,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:function:draw"
+                    },
+                    {
+                        path: "objects/obj_o_spider/Draw_0.gml",
+                        start: secondReferenceStart,
+                        end: secondReferenceStart + 2,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:draw"
+                    },
+                    {
+                        path: "objects/obj_o_spider/Draw_0.gml",
+                        start: secondReferenceSecondTokenStart,
+                        end: secondReferenceSecondTokenStart + 2,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:function:draw"
+                    }
+                ]
+            }
+        ]
+    };
+
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const fileContents = new Map<string, string>([["objects/obj_o_spider/Draw_0.gml", sourceText]]);
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["objects/obj_o_spider/Draw_0.gml"],
+        config: {
+            namingConventionPolicy: {
+                rules: {
+                    localVariable: {
+                        caseStyle: "lower_snake"
+                    }
+                }
+            },
+            codemods: {
+                namingConvention: {}
+            }
+        },
+        readFile: async (filePath) => fileContents.get(filePath) ?? "",
+        writeFile: async (filePath, content) => {
+            fileContents.set(filePath, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.equal(
+        result.summaries[0]?.warnings.some((warning) => warning.includes("already exists in the same scope")),
+        false
+    );
+
+    const finalText = fileContents.get("objects/obj_o_spider/Draw_0.gml");
+    assert.match(finalText ?? "", /var ik = twojointik\(i\);/);
+    assert.match(finalText ?? "", /draw_sprite\(ik\[0\], ik\[1\]\);/);
+    assert.match(finalText ?? "", /var ik = twojointik\(i \+ 1\);/);
+
+    assert.doesNotThrow(() => {
+        const ast = Parser.GMLParser.parse(finalText ?? "");
+        assert.ok(ast && ast.type === "Program");
+    });
+});
+
 void test("executeConfiguredCodemods surfaces namingConvention hot reload warnings from top-level plans", async () => {
     const semantic: PartialSemanticAnalyzer = {
         listNamingConventionTargets: async () => [
