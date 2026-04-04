@@ -200,6 +200,26 @@ void test("evaluateNamingConvention preserves allowed leading underscores when e
     assert.equal(needsCaseFix.suggestedName, "_target_shader");
 });
 
+void test("evaluateNamingConvention fast-path handles simple case-style-only rules", () => {
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            localVariable: {
+                caseStyle: "camel"
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const compliant = Refactor.evaluateNamingConvention("alreadyCamel", "localVariable", policy, resolved);
+    assert.equal(compliant.compliant, true);
+    assert.equal(compliant.suggestedName, "alreadyCamel");
+
+    const needsRewrite = Refactor.evaluateNamingConvention("bad_name", "localVariable", policy, resolved);
+    assert.equal(needsRewrite.compliant, false);
+    assert.equal(needsRewrite.suggestedName, "badName");
+    assert.match(needsRewrite.message ?? "", /camel case/);
+});
+
 void test("normalizeNamingConventionPolicy rejects unsupported naming categories", () => {
     assert.throws(
         () =>

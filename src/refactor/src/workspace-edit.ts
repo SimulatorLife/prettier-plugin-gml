@@ -69,11 +69,13 @@ type WorkspaceEditMutableState = {
     groupedEditsCache: GroupedTextEdits | null;
     groupedEditsRevision: number;
     revision: number;
+    duplicateCheckSetDisabled: boolean;
 };
 
 const workspaceEditExactKeyState = new WeakMap<WorkspaceEdit, Set<string>>();
 const workspaceEditMutableState = new WeakMap<WorkspaceEdit, WorkspaceEditMutableState>();
 const TEXT_EDIT_IDENTITY_DELIMITER = "\u0000";
+const DUPLICATE_EDIT_CHECK_MAX_SET_SIZE = 1024;
 
 function createTextEditIdentityKey(path: string, start: number, end: number, newText: string): string {
     return [path, String(start), String(end), newText].join(TEXT_EDIT_IDENTITY_DELIMITER);
@@ -101,7 +103,8 @@ function getMutableState(workspace: WorkspaceEdit): WorkspaceEditMutableState {
     const created: WorkspaceEditMutableState = {
         groupedEditsCache: null,
         groupedEditsRevision: -1,
-        revision: 0
+        revision: 0,
+        duplicateCheckSetDisabled: false
     };
     workspaceEditMutableState.set(workspace, created);
     return created;
@@ -129,14 +132,22 @@ export class WorkspaceEdit {
     }
 
     addEdit(path: string, start: number, end: number, newText: string): void {
-        const editKey = createTextEditIdentityKey(path, start, end, newText);
-        const exactEditKeys = getExactEditKeys(this);
-        if (exactEditKeys.has(editKey)) {
-            return;
+        const mutableState = getMutableState(this);
+        if (!mutableState.duplicateCheckSetDisabled) {
+            const exactEditKeys = getExactEditKeys(this);
+            const editKey = createTextEditIdentityKey(path, start, end, newText);
+            if (exactEditKeys.has(editKey)) {
+                return;
+            }
+
+            exactEditKeys.add(editKey);
+            if (exactEditKeys.size > DUPLICATE_EDIT_CHECK_MAX_SET_SIZE) {
+                mutableState.duplicateCheckSetDisabled = true;
+                workspaceEditExactKeyState.delete(this);
+            }
         }
 
         this.edits.push({ path, start, end, newText });
-        exactEditKeys.add(editKey);
         markWorkspaceEditChanged(this);
     }
 
