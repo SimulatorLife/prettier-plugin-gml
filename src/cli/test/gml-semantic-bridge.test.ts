@@ -2920,37 +2920,44 @@ void describe("GmlSemanticBridge tests", () => {
         const scriptFilePath = "scripts/conveniencefunctions/conveniencefunctions.gml";
         const scriptSource = "var anim = playerModel = 1;";
 
-        fs.mkdirSync(path.join(tmpRoot, "scripts", "conveniencefunctions"), { recursive: true });
-        fs.writeFileSync(path.join(tmpRoot, scriptFilePath), scriptSource, "utf8");
+        try {
+            fs.mkdirSync(path.join(tmpRoot, "scripts", "conveniencefunctions"), { recursive: true });
+            fs.writeFileSync(path.join(tmpRoot, scriptFilePath), scriptSource, "utf8");
 
-        const playerModelStart = scriptSource.indexOf("playerModel");
+            const playerModelStart = scriptSource.indexOf("playerModel");
 
-        const targets = collectImplicitInstanceVariableTargets({
-            files: {
-                [scriptFilePath]: {
-                    declarations: [],
-                    references: [
-                        {
-                            name: "playerModel",
-                            scopeId: "scope:script:conveniencefunctions",
-                            start: { index: playerModelStart },
-                            end: { index: playerModelStart + "playerModel".length - 1 },
-                            declaration: null,
-                            classifications: ["property"],
-                            isBuiltIn: false,
-                            isGlobalIdentifier: false
-                        }
-                    ]
-                }
-            } as unknown as Record<string, { references?: Array<Record<string, unknown>> }>,
-            knownEnumNames: new Set<string>(),
-            knownNamesByObjectDirectory: new Map<string, Set<string>>(),
-            knownResourceNames: new Set<string>(),
-            projectRoot: tmpRoot,
-            shouldIncludePath: () => true
-        });
+            const targets = collectImplicitInstanceVariableTargets({
+                files: {
+                    [scriptFilePath]: {
+                        references: [
+                            {
+                                name: "playerModel",
+                                scopeId: "scope:script:conveniencefunctions",
+                                start: { index: playerModelStart },
+                                end: { index: playerModelStart + "playerModel".length - 1 },
+                                declaration: null,
+                                classifications: ["property"],
+                                isBuiltIn: false,
+                                isGlobalIdentifier: false
+                            }
+                        ]
+                    }
+                },
+                knownEnumNames: new Set<string>(),
+                knownNamesByObjectDirectory: new Map<string, Set<string>>(),
+                knownResourceNames: new Set<string>(),
+                projectRoot: tmpRoot,
+                shouldIncludePath: () => true
+            });
 
-        assert.ok(!targets.some((target) => target.name === "playerModel"));
+            assert.equal(
+                targets.find((target) => target.name === "playerModel"),
+                undefined,
+                "script-scope property should not be collected as an implicit instance-variable target"
+            );
+        } finally {
+            fs.rmSync(tmpRoot, { force: true, recursive: true });
+        }
     });
 
     void it("shouldCollectUnresolvedProjectFileReferences correctly authorizes collection of instance variables", () => {

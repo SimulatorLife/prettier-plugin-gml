@@ -42,10 +42,18 @@ function getObjectDirectory(filePath: string): string {
 }
 
 function isObjectEventFilePath(filePath: string): boolean {
-    return /(?:^|\/)objects\/[^/]+\/.+\.gml$/iu.test(filePath.replaceAll("\\", "/"));
+    const normalizedPath = filePath.replaceAll("\\", "/");
+    const segments = normalizedPath.split("/");
+    if (segments.length < 3 || segments[0] !== "objects") {
+        return false;
+    }
+
+    const objectName = segments[1];
+    const fileName = segments.at(-1);
+    return Core.isNonEmptyString(objectName) && Core.isNonEmptyString(fileName) && fileName.endsWith(".gml");
 }
 
-function isObjectScopeId(scopeId: unknown): scopeId is string {
+function isObjectScopeId(scopeId: unknown): boolean {
     return typeof scopeId === "string" && scopeId.startsWith("scope:object:");
 }
 
