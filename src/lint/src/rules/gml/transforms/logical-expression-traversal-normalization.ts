@@ -21,15 +21,10 @@ export function applyLogicalNormalizationWithChangeMetadata(
     }
 
     // Repeatedly apply passes until no changes occur, or max limit reached
-    let changed = true;
     let changedAtLeastOnce = false;
-    let iterations = 0;
-    while (changed && iterations < 10) {
-        changed = traverseAndSimplify(ast);
-        if (changed) {
-            changedAtLeastOnce = true;
-        }
-        iterations++;
+    for (let iterations = 0; iterations < 10; iterations++) {
+        if (!traverseAndSimplify(ast)) break;
+        changedAtLeastOnce = true;
     }
 
     return Object.freeze({ ast, changed: changedAtLeastOnce });
@@ -51,19 +46,15 @@ function traverseAndSimplify(node: any): boolean {
         if (Array.isArray(child)) {
             const childSnapshot = [...child];
             for (const element of childSnapshot) {
-                if (traverseAndSimplify(element)) {
-                    changed = true;
-                }
+                changed ||= traverseAndSimplify(element);
             }
-        } else if (isNode(child) && traverseAndSimplify(child)) {
-            changed = true;
+        } else if (isNode(child)) {
+            changed ||= traverseAndSimplify(child);
         }
     }
 
     // Now try to simplify the current node
-    if (simplifyNode(node)) {
-        changed = true;
-    }
+    changed ||= simplifyNode(node);
 
     return changed;
 }
@@ -308,26 +299,8 @@ function createBooleanReturnStatement(
     end: number | undefined,
     negate: boolean
 ): any {
-    if (negate) {
-        return {
-            type: "ReturnStatement",
-            argument: {
-                type: "UnaryExpression",
-                operator: "!",
-                prefix: true,
-                argument: test
-            },
-            start,
-            end
-        };
-    }
-
-    return {
-        type: "ReturnStatement",
-        argument: test,
-        start,
-        end
-    };
+    const argument = negate ? negateNode(test) : test;
+    return { type: "ReturnStatement", argument, start, end };
 }
 
 function unwrapBlock(node: any): any {
@@ -401,6 +374,21 @@ function nodesRecursiveEqual(a: any, b: any): boolean {
     return false;
 }
 
+/**
+ * Wraps `inner` in a `!` unary expression, preserving source location.
+ * Used when constructing negations during De Morgan's law application.
+ */
+function negateNode(inner: any): any {
+    return {
+        type: "UnaryExpression",
+        operator: "!",
+        prefix: true,
+        argument: inner,
+        start: inner.start,
+        end: inner.end
+    };
+}
+
 function simplifyNot(node: any): boolean {
     const argument = node.argument;
 
@@ -416,81 +404,20 @@ function simplifyNot(node: any): boolean {
         return true;
     }
 
-    // De Morgan's: !(A || B) -> !A && !B
-    if (isLogicalBinaryNode(argument) && argument.operator === "||") {
-        // Create (!A) && (!B)
-        const left = argument.left;
-        const right = argument.right;
-
-        // Check if parens are needed, but constructing AST nodes is explicit.
-        // We will replace 'node' with a new BinaryExpression (or LogicalExpression)
-
-        const newLeft = {
-            type: "UnaryExpression",
-            operator: "!",
-            prefix: true,
-            argument: left,
-            start: left.start, // Approximated
-            end: left.end
-        };
-
-        const newRight = {
-            type: "UnaryExpression",
-            operator: "!",
-            prefix: true,
-            argument: right,
-            start: right.start,
-            end: right.end
-        };
-
-        const newLogical = {
+    // De Morgan's laws: !(A || B) -> !A && !B  /  !(A && B) -> !A || !B
+    // Both transforms follow the same structure; only the resulting operator differs.
+    if (isLogicalBinaryNode(argument)) {
+        const { left, right } = argument;
+        const negatedOperator = argument.operator === "||" ? "&&" : "||";
+        replaceNode(node, {
             type: argument.type,
-            operator: "&&",
-            left: newLeft,
-            right: newRight,
+            operator: negatedOperator,
+            left: negateNode(left),
+            right: negateNode(right),
             start: node.start,
             end: node.end,
             parent: node.parent
-        };
-
-        replaceNode(node, newLogical);
-        return true;
-    }
-
-    // De Morgan's: !(A && B) -> !A || !B
-    if (isLogicalBinaryNode(argument) && argument.operator === "&&") {
-        const left = argument.left;
-        const right = argument.right;
-
-        const newLeft = {
-            type: "UnaryExpression",
-            operator: "!",
-            prefix: true,
-            argument: left,
-            start: left.start,
-            end: left.end
-        };
-
-        const newRight = {
-            type: "UnaryExpression",
-            operator: "!",
-            prefix: true,
-            argument: right,
-            start: right.start,
-            end: right.end
-        };
-
-        const newLogical = {
-            type: argument.type,
-            operator: "||",
-            left: newLeft,
-            right: newRight,
-            start: node.start,
-            end: node.end,
-            parent: node.parent
-        };
-
-        replaceNode(node, newLogical);
+        });
         return true;
     }
 
