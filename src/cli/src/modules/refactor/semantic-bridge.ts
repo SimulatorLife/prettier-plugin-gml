@@ -1613,15 +1613,20 @@ export class GmlSemanticBridge {
             return this.diskIdentifierOccurrenceIndexesByFilePath.get(filePath) ?? null;
         }
 
-        const sourceText = this.readProjectSourceText(filePath);
-        if (sourceText === null) {
+        try {
+            const absolutePath = path.resolve(this.projectRoot, filePath);
+            if (!fs.existsSync(absolutePath)) {
+                this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, null);
+                return null;
+            }
+            const content = fs.readFileSync(absolutePath, "utf8");
+            const index = GmlIdentifierOccurrenceIndex.fromSourceText(content);
+            this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, index);
+            return index;
+        } catch {
             this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, null);
             return null;
         }
-
-        const occurrenceIndex = GmlIdentifierOccurrenceIndex.fromSourceText(sourceText);
-        this.diskIdentifierOccurrenceIndexesByFilePath.set(filePath, occurrenceIndex);
-        return occurrenceIndex;
     }
 
     /**
@@ -1867,7 +1872,7 @@ export class GmlSemanticBridge {
 
         const seen = new Set<string>();
         return occurrences.filter((occ) => {
-            if (!Core.isNonEmptyString(occ.path) || occ.end <= occ.start) {
+            if (!Core.isNonEmptyString(occ.path) || occ.end < occ.start) {
                 return false;
             }
 
