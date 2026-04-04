@@ -300,6 +300,8 @@ export function resolveNamingConventionRules(policy: NamingConventionPolicy): Re
 
         if (!disabled) {
             runtimeRule.enforceCaseStyle = sawCaseStyle;
+            runtimeRule.bannedPrefixes = [...runtimeRule.bannedPrefixes].sort((a, b) => b.length - a.length);
+            runtimeRule.bannedSuffixes = [...runtimeRule.bannedSuffixes].sort((a, b) => b.length - a.length);
             resolved[category] = runtimeRule;
         }
     }
@@ -453,7 +455,7 @@ function stripOneAffixDirection(
         return stripAffix(coreName, exclusive[0], position);
     }
 
-    for (const banned of [...bannedAffixes].sort((a, b) => b.length - a.length)) {
+    for (const banned of bannedAffixes) {
         if (banned.length > 0 && hasAffix(coreName, banned)) {
             return stripAffix(coreName, banned, position);
         }
@@ -503,8 +505,8 @@ export function evaluateNamingConvention(
             message: null
         };
     }
-
     let issueMessage: string | null = null;
+    let precomputedSuggestedName: string | null = null;
     const coreName = stripKnownAffixes(currentName, rule, policy, category);
     const exclusivePrefix = longestMatchingAffix(currentName, policy.exclusivePrefixes, "prefix");
     const exclusiveSuffix = longestMatchingAffix(currentName, policy.exclusiveSuffixes, "suffix");
@@ -526,8 +528,8 @@ export function evaluateNamingConvention(
     } else if (rule.maxChars !== null && coreName.length > rule.maxChars) {
         issueMessage = `Identifier ${JSON.stringify(currentName)} exceeds the maximum core length ${rule.maxChars}.`;
     } else if (rule.enforceCaseStyle) {
-        const expectedName = composeExpectedIdentifierName(coreName, rule);
-        if (expectedName !== currentName) {
+        precomputedSuggestedName = composeExpectedIdentifierName(coreName, rule);
+        if (precomputedSuggestedName !== currentName) {
             issueMessage = `Identifier ${JSON.stringify(currentName)} does not match ${rule.caseStyle} case.`;
         }
     }
@@ -551,7 +553,8 @@ export function evaluateNamingConvention(
         };
     }
 
-    const suggestedName = composeExpectedIdentifierName(coreName, rule);
+    const suggestedName =
+        precomputedSuggestedName === null ? composeExpectedIdentifierName(coreName, rule) : precomputedSuggestedName;
 
     return {
         compliant: suggestedName === currentName,
