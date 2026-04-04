@@ -1048,14 +1048,75 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
  *
  * @param {string} directory
  */
-function resolveIgnoreSearchBounds(directory) {
+async function directoryContainsProjectBoundaryMarker(directory) {
+    const projectConfigPath = path.join(directory, "gmloop.json");
+    try {
+        const configStats = await stat(projectConfigPath);
+        if (configStats.isFile()) {
+            return true;
+        }
+    } catch {
+        // Continue probing for `.yyp` files when gmloop.json is absent or unreadable.
+    }
+
+    try {
+        const entries = await readdir(directory, { withFileTypes: true });
+        return entries.some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".yyp"));
+    } catch {
+        return false;
+    }
+}
+
+async function findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories: Array<string>, startIndex = 0) {
+    if (startIndex >= candidateDirectories.length) {
+        return null;
+    }
+
+    const candidateDirectory = candidateDirectories[startIndex];
+    if (!candidateDirectory) {
+        return null;
+    }
+
+    if (await directoryContainsProjectBoundaryMarker(candidateDirectory)) {
+        return candidateDirectory;
+    }
+
+    return findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories, startIndex + 1);
+}
+
+async function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
     const resolvedWorkingDirectory = process.cwd();
     const shouldLimitToWorkingDirectory = isPathInside(resolvedDirectory, resolvedWorkingDirectory);
 
+    if (!shouldLimitToWorkingDirectory) {
+        return {
+            resolvedDirectory,
+            searchRoot: null
+        };
+    }
+
+    const candidateDirectories = [];
+    for (const candidateDirectory of walkAncestorDirectories(resolvedDirectory)) {
+        candidateDirectories.push(candidateDirectory);
+        if (candidateDirectory === resolvedWorkingDirectory) {
+            break;
+        }
+    }
+
+    const discoveredProjectBoundaryDirectory =
+        await findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories);
+
+    if (discoveredProjectBoundaryDirectory !== null) {
+        return {
+            resolvedDirectory,
+            searchRoot: discoveredProjectBoundaryDirectory
+        };
+    }
+
     return {
         resolvedDirectory,
-        searchRoot: shouldLimitToWorkingDirectory ? resolvedWorkingDirectory : null
+        searchRoot: resolvedWorkingDirectory
     };
 }
 
@@ -1115,11 +1176,11 @@ async function collectExistingIgnoreFiles(candidatePaths) {
     return compactArray(discovered);
 }
 
-function resolveProjectIgnorePaths(directory) {
-    const { resolvedDirectory, searchRoot } = resolveIgnoreSearchBounds(directory);
+async function resolveProjectIgnorePaths(directory) {
+    const { resolvedDirectory, searchRoot } = await resolveIgnoreSearchBounds(directory);
     const directoriesToInspect = collectIgnoreSearchDirectories(resolvedDirectory, searchRoot);
     const candidatePaths = collectIgnoreCandidatePaths(directoriesToInspect);
-    return collectExistingIgnoreFiles(candidatePaths);
+    return await collectExistingIgnoreFiles(candidatePaths);
 }
 
 /**
