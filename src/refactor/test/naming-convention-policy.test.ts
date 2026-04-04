@@ -181,6 +181,11 @@ void test("formatNamingCaseStyle preserves compact digit-uppercase tokens in upp
     );
 });
 
+void test("formatNamingCaseStyle fast-path preserves simple lower snake cores", () => {
+    assert.equal(Refactor.formatNamingCaseStyle("already_snake_case", "lower_snake"), "already_snake_case");
+    assert.equal(Refactor.formatNamingCaseStyle("already_snake_case", "camel"), "alreadySnakeCase");
+});
+
 void test("evaluateNamingConvention preserves allowed leading underscores when enforcing case style", () => {
     const policy = Refactor.normalizeNamingConventionPolicy({
         rules: {

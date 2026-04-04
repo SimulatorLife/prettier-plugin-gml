@@ -203,12 +203,12 @@ function processLocalNamingConventionRename(parameters: {
     }
 
     const normalizedSuggestedName = suggestedName.toLowerCase();
-    const normalizedCurrentName = target.name.toLowerCase();
+    const normalizedIdentifierName = target.name.toLowerCase();
     const existingNames = parameters.localScopeNames.get(scopeKey);
 
     if (existingNames !== undefined) {
         const existingSuggestedNameCount = existingNames.get(normalizedSuggestedName) ?? 0;
-        const isCaseOnlyRename = normalizedSuggestedName === normalizedCurrentName;
+        const isCaseOnlyRename = normalizedSuggestedName === normalizedIdentifierName;
         const hasSameScopeNameConflict = isCaseOnlyRename
             ? existingSuggestedNameCount > 1
             : existingSuggestedNameCount > 0;
@@ -246,7 +246,7 @@ function processLocalNamingConventionRename(parameters: {
     const dependentMacroNames =
         parameters.macroDependencyNamesByFile === null
             ? []
-            : findDependentMacroNames(parameters.macroDependencyNamesByFile, target.path, normalizedCurrentName);
+            : findDependentMacroNames(parameters.macroDependencyNamesByFile, target.path, normalizedIdentifierName);
     if (dependentMacroNames.length > 0) {
         parameters.warnings.push(
             `Skipping local rename '${target.name}' -> '${suggestedName}' in ${target.path} because macro expansion${dependentMacroNames.length === 1 ? "" : "s"} ${dependentMacroNames.map((macroName) => `'${macroName}'`).join(", ")} ${dependentMacroNames.length === 1 ? "depends" : "depend"} on '${target.name}'.`
@@ -271,7 +271,7 @@ function processLocalNamingConventionRename(parameters: {
         });
     }
     if (existingNames !== undefined) {
-        decrementScopedNameCount(existingNames, normalizedCurrentName);
+        decrementScopedNameCount(existingNames, normalizedIdentifierName);
         Core.incrementMapValue(existingNames, normalizedSuggestedName);
         parameters.localScopeNames.set(scopeKey, existingNames);
     }

@@ -142,8 +142,8 @@ export class WorkspaceEdit {
 
             exactEditKeys.add(editKey);
             if (exactEditKeys.size > DUPLICATE_EDIT_CHECK_MAX_SET_SIZE) {
-                mutableState.duplicateCheckSetDisabled = true;
                 workspaceEditExactKeyState.delete(this);
+                mutableState.duplicateCheckSetDisabled = true;
             }
         }
 

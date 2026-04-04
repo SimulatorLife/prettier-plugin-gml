@@ -346,7 +346,9 @@ function splitIdentifierWords(value: string): Array<string> {
 
         if (isUppercaseAscii(character)) {
             containsUppercase = true;
-            break;
+            if (containsUnderscore) {
+                break;
+            }
         }
     }
 
@@ -441,6 +443,31 @@ type IdentifierUnderscoreAffixes = {
     trailing: string;
 };
 
+function isSimpleLowerSnakeCore(value: string): boolean {
+    return /^[a-z0-9_]+$/u.test(value);
+}
+
+function toCamelCaseFromLowerSnakeCore(value: string): string {
+    let formatted = "";
+    let uppercaseNext = false;
+
+    for (const character of value) {
+        if (character === "_") {
+            uppercaseNext = true;
+            continue;
+        }
+
+        if (uppercaseNext && isLowercaseAscii(character)) {
+            formatted += character.toUpperCase();
+        } else {
+            formatted += character;
+        }
+        uppercaseNext = false;
+    }
+
+    return formatted;
+}
+
 function splitIdentifierUnderscoreAffixes(value: string): IdentifierUnderscoreAffixes {
     const leading = value.match(/^_+/)?.[0] ?? "";
     const trailing = value.match(/_+$/)?.[0] ?? "";
@@ -459,10 +486,21 @@ function splitIdentifierUnderscoreAffixes(value: string): IdentifierUnderscoreAf
  */
 export function formatNamingCaseStyle(value: string, caseStyle: NamingCaseStyle): string {
     const underscoreAffixes = splitIdentifierUnderscoreAffixes(value);
-    const words = splitIdentifierWords(underscoreAffixes.core);
     if (underscoreAffixes.core.length === 0) {
         return `${underscoreAffixes.leading}${underscoreAffixes.trailing}`;
     }
+
+    if (isSimpleLowerSnakeCore(underscoreAffixes.core)) {
+        if (caseStyle === "camel") {
+            return `${underscoreAffixes.leading}${toCamelCaseFromLowerSnakeCore(underscoreAffixes.core)}${underscoreAffixes.trailing}`;
+        }
+
+        if (caseStyle === "lower_snake") {
+            return `${underscoreAffixes.leading}${underscoreAffixes.core}${underscoreAffixes.trailing}`;
+        }
+    }
+
+    const words = splitIdentifierWords(underscoreAffixes.core);
 
     if (words.length === 0) {
         return `${underscoreAffixes.leading}${underscoreAffixes.core}${underscoreAffixes.trailing}`;
