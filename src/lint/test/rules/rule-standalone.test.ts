@@ -886,6 +886,26 @@ void test("prefer-epsilon-comparisons reuses existing epsilon declarations in a 
     assertEquals(result.output, expected);
 });
 
+void test("prefer-epsilon-comparisons rewrites positive zero checks for math-sensitive variables", () => {
+    const input = [
+        "var m = dot_product_3d(mx, my, mz, mx, my, mz);",
+        "if (m > 0) {",
+        "    m = intersectionRadius / sqrt(m);",
+        "}",
+        ""
+    ].join("\n");
+    const expected = [
+        "var m = dot_product_3d(mx, my, mz, mx, my, mz);",
+        "if (m > math_get_epsilon()) {",
+        "    m = intersectionRadius / sqrt(m);",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("prefer-epsilon-comparisons", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("no-assignment-in-condition does not rewrite grouped multiline conditions without assignments", () => {
     const input = [
         "if ((_index == undefined)",

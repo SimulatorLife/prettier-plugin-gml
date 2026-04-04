@@ -10,6 +10,7 @@ function expressionLooksMathSensitive(expression: string): boolean {
         normalized.includes("sqr(") ||
         normalized.includes("sqrt(") ||
         normalized.includes("point_distance") ||
+        normalized.includes("dot_product_") ||
         normalized.includes("lengthdir_") ||
         normalized.includes("math_")
     );
@@ -46,21 +47,27 @@ export function createPreferEpsilonComparisonsRule(definition: GmlRuleDefinition
                     const rewrittenLines: Array<string> = [];
                     let insertedEpsilonDeclaration = hasEpsilonDeclaration;
                     for (const line of lines) {
-                        const zeroCheckMatch = /^(\s*)if\s*\(\s*([A-Za-z_]\w*)\s*==\s*0\s*\)(.*)$/u.exec(line);
-                        if (!zeroCheckMatch) {
+                        const zeroEqualityCheckMatch = /^(\s*)if\s*\(\s*([A-Za-z_]\w*)\s*==\s*0\s*\)(.*)$/u.exec(line);
+                        const zeroPositiveCheckMatch = /^(\s*)if\s*\(\s*([A-Za-z_]\w*)\s*>\s*0\s*\)(.*)$/u.exec(line);
+
+                        if (!zeroEqualityCheckMatch && !zeroPositiveCheckMatch) {
                             rewrittenLines.push(line);
                             continue;
                         }
 
-                        const indentation = zeroCheckMatch[1] ?? "";
-                        const variableName = zeroCheckMatch[2] ?? "";
-                        const suffix = zeroCheckMatch[3] ?? "";
+                        const activeMatch = zeroEqualityCheckMatch ?? zeroPositiveCheckMatch;
+                        const indentation = activeMatch?.[1] ?? "";
+                        const variableName = activeMatch?.[2] ?? "";
+                        const suffix = activeMatch?.[3] ?? "";
                         if (!mathSensitiveVariables.has(variableName)) {
                             rewrittenLines.push(line);
                             continue;
                         }
 
-                        if (!insertedEpsilonDeclaration) {
+                        if (zeroPositiveCheckMatch) {
+                            rewrittenLines.push(`${indentation}if (${variableName} > math_get_epsilon())${suffix}`);
+                            continue;
+                        } else if (!insertedEpsilonDeclaration) {
                             rewrittenLines.push(`${indentation}var eps = math_get_epsilon();`);
                             insertedEpsilonDeclaration = true;
                         }
