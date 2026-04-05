@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { Core } from "@gmloop/core";
 import { Command, Option } from "commander";
 
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
@@ -103,7 +104,9 @@ function getFixCommandUsage(command: CommanderCommandLike): string {
 }
 
 function createFixCommandValidationError(error: unknown, command: CommanderCommandLike): CliUsageError {
-    const message = error instanceof Error ? error.message : "Invalid fix command options.";
+    // Use a capability probe rather than `instanceof Error` so that cross-realm
+    // errors (e.g. from sandboxed modules or commander internals) are handled.
+    const message = Core.isErrorLike(error) ? error.message : "Invalid fix command options.";
     const usage = getFixCommandUsage(command);
 
     if (!message.includes("Could not find gmloop config file")) {
