@@ -424,7 +424,7 @@ function toCamelCase(words: ReadonlyArray<string>): string {
     // Use an index loop instead of words.slice(1) to avoid an intermediate array allocation.
     let formatted = words[0] ?? "";
     for (let i = 1; i < words.length; i++) {
-        formatted += capitalize(words[i] ?? "");
+        formatted += capitalize(words[i]);
     }
 
     return formatted;
@@ -465,7 +465,7 @@ function toCamelCaseFromLowerSnakeCore(value: string): string {
         if (uppercaseNext && code >= 97 && code <= 122) {
             formatted += String.fromCharCode(code - 32);
         } else {
-            formatted += value[i];
+            formatted += String.fromCharCode(code);
         }
         uppercaseNext = false;
     }

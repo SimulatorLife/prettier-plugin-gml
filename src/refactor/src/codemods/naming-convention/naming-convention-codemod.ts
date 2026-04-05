@@ -76,6 +76,15 @@ function decrementScopedNameCount(names: Map<string, number>, normalizedName: st
 }
 
 /**
+ * Increment a numeric counter stored in a Map by 1, defaulting missing entries to 0.
+ * A lightweight local alternative to `Core.incrementMapValue` that skips the generic
+ * helper's type-validation and coercion overhead for typed `Map<string, number>` stores.
+ */
+function incrementScopedCount(store: Map<string, number>, key: string): void {
+    store.set(key, (store.get(key) ?? 0) + 1);
+}
+
+/**
  * Build the declaration identity key used to deduplicate local declaration
  * rows that refer to the same declaration tuple.
  *
@@ -93,7 +102,7 @@ function getLocalDeclarationKey(target: { category: NamingCategory; name: string
  * rename planning can reason about currently-occupied normalized names while
  * avoiding duplicate declaration rows from semantic adapters.
  *
- * Uses inline Map increment instead of `Core.incrementMapValue` to avoid the
+ * Uses {@link incrementScopedCount} instead of `Core.incrementMapValue` to avoid the
  * validation and type-coercion overhead of the generic helper in this hot path.
  *
  * @param selectedTargets - Candidate naming targets returned by semantic.
@@ -115,8 +124,8 @@ function collectLocalScopeNames(
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const declarationKey = getLocalDeclarationKey(target);
         const scopedDeclarationKey = `${scopeKey}:${declarationKey}`;
-        // Inline increment avoids the validation overhead of Core.incrementMapValue in this hot loop.
-        scopedDeclarationCounts.set(scopedDeclarationKey, (scopedDeclarationCounts.get(scopedDeclarationKey) ?? 0) + 1);
+        // Use incrementScopedCount to avoid the validation overhead of Core.incrementMapValue in this hot loop.
+        incrementScopedCount(scopedDeclarationCounts, scopedDeclarationKey);
         if (!scopeKeysRequiringNameConflictChecks.has(scopeKey)) {
             continue;
         }
@@ -128,8 +137,7 @@ function collectLocalScopeNames(
         }
 
         declarations.add(declarationKey);
-        const normalizedName = target.name.toLowerCase();
-        names.set(normalizedName, (names.get(normalizedName) ?? 0) + 1);
+        incrementScopedCount(names, target.name.toLowerCase());
         localScopeNames.set(scopeKey, names);
         localScopeDeclarations.set(scopeKey, declarations);
     }
@@ -277,8 +285,7 @@ function processLocalNamingConventionRename(parameters: {
     }
     if (existingNames !== undefined) {
         decrementScopedNameCount(existingNames, normalizedIdentifierName);
-        // Inline increment avoids the validation overhead of Core.incrementMapValue in this hot path.
-        existingNames.set(normalizedSuggestedName, (existingNames.get(normalizedSuggestedName) ?? 0) + 1);
+        incrementScopedCount(existingNames, normalizedSuggestedName);
         parameters.localScopeNames.set(scopeKey, existingNames);
     }
     return 1;
