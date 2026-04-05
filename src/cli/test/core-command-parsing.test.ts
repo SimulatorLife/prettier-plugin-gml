@@ -146,7 +146,7 @@ void describe("wrapInvalidArgumentResolver", () => {
     });
 });
 
-void describe("integer coercion helpers — import from Core, not command-parsing", () => {
+void describe("integer coercion helpers: import from Core, not command-parsing", () => {
     // coercePositiveInteger, coerceNonNegativeInteger, and resolveIntegerOption
     // were previously re-exported from command-parsing.ts under the same names,
     // adding indirection with no extra semantics (the "defaultNow" anti-pattern).
