@@ -3411,9 +3411,9 @@ function shouldFlattenMultiplicationChain(parent, expression, _path) {
         return false;
     }
 
-    const parentKey = safeGetPathName(_path);
+    const parentOperandKey = safeGetPathName(_path);
 
-    if (parent.operator === "/" && parentKey === "right") {
+    if (parent.operator === "/" && parentOperandKey === "right") {
         return false;
     }
 
