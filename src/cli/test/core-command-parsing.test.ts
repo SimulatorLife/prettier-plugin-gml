@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, test } from "node:test";
 
 import { Core } from "@gmloop/core";
 import { Command, InvalidArgumentError } from "commander";
@@ -144,4 +144,14 @@ void describe("wrapInvalidArgumentResolver", () => {
                 error.cause instanceof Error
         );
     });
+});
+
+void test("integer coercion helpers live in Core, not in command-parsing", () => {
+    // coercePositiveInteger, coerceNonNegativeInteger, and resolveIntegerOption
+    // were previously re-exported from command-parsing.ts under the same names,
+    // adding indirection with no extra semantics (the "defaultNow" anti-pattern).
+    // They were removed so callers always import from @gmloop/core directly.
+    assert.strictEqual(Core.coercePositiveInteger(5, { createErrorMessage: () => "too small" }), 5);
+    assert.strictEqual(Core.coerceNonNegativeInteger(0, { createErrorMessage: () => "negative" }), 0);
+    assert.strictEqual(Core.resolveIntegerOption(42, { coerce: (v) => v }), 42);
 });

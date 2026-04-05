@@ -17,10 +17,6 @@ export interface ParseCommandLineResult {
     usage: string;
 }
 
-export const coercePositiveInteger: typeof Core.coercePositiveInteger = Core.coercePositiveInteger;
-export const coerceNonNegativeInteger: typeof Core.coerceNonNegativeInteger = Core.coerceNonNegativeInteger;
-export const resolveIntegerOption: typeof Core.resolveIntegerOption = Core.resolveIntegerOption;
-
 /**
  * Create an argParser for Commander.js options that validates port numbers.
  * Ports must be integers in the range 1-65535.
