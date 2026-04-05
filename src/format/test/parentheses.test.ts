@@ -45,6 +45,17 @@ void test("preserves right-side divisive grouping in division expressions", asyn
     assert.equal(formatted, "var value = a / (b / c);\n");
 });
 
+void test("preserves denominator grouping for 3D spider inverse-kinematics sqrt expression", async () => {
+    const source =
+        "var intersectionRadius = sqrt(p2_p3sqr - (sqr(p1_p2sqr - p2_p3sqr - p1_p3sqr) / (4 * p1_p3sqr)));\n";
+    const formatted = await Format.format(source);
+
+    assert.equal(
+        formatted,
+        "var intersectionRadius = sqrt(p2_p3sqr - sqr(p1_p2sqr - p2_p3sqr - p1_p3sqr) / (4 * p1_p3sqr));\n"
+    );
+});
+
 void test("omits redundant parentheses around a simple identifier", async () => {
     const source = "var value = (a);\n";
     const formatted = await Format.format(source);
