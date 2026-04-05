@@ -95,27 +95,40 @@ function getLocalDeclarationKey(target: { category: NamingCategory; name: string
     return `${target.category}:${target.name}`;
 }
 
+type ScopeDataCollectionResult = {
+    localScopeNames: Map<string, Map<string, number>>;
+    scopedDeclarationCounts: Map<string, number>;
+};
+
 /**
- * Collect per-scope local identifier counts for conflict detection.
+ * Collect all scope-level data needed for naming-convention rename planning in a
+ * minimal number of passes over `selectedTargets`.
  *
- * Mutates `localScopeNames` and `localScopeDeclarations` in-place so subsequent
- * rename planning can reason about currently-occupied normalized names while
- * avoiding duplicate declaration rows from semantic adapters.
+ * The previous implementation required two full iterations:
+ *   1. `collectScopeKeysRequiringNameConflictChecks` — identify scopes with ≥2 unique declarations
+ *   2. `collectLocalScopeNames` — count declaration occurrences and (for conflicting scopes only)
+ *      build the per-scope name presence maps
+ *
+ * This replacement performs both jobs in a **single first pass**, then conditionally executes a
+ * second pass that visits only the targets belonging to the (usually empty) set of conflicting
+ * scopes.  For the common case — where every scope contains exactly one declaration key — the
+ * conditional block is skipped entirely, halving the number of full target iterations.
  *
  * Uses {@link incrementScopedCount} instead of `Core.incrementMapValue` to avoid the
  * validation and type-coercion overhead of the generic helper in this hot path.
  *
  * @param selectedTargets - Candidate naming targets returned by semantic.
- * @param localScopeNames - Destination normalized-name counters by scope.
- * @param localScopeDeclarations - Destination declaration dedupe sets by scope.
+ * @returns Collected scope data used by the codemod planner.
  */
-function collectLocalScopeNames(
-    selectedTargets: ReadonlyArray<LocalNamingConventionTarget>,
-    localScopeNames: Map<string, Map<string, number>>,
-    localScopeDeclarations: Map<string, Set<string>>,
-    scopedDeclarationCounts: Map<string, number>,
-    scopeKeysRequiringNameConflictChecks: Set<string>
-): void {
+function collectScopeDataFromTargets(
+    selectedTargets: ReadonlyArray<LocalNamingConventionTarget>
+): ScopeDataCollectionResult {
+    const firstDeclarationByScope = new Map<string, string>();
+    const scopeKeysRequiringNameConflictChecks = new Set<string>();
+    const scopedDeclarationCounts = new Map<string, number>();
+
+    // Single first pass: compute all scope keys, declaration keys, and scopedDeclarationCounts
+    // simultaneously, while also identifying which scopes have more than one unique declaration.
     for (const target of selectedTargets) {
         if (target.symbolId !== null) {
             continue;
@@ -124,50 +137,55 @@ function collectLocalScopeNames(
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const declarationKey = getLocalDeclarationKey(target);
         const scopedDeclarationKey = `${scopeKey}:${declarationKey}`;
-        // Use incrementScopedCount to avoid the validation overhead of Core.incrementMapValue in this hot loop.
+
+        // Count how many times this exact (scope, declaration) pair appears.
+        // Use inline increment to avoid Core.incrementMapValue validation overhead.
         incrementScopedCount(scopedDeclarationCounts, scopedDeclarationKey);
-        if (!scopeKeysRequiringNameConflictChecks.has(scopeKey)) {
-            continue;
-        }
 
-        const names = localScopeNames.get(scopeKey) ?? new Map<string, number>();
-        const declarations = localScopeDeclarations.get(scopeKey) ?? new Set<string>();
-        if (declarations.has(declarationKey)) {
-            continue;
-        }
-
-        declarations.add(declarationKey);
-        incrementScopedCount(names, target.name.toLowerCase());
-        localScopeNames.set(scopeKey, names);
-        localScopeDeclarations.set(scopeKey, declarations);
-    }
-}
-
-function collectScopeKeysRequiringNameConflictChecks(
-    selectedTargets: ReadonlyArray<LocalNamingConventionTarget>
-): Set<string> {
-    const firstDeclarationByScope = new Map<string, string>();
-    const scopesWithMultipleDeclarations = new Set<string>();
-
-    for (const target of selectedTargets) {
-        if (target.symbolId !== null) {
-            continue;
-        }
-
-        const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
-        const declarationKey = getLocalDeclarationKey(target);
+        // Determine whether this scope hosts multiple distinct declaration keys.
         const firstDeclarationKey = firstDeclarationByScope.get(scopeKey);
         if (firstDeclarationKey === undefined) {
             firstDeclarationByScope.set(scopeKey, declarationKey);
-            continue;
-        }
-
-        if (firstDeclarationKey !== declarationKey) {
-            scopesWithMultipleDeclarations.add(scopeKey);
+        } else if (firstDeclarationKey !== declarationKey) {
+            scopeKeysRequiringNameConflictChecks.add(scopeKey);
         }
     }
 
-    return scopesWithMultipleDeclarations;
+    // Second pass: build the per-scope name presence maps — but ONLY when at least one scope
+    // has multiple declarations.  In the common case this block is never entered, saving the
+    // cost of a full second scan over `selectedTargets`.
+    const localScopeNames = new Map<string, Map<string, number>>();
+    const localScopeDeclarations = new Map<string, Set<string>>();
+
+    if (scopeKeysRequiringNameConflictChecks.size > 0) {
+        for (const target of selectedTargets) {
+            if (target.symbolId !== null) {
+                continue;
+            }
+
+            const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
+            if (!scopeKeysRequiringNameConflictChecks.has(scopeKey)) {
+                continue;
+            }
+
+            const declarationKey = getLocalDeclarationKey(target);
+            const names = localScopeNames.get(scopeKey) ?? new Map<string, number>();
+            const declarations = localScopeDeclarations.get(scopeKey) ?? new Set<string>();
+            if (declarations.has(declarationKey)) {
+                continue;
+            }
+
+            declarations.add(declarationKey);
+            incrementScopedCount(names, target.name.toLowerCase());
+            localScopeNames.set(scopeKey, names);
+            localScopeDeclarations.set(scopeKey, declarations);
+        }
+    }
+
+    return {
+        localScopeNames,
+        scopedDeclarationCounts
+    };
 }
 
 /**
@@ -522,9 +540,6 @@ export async function planNamingConventionCodemod(
     const warnings: Array<string> = [];
     const errors: Array<string> = [];
     const violations: Array<NamingConventionViolation> = [];
-    const localScopeNames = new Map<string, Map<string, number>>();
-    const localScopeDeclarations = new Map<string, Set<string>>();
-    const scopedDeclarationCounts = new Map<string, number>();
     const localDeclarationRenameDecisions = new Map<string, LocalDeclarationRenameDecision>();
     const topLevelRenames: Array<{ symbolId: string; newName: string }> = [];
     const seenTopLevelRenames = new Set<string>();
@@ -544,14 +559,11 @@ export async function planNamingConventionCodemod(
             ? collectMacroDependencyNamesByFile(await semantic.listMacroExpansionDependencies(selectedFilePaths))
             : null;
 
-    const scopeKeysRequiringNameConflictChecks = collectScopeKeysRequiringNameConflictChecks(selectedTargets);
-    collectLocalScopeNames(
-        selectedTargets,
-        localScopeNames,
-        localScopeDeclarations,
-        scopedDeclarationCounts,
-        scopeKeysRequiringNameConflictChecks
-    );
+    // Collect per-scope conflict data in the fewest passes possible.
+    // `collectScopeDataFromTargets` merges what were previously two separate full
+    // iterations into a single first pass (plus an optional targeted second pass only
+    // for scopes that actually have multiple declarations — usually none).
+    const { localScopeNames, scopedDeclarationCounts } = collectScopeDataFromTargets(selectedTargets);
     // Build the duplicate-declaration key set without array spread to avoid
     // allocating an intermediate array for the common case where most entries
     // have count = 1 (no duplicates).

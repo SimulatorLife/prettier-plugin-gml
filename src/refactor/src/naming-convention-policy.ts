@@ -445,7 +445,19 @@ type IdentifierUnderscoreAffixes = {
 };
 
 function isSimpleLowerSnakeCore(value: string): boolean {
-    return /^[a-z0-9_]+$/u.test(value);
+    // Use a charCode loop instead of a regex to avoid the regex-engine overhead on every
+    // identifier in the hot path.  Valid characters are a-z (97-122), 0-9 (48-57), and _ (95).
+    const len = value.length;
+    if (len === 0) {
+        return false;
+    }
+    for (let i = 0; i < len; i++) {
+        const code = value.charCodeAt(i);
+        if ((code < 97 || code > 122) && (code < 48 || code > 57) && code !== 95) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function toCamelCaseFromLowerSnakeCore(value: string): string {
