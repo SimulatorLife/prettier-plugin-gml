@@ -54,7 +54,7 @@ function isObjectEventFilePath(filePath: string): boolean {
 }
 
 function isObjectScopeId(scopeId: unknown): boolean {
-    return typeof scopeId === "string" && scopeId.startsWith("scope:object:");
+    return typeof scopeId === "string" && (scopeId.startsWith("scope:object:") || /^scope-\d+$/u.test(scopeId));
 }
 
 function readProjectFile(projectRoot: string, filePath: string, cache: Map<string, string>): string | null {

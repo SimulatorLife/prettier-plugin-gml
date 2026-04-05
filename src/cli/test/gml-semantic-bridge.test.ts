@@ -2792,6 +2792,81 @@ void describe("GmlSemanticBridge tests", () => {
         assert.equal(charMatTarget?.occurrences[0]?.kind, "definition");
     });
 
+    void it("listNamingConventionTargets synthesizes implicit instance-variable targets for numeric semantic scope ids", async () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-instance-targets-numeric-scope-"));
+        const relativeFilePath = "objects/obj_spider/Create_0.gml";
+        const absoluteFilePath = path.join(tmpRoot, relativeFilePath);
+        const sourceText = ["armTarget = [];", "armPos[0] = armTarget[0];", ""].join("\n");
+
+        fs.mkdirSync(path.dirname(absoluteFilePath), { recursive: true });
+        fs.writeFileSync(absoluteFilePath, sourceText, "utf8");
+
+        const armTargetDefinitionStart = findNthIndex(sourceText, "armTarget", 1);
+        const armPosDefinitionStart = findNthIndex(sourceText, "armPos", 1);
+        const armTargetReferenceStart = findNthIndex(sourceText, "armTarget", 2);
+
+        const mockProjectIndex = {
+            identifiers: {
+                instanceVariables: {}
+            },
+            files: {
+                [relativeFilePath]: {
+                    declarations: [],
+                    references: [
+                        {
+                            name: "armTarget",
+                            scopeId: "scope-0",
+                            start: { index: armTargetDefinitionStart },
+                            end: { index: armTargetDefinitionStart + "armTarget".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "armPos",
+                            scopeId: "scope-0",
+                            start: { index: armPosDefinitionStart },
+                            end: { index: armPosDefinitionStart + "armPos".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        },
+                        {
+                            name: "armTarget",
+                            scopeId: "scope-0",
+                            start: { index: armTargetReferenceStart },
+                            end: { index: armTargetReferenceStart + "armTarget".length - 1 },
+                            declaration: null,
+                            isBuiltIn: false,
+                            isGlobalIdentifier: false
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const targets = await bridge.listNamingConventionTargets([relativeFilePath]);
+        const armTargetTarget = targets.find(
+            (target) => target.category === "instanceVariable" && target.name === "armTarget"
+        );
+        const armPosTarget = targets.find(
+            (target) => target.category === "instanceVariable" && target.name === "armPos"
+        );
+
+        assert.ok(armTargetTarget);
+        assert.equal(armTargetTarget?.path, relativeFilePath);
+        assert.equal(armTargetTarget?.scopeId, "objects/obj_spider");
+        assert.equal(armTargetTarget?.occurrences.length, 2);
+        assert.equal(armTargetTarget?.occurrences[0]?.kind, "definition");
+
+        assert.ok(armPosTarget);
+        assert.equal(armPosTarget?.path, relativeFilePath);
+        assert.equal(armPosTarget?.scopeId, "objects/obj_spider");
+        assert.equal(armPosTarget?.occurrences.length, 1);
+        assert.equal(armPosTarget?.occurrences[0]?.kind, "definition");
+    });
+
     void it("listNamingConventionTargets widens implicit instance-variable targets across inherited and dotted object references", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-instance-targets-wide-"));
         const parentFilePath = "objects/oActorParent/Create_0.gml";
