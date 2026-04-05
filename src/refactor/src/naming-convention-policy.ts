@@ -421,9 +421,10 @@ function toCamelCase(words: ReadonlyArray<string>): string {
         return "";
     }
 
+    // Use an index loop instead of words.slice(1) to avoid an intermediate array allocation.
     let formatted = words[0] ?? "";
-    for (const word of words.slice(1)) {
-        formatted += capitalize(word);
+    for (let i = 1; i < words.length; i++) {
+        formatted += capitalize(words[i]);
     }
 
     return formatted;
@@ -448,19 +449,23 @@ function isSimpleLowerSnakeCore(value: string): boolean {
 }
 
 function toCamelCaseFromLowerSnakeCore(value: string): string {
+    // Use an indexed charCode loop instead of for...of to avoid iterator allocation and
+    // charCode comparisons to avoid per-character String.prototype calls.
     let formatted = "";
     let uppercaseNext = false;
 
-    for (const character of value) {
-        if (character === "_") {
+    for (let i = 0, len = value.length; i < len; i++) {
+        const code = value.charCodeAt(i);
+        if (code === 95 /* "_" */) {
             uppercaseNext = true;
             continue;
         }
 
-        if (uppercaseNext && isLowercaseAscii(character)) {
-            formatted += character.toUpperCase();
+        // Uppercase the character when following an underscore and it's a-z (97–122).
+        if (uppercaseNext && code >= 97 && code <= 122) {
+            formatted += String.fromCharCode(code - 32);
         } else {
-            formatted += character;
+            formatted += String.fromCharCode(code);
         }
         uppercaseNext = false;
     }
@@ -469,15 +474,30 @@ function toCamelCaseFromLowerSnakeCore(value: string): string {
 }
 
 function splitIdentifierUnderscoreAffixes(value: string): IdentifierUnderscoreAffixes {
-    const leading = value.match(/^_+/)?.[0] ?? "";
-    const trailing = value.match(/_+$/)?.[0] ?? "";
-    const coreStart = leading.length;
-    const coreEnd = Math.max(coreStart, value.length - trailing.length);
+    // Use direct charCode comparisons instead of regex to avoid regex-engine overhead.
+    // charCode 95 is "_".  Avoid slice() calls for the common case where leading/trailing
+    // affix strings are empty (no underscore boundary characters present).
+    const UNDERSCORE = 95;
+    const len = value.length;
+    let leadingEnd = 0;
+    while (leadingEnd < len && value.charCodeAt(leadingEnd) === UNDERSCORE) {
+        leadingEnd++;
+    }
+
+    if (leadingEnd === len) {
+        // Entire value is underscores (or value is empty).
+        return { leading: value, core: "", trailing: "" };
+    }
+
+    let trailingStart = len;
+    while (trailingStart > leadingEnd && value.charCodeAt(trailingStart - 1) === UNDERSCORE) {
+        trailingStart--;
+    }
 
     return {
-        leading,
-        core: value.slice(coreStart, coreEnd),
-        trailing: value.slice(coreEnd)
+        leading: leadingEnd > 0 ? value.slice(0, leadingEnd) : "",
+        core: value.slice(leadingEnd, trailingStart),
+        trailing: trailingStart < len ? value.slice(trailingStart) : ""
     };
 }
 
