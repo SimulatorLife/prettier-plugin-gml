@@ -13,6 +13,7 @@ import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import {
     APPLY_FIXES_OPTION_DESCRIPTION,
     APPLY_FIXES_OPTION_FLAGS,
+    createConfigOption,
     createListOption,
     createPathOption,
     createVerboseOption,
@@ -23,6 +24,7 @@ import {
     formatElapsedNanosecondsAsMilliseconds,
     readMonotonicNanoseconds
 } from "../shared/elapsed-time.js";
+import { resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 
 const FLAT_CONFIG_CANDIDATES = Object.freeze([
     "eslint.config.js",
@@ -1037,36 +1039,77 @@ async function configureLintConfig(parameters: {
     noDefaultConfig: boolean;
     quiet: boolean;
 }): Promise<number> {
-    if (parameters.configPath) {
+    const { eslintConstructorOptions, cwd, targets, configPath, noDefaultConfig, quiet } = parameters;
+
+    if (configPath) {
+        let resolvedGmloopConfigPath: string;
         try {
-            await validateExplicitConfigPath(parameters.configPath);
-        } catch (error) {
-            console.error(
-                `Failed to read eslint config at ${parameters.configPath}: ${Core.isErrorLike(error) ? error.message : String(error)}`
-            );
-            return 2;
-        }
+            resolvedGmloopConfigPath = await resolveExistingGmloopConfigPath(cwd, configPath);
+        } catch {
+            const fallbackEslintConfigPath = path.resolve(configPath);
+            try {
+                await validateExplicitConfigPath(fallbackEslintConfigPath);
+            } catch (configPathError) {
+                console.error(
+                    `Failed to read config at ${fallbackEslintConfigPath}: ${
+                        Core.isErrorLike(configPathError) ? configPathError.message : String(configPathError)
+                    }`
+                );
+                return 2;
+            }
 
-        parameters.eslintConstructorOptions.overrideConfigFile = parameters.configPath;
-        return 0;
-    }
-
-    const preferBundledDefaults = shouldPreferBundledDefaultsForExternalTargets({
-        cwd: parameters.cwd,
-        targets: parameters.targets
-    });
-    if (preferBundledDefaults) {
-        parameters.eslintConstructorOptions.overrideConfigFile = true;
-
-        if (parameters.noDefaultConfig) {
+            eslintConstructorOptions.overrideConfigFile = fallbackEslintConfigPath;
             return 0;
         }
 
-        parameters.eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
+        try {
+            const gmloopConfig = await Core.loadGmloopProjectConfig(resolvedGmloopConfigPath);
+            const lintRuleEntries =
+                LINT_NAMESPACE.configs.projectConfig.createLintRuleEntriesFromProjectConfig(gmloopConfig);
+            const mergedOverrideEntries = LINT_NAMESPACE.configs.recommended.map((entry) => {
+                if (!entry.rules) {
+                    return entry;
+                }
+
+                return {
+                    ...entry,
+                    rules: {
+                        ...entry.rules,
+                        ...lintRuleEntries
+                    }
+                };
+            });
+            eslintConstructorOptions.overrideConfigFile = true;
+            eslintConstructorOptions.overrideConfig = mergedOverrideEntries as NonNullable<
+                ConstructorParameters<typeof ESLint>[0]
+            >["overrideConfig"];
+            return 0;
+        } catch (error) {
+            console.error(
+                `Failed to load gmloop config at ${resolvedGmloopConfigPath}: ${
+                    Core.isErrorLike(error) ? error.message : String(error)
+                }`
+            );
+            return 2;
+        }
+    }
+
+    const preferBundledDefaults = shouldPreferBundledDefaultsForExternalTargets({
+        cwd,
+        targets
+    });
+    if (preferBundledDefaults) {
+        eslintConstructorOptions.overrideConfigFile = true;
+
+        if (noDefaultConfig) {
+            return 0;
+        }
+
+        eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
         return 0;
     }
 
-    const discoveryResult = discoverFlatConfig(parameters.cwd);
+    const discoveryResult = discoverFlatConfig(cwd);
     if (discoveryResult.selectedConfigPath) {
         // Intentionally let ESLint resolve and select the active config file natively.
         // This preserves ESLint's sibling-config precedence rules and avoids CLI-side
@@ -1074,16 +1117,16 @@ async function configureLintConfig(parameters: {
         return 0;
     }
 
-    if (parameters.noDefaultConfig) {
-        parameters.eslintConstructorOptions.overrideConfigFile = true;
-        printNoConfigMessageIfNeeded({ quiet: parameters.quiet, searchedPaths: discoveryResult.searchedPaths });
+    if (noDefaultConfig) {
+        eslintConstructorOptions.overrideConfigFile = true;
+        printNoConfigMessageIfNeeded({ quiet, searchedPaths: discoveryResult.searchedPaths });
         return 0;
     }
 
-    parameters.eslintConstructorOptions.overrideConfigFile = true;
-    parameters.eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
+    eslintConstructorOptions.overrideConfigFile = true;
+    eslintConstructorOptions.overrideConfig = toEslintOverrideConfig();
     printFallbackMessageIfNeeded({
-        quiet: parameters.quiet,
+        quiet,
         searchedPaths: discoveryResult.searchedPaths
     });
 
@@ -1147,7 +1190,7 @@ export function createLintCommand(): Command {
             .option("--warn-ignored", "Report ignored-file warnings from ESLint output", false)
             .option("--formatter <name>", "Formatter output (stylish|json|checkstyle)", "stylish")
             .option("--max-warnings <count>", "Maximum warning count before exit code 1", "-1")
-            .option("--config <path>", "Explicit eslint flat config path")
+            .addOption(createConfigOption())
             .option("--no-default-config", "Disable bundled default config fallback")
             .addOption(createPathOption())
             .option("--project-strict", `Fail when lint targets fall outside forced ${PATH_OPTION_FLAGS} root`, false)

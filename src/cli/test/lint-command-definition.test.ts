@@ -28,6 +28,7 @@ void test("lint --help output documents --path and --list options", async () => 
     const { stdout } = await runCliTestCommand({ argv: ["lint", "--help"] });
 
     assert.match(stdout, /--path <path>/);
+    assert.match(stdout, /--config <path>/);
     assert.match(stdout, /--list/);
     assert.match(stdout, /--verbose/);
 });
