@@ -952,30 +952,12 @@ export class RefactorEngine {
             throw new Error("planBatchRename requires at least one rename");
         }
 
-        // Validate all rename requests first
-        const symbolIds = new Set<string>();
-        for (const rename of renames) {
-            assertRenameRequest(rename, "Each rename in planBatchRename");
-            if (symbolIds.has(rename.symbolId)) {
-                throw new Error(`Duplicate rename request for symbolId '${rename.symbolId}'`);
-            }
-            symbolIds.add(rename.symbolId);
-            assertValidIdentifierName(rename.newName);
-        }
-
-        // Ensure no two renames target the same new name, which would cause
-        // multiple symbols to collide after the refactoring. For example, renaming
-        // both `foo` and `bar` to `baz` would leave only one symbol named `baz`,
-        // breaking references to the other. We detect this early to avoid
-        // generating a corrupted workspace edit.
-        const newNames = new Set<string>();
-        for (const rename of renames) {
-            const normalizedNewName = assertValidIdentifierName(rename.newName);
-            if (newNames.has(normalizedNewName)) {
-                throw new Error(`Cannot rename multiple symbols to '${normalizedNewName}'`);
-            }
-            newNames.add(normalizedNewName);
-        }
+        // Validate that every individual rename request is structurally valid and
+        // that the batch contains no duplicate source or target names. These checks
+        // are delegated to focused helpers so the orchestration sequence stays
+        // readable at a single abstraction level.
+        assertBatchHasUniqueSymbolIds(renames);
+        assertBatchHasUniqueTargetNames(renames);
 
         // Detect circular rename chains where symbol names form a cycle, such as
         // renaming A→B and B→A simultaneously. These chains create conflicts because
@@ -995,7 +977,7 @@ export class RefactorEngine {
         // Plan each rename independently and merge immediately to avoid retaining
         // every intermediate workspace in memory for large rename batches.
         const merged = new WorkspaceEdit();
-        const mergedMetadataEditsByPath = new Map<string, string>();
+        const metadataEditsByPath = new Map<string, string>();
         const semantic = this.semantic;
         const supportsBatchWorkspaceOverlay = semanticSupportsBatchWorkspaceOverlay(semantic);
 
@@ -1006,16 +988,7 @@ export class RefactorEngine {
         try {
             await Core.runSequentially(renames, async (rename) => {
                 const workspace = await this.planRename(rename);
-                for (const edit of workspace.edits) {
-                    merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
-                }
-                const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
-                for (const metadataEdit of metadataEdits) {
-                    mergedMetadataEditsByPath.set(metadataEdit.path, metadataEdit.content);
-                }
-                for (const fileRename of fileRenames) {
-                    merged.addFileRename(fileRename.oldPath, fileRename.newPath);
-                }
+                accumulateRenameWorkspace(merged, workspace, metadataEditsByPath);
 
                 if (supportsBatchWorkspaceOverlay) {
                     await (semantic as any).stageWorkspaceEdit(workspace);
@@ -1031,9 +1004,11 @@ export class RefactorEngine {
             }
         }
 
-        for (const [metadataPath, metadataContent] of mergedMetadataEditsByPath.entries()) {
-            merged.addMetadataEdit(metadataPath, metadataContent);
-        }
+        // Metadata edits are keyed by file path so that later renames win over
+        // earlier ones when multiple renames touch the same metadata file. Flush
+        // the deduplicated map into the final workspace only after all individual
+        // renames have been planned.
+        flushDedupedMetadataEdits(merged, metadataEditsByPath);
 
         // Validate the merged result for overlapping edits
         const validation = await this.validateRename(merged);
@@ -2411,6 +2386,79 @@ export class RefactorEngine {
      */
     getSemanticCacheStats() {
         return this.semanticCache.getStats();
+    }
+}
+
+/**
+ * Assert that every rename request in the batch has a unique source symbol ID.
+ * Validates each request's structure and identifier name while detecting
+ * duplicates, so both concerns are handled in a single linear pass.
+ *
+ * @throws {Error} When any request fails structural validation or a symbol ID appears more than once.
+ */
+function assertBatchHasUniqueSymbolIds(renames: Array<RenameRequest>): void {
+    const seenSymbolIds = new Set<string>();
+    for (const rename of renames) {
+        assertRenameRequest(rename, "Each rename in planBatchRename");
+        if (seenSymbolIds.has(rename.symbolId)) {
+            throw new Error(`Duplicate rename request for symbolId '${rename.symbolId}'`);
+        }
+        seenSymbolIds.add(rename.symbolId);
+        assertValidIdentifierName(rename.newName);
+    }
+}
+
+/**
+ * Assert that no two renames in the batch target the same normalized name.
+ * Renaming multiple symbols to the same name would cause them to collide after
+ * the refactoring (e.g., renaming both `foo` and `bar` to `baz`), which would
+ * produce a corrupted workspace edit.
+ *
+ * @throws {Error} When two or more renames share the same normalized target name.
+ */
+function assertBatchHasUniqueTargetNames(renames: Array<RenameRequest>): void {
+    const seenTargetNames = new Set<string>();
+    for (const rename of renames) {
+        const normalizedNewName = assertValidIdentifierName(rename.newName);
+        if (seenTargetNames.has(normalizedNewName)) {
+            throw new Error(`Cannot rename multiple symbols to '${normalizedNewName}'`);
+        }
+        seenTargetNames.add(normalizedNewName);
+    }
+}
+
+/**
+ * Merge a single rename's workspace result into the running accumulator.
+ * Text edits and file renames are applied directly to `merged`; metadata edits
+ * are keyed by path in `metadataEditsByPath` so later renames win when multiple
+ * renames touch the same metadata file.
+ */
+function accumulateRenameWorkspace(
+    merged: WorkspaceEdit,
+    workspace: WorkspaceEdit,
+    metadataEditsByPath: Map<string, string>
+): void {
+    for (const edit of workspace.edits) {
+        merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
+    }
+    const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
+    for (const metadataEdit of metadataEdits) {
+        metadataEditsByPath.set(metadataEdit.path, metadataEdit.content);
+    }
+    for (const fileRename of fileRenames) {
+        merged.addFileRename(fileRename.oldPath, fileRename.newPath);
+    }
+}
+
+/**
+ * Flush the deduplicated metadata edits collected during batch rename planning
+ * into the final merged workspace. Call this once after all individual renames
+ * have been accumulated so that each metadata file receives at most one edit,
+ * with later renames taking precedence over earlier ones.
+ */
+function flushDedupedMetadataEdits(merged: WorkspaceEdit, metadataEditsByPath: Map<string, string>): void {
+    for (const [metadataPath, metadataContent] of metadataEditsByPath.entries()) {
+        merged.addMetadataEdit(metadataPath, metadataContent);
     }
 }
 
