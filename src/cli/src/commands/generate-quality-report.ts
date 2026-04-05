@@ -998,6 +998,13 @@ function buildBaseStatusesByFileAndName(baseResults: Map<string, unknown>): Map<
 }
 
 /**
+ * Return true when a record originated from canonical `tests.xml`.
+ */
+function isCanonicalTestRecord(record: TestRecordEntry): boolean {
+    return typeof record.reportFilePath === "string" && isCanonicalTestsXmlReportPath(record.reportFilePath);
+}
+
+/**
  * Build a lookup of target statuses from canonical `tests.xml` keyed by
  * `(file, testName)`.
  *
@@ -1011,7 +1018,7 @@ function buildCanonicalTargetStatusesByFileAndName(targetResults: Map<string, un
     const index = new Map<string, string>();
     for (const record of targetResults.values()) {
         const r = record as TestRecordEntry;
-        if (!isCanonicalTestsXmlReportPath(r.reportFilePath ?? "")) {
+        if (!isCanonicalTestRecord(r)) {
             continue;
         }
         if (
@@ -1103,8 +1110,7 @@ function createRegressionRecord({
     const { fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
     const identityKey = fileLowerCase && name ? `${fileLowerCase}${FILE_NAME_SEPARATOR}${name}` : "";
     const canonicalTargetStatus = identityKey ? canonicalTargetStatusesByFileAndName.get(identityKey) : undefined;
-    const targetRecordIsCanonical = isCanonicalTestsXmlReportPath(targetRecord.reportFilePath ?? "");
-    if (!targetRecordIsCanonical && canonicalTargetStatus) {
+    if (!isCanonicalTestRecord(targetRecord) && canonicalTargetStatus) {
         return null;
     }
 
