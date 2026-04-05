@@ -851,6 +851,153 @@ void test("executeConfiguredCodemods keeps mixed local and top-level namingConve
     assert.equal(result.appliedFiles.get(filePath), "");
 });
 
+void test("executeConfiguredCodemods preserves duplicate levelColmesh overlap safety after high-volume top-level edits", async () => {
+    const sourceText = [
+        "function setup() {",
+        "    var treeMesh = levelColmesh;",
+        "    cm_add(levelColmesh, treeMesh);",
+        "}",
+        ""
+    ].join("\n");
+    const filePath = "objects/demo/Create_0.gml";
+    const fillerFilePath = "scripts/filler.gml";
+    const fillerSource = "a".repeat(3000);
+    const localDefinitionStart = sourceText.indexOf("treeMesh");
+    const localReferenceStart = sourceText.lastIndexOf("treeMesh");
+    const firstGlobalReferenceStart = sourceText.indexOf("levelColmesh");
+    const secondGlobalReferenceStart = sourceText.lastIndexOf("levelColmesh");
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "treeMesh",
+                category: "localVariable",
+                path: filePath,
+                scopeId: "scope:treeMesh",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: filePath,
+                        start: localDefinitionStart,
+                        end: localDefinitionStart + "treeMesh".length,
+                        kind: Refactor.OccurrenceKind.DEFINITION,
+                        scopeId: "scope:treeMesh"
+                    },
+                    {
+                        path: filePath,
+                        start: localReferenceStart,
+                        end: localReferenceStart + "treeMesh".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:treeMesh"
+                    }
+                ]
+            },
+            {
+                name: "levelColmesh",
+                category: "instanceVariable",
+                path: filePath,
+                scopeId: "scope:instance",
+                symbolId: null,
+                occurrences: [
+                    {
+                        path: filePath,
+                        start: firstGlobalReferenceStart,
+                        end: firstGlobalReferenceStart + "levelColmesh".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:instance"
+                    },
+                    {
+                        path: filePath,
+                        start: secondGlobalReferenceStart,
+                        end: secondGlobalReferenceStart + "levelColmesh".length,
+                        kind: Refactor.OccurrenceKind.REFERENCE,
+                        scopeId: "scope:instance"
+                    }
+                ]
+            },
+            {
+                name: "levelColmesh",
+                category: "globalVariable",
+                path: filePath,
+                scopeId: null,
+                symbolId: "gml/globalvar/levelColmesh",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const writes = new Map<string, string>();
+    const topLevelWorkspace = new Refactor.WorkspaceEdit();
+    for (let index = 0; index <= 1024; index += 1) {
+        topLevelWorkspace.addEdit(fillerFilePath, index * 2, index * 2 + 1, "b");
+    }
+    topLevelWorkspace.addEdit(
+        filePath,
+        secondGlobalReferenceStart,
+        secondGlobalReferenceStart + "levelColmesh".length,
+        "level_colmesh"
+    );
+    topLevelWorkspace.addEdit(
+        filePath,
+        firstGlobalReferenceStart,
+        firstGlobalReferenceStart + "levelColmesh".length,
+        "level_colmesh"
+    );
+
+    Object.assign(engine, {
+        async prepareBatchRenamePlan(
+            request: Array<{ symbolId: string; newName: string }>
+        ): Promise<BatchRenamePlanSummary> {
+            assert.deepEqual(request, [{ symbolId: "gml/globalvar/levelColmesh", newName: "level_colmesh" }]);
+            return createBatchRenamePlanSummary([], topLevelWorkspace);
+        },
+        async executeBatchRename(): Promise<never> {
+            throw new Error("write mode should not apply stale top-level batch renames after local edits");
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: [filePath, fillerFilePath],
+        config: {
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "lower_snake"
+                        },
+                        globalVariable: {
+                            caseStyle: "lower_snake"
+                        },
+                        instanceVariable: {
+                            caseStyle: "lower_snake"
+                        }
+                    }
+                }
+            }
+        },
+        readFile: async (readPath) => (readPath === filePath ? sourceText : fillerSource),
+        writeFile: async (writtenFilePath, content) => {
+            writes.set(writtenFilePath, content);
+        },
+        dryRun: false
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, true);
+    assert.equal(result.summaries[0]?.errors.length, 0);
+    assert.equal(
+        writes.get(filePath),
+        [
+            "function setup() {",
+            "    var tree_mesh = level_colmesh;",
+            "    cm_add(level_colmesh, tree_mesh);",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 void test("executeConfiguredCodemods honors project-relative target paths for namingConvention selection", async () => {
     const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
     const firstOccurrence = sourceText.indexOf("bad_name");
@@ -1849,6 +1996,89 @@ void test("executeConfiguredCodemods requests naming targets by selected GML fil
     assert.ok(listCalls[0]?.includes("/project/scripts/example.gml"));
     assert.ok(listCalls[0]?.includes("scripts/example.yy"));
     assert.ok(listCalls[0]?.includes("/project/scripts/example.yy"));
+});
+
+void test("executeConfiguredCodemods recovers naming targets when one file fails semantic parsing", async () => {
+    const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
+    const brokenSourceText = "function broken_script() {\n    var x = ;\n}\n";
+    const firstOccurrence = sourceText.indexOf("bad_name");
+    const secondOccurrence = sourceText.lastIndexOf("bad_name");
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async (filePaths?: Array<string>) => {
+            const selectedPaths = filePaths ?? [];
+            if (selectedPaths.some((filePath) => filePath.includes("broken.gml"))) {
+                throw new Error("Syntax Error (scripts/broken.gml: line 2, column 12): unexpected symbol ';'");
+            }
+            if (!selectedPaths.some((filePath) => filePath.includes("example.gml"))) {
+                return [];
+            }
+
+            return [
+                {
+                    name: "bad_name",
+                    category: "localVariable",
+                    path: "scripts/example.gml",
+                    scopeId: "scope:local",
+                    symbolId: null,
+                    occurrences: [
+                        {
+                            path: "scripts/example.gml",
+                            start: firstOccurrence,
+                            end: firstOccurrence + "bad_name".length,
+                            kind: Refactor.OccurrenceKind.DEFINITION,
+                            scopeId: "scope:local"
+                        },
+                        {
+                            path: "scripts/example.gml",
+                            start: secondOccurrence,
+                            end: secondOccurrence + "bad_name".length,
+                            kind: Refactor.OccurrenceKind.REFERENCE,
+                            scopeId: "scope:local"
+                        }
+                    ]
+                }
+            ];
+        }
+    };
+    const fileContents = new Map<string, string>([
+        ["scripts/example.gml", sourceText],
+        ["scripts/broken.gml", brokenSourceText]
+    ]);
+    const engine = new Refactor.RefactorEngine({ semantic });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["scripts/example.gml", "scripts/broken.gml"],
+        config: {
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "camel"
+                        }
+                    }
+                }
+            }
+        },
+        readFile: async (filePath) => fileContents.get(filePath) ?? ""
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.errors.length ?? 1, 0);
+    assert.ok(
+        result.summaries[0]?.warnings.some((warning) =>
+            warning.includes("Naming-convention target discovery encountered recoverable analysis errors")
+        ),
+        "expected fallback warning when the initial semantic query fails"
+    );
+    assert.ok(
+        result.summaries[0]?.warnings.some(
+            (warning) => warning.includes("Skipping naming-convention analysis for") && warning.includes("broken.gml")
+        ),
+        "expected a warning for the skipped broken file"
+    );
+    assert.equal(result.appliedFiles.get("scripts/example.gml"), "var badName = 1;\nshow_debug_message(badName);\n");
 });
 
 void test("executeConfiguredCodemods handles duplicate case-only local variable renames", async () => {

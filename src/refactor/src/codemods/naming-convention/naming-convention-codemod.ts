@@ -10,7 +10,9 @@ import type {
     MacroExpansionDependency,
     NamingCategory,
     NamingConventionCodemodPlan,
+    NamingConventionTarget,
     NamingConventionViolation,
+    PartialSemanticAnalyzer,
     RefactorProjectConfig,
     RenameRequest,
     ValidationSummary
@@ -490,6 +492,90 @@ function buildNamingTargetQueryPaths(projectRoot: string, selectedFilePaths: Arr
     return [...queryPaths];
 }
 
+function getNamingTargetIdentity(target: NamingConventionTarget): string {
+    const occurrenceIdentity = target.occurrences
+        .map(
+            (occurrence) =>
+                `${occurrence.path}:${occurrence.start}:${occurrence.end}:${occurrence.kind}:${occurrence.scopeId ?? ""}`
+        )
+        .join(",");
+    return `${target.path}:${target.category}:${target.name}:${target.scopeId ?? ""}:${target.symbolId ?? ""}:${occurrenceIdentity}`;
+}
+
+function deduplicateNamingTargets(targets: ReadonlyArray<NamingConventionTarget>): Array<NamingConventionTarget> {
+    const seen = new Set<string>();
+    const deduplicated: Array<NamingConventionTarget> = [];
+    for (const target of targets) {
+        const identity = getNamingTargetIdentity(target);
+        if (seen.has(identity)) {
+            continue;
+        }
+        seen.add(identity);
+        deduplicated.push(target);
+    }
+
+    return deduplicated;
+}
+
+async function listNamingConventionTargetsResilient(parameters: {
+    semantic: {
+        listNamingConventionTargets: NonNullable<PartialSemanticAnalyzer["listNamingConventionTargets"]>;
+    };
+    queryPaths: Array<string>;
+    requestedCategories: ReadonlyArray<NamingCategory>;
+}): Promise<{ targets: Array<NamingConventionTarget>; warnings: Array<string> }> {
+    const { semantic, queryPaths, requestedCategories } = parameters;
+    const warnings: Array<string> = [];
+    const listTargets = async (filePaths?: Array<string>): Promise<Array<NamingConventionTarget>> =>
+        await semantic.listNamingConventionTargets(filePaths, requestedCategories);
+
+    if (queryPaths.length === 0) {
+        try {
+            return {
+                targets: await listTargets(undefined),
+                warnings
+            };
+        } catch (error) {
+            warnings.push(
+                `Skipping naming-convention target discovery because semantic analysis failed: ${Core.getErrorMessage(error)}`
+            );
+            return { targets: [], warnings };
+        }
+    }
+
+    const listTargetsByPath = async (paths: Array<string>): Promise<Array<NamingConventionTarget>> => {
+        try {
+            return await listTargets(paths);
+        } catch (error) {
+            if (paths.length === 1) {
+                warnings.push(`Skipping naming-convention analysis for ${paths[0]}: ${Core.getErrorMessage(error)}`);
+                return [];
+            }
+
+            const midpoint = Math.floor(paths.length / 2);
+            const leftTargets = await listTargetsByPath(paths.slice(0, midpoint));
+            const rightTargets = await listTargetsByPath(paths.slice(midpoint));
+            return [...leftTargets, ...rightTargets];
+        }
+    };
+
+    try {
+        return {
+            targets: await listTargets(queryPaths),
+            warnings
+        };
+    } catch (error) {
+        warnings.push(
+            `Naming-convention target discovery encountered recoverable analysis errors and retried per path: ${Core.getErrorMessage(error)}`
+        );
+        const recoveredTargets = await listTargetsByPath(queryPaths);
+        return {
+            targets: deduplicateNamingTargets(recoveredTargets),
+            warnings
+        };
+    }
+}
+
 /**
  * Plan naming-policy-driven edits for the selected project paths.
  */
@@ -548,10 +634,16 @@ export async function planNamingConventionCodemod(
 
     const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) => isSelectedTargetPath(filePath));
     const queryPaths = buildNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths);
-    const queriedTargets = await semantic.listNamingConventionTargets(
-        queryPaths.length === 0 ? undefined : queryPaths,
+    const namingTargetProvider = {
+        listNamingConventionTargets: semantic.listNamingConventionTargets
+    };
+    const queriedTargetsResult = await listNamingConventionTargetsResilient({
+        semantic: namingTargetProvider,
+        queryPaths,
         requestedCategories
-    );
+    });
+    warnings.push(...queriedTargetsResult.warnings);
+    const queriedTargets = queriedTargetsResult.targets;
     const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));
     const requiresMacroDependencyAnalysis = selectedTargets.some((target) => target.symbolId === null);
     const macroDependencyNamesByFile =

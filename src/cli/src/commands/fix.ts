@@ -277,6 +277,7 @@ function createLintStageCommand(options: ValidatedFixCommandOptions): CommanderC
             verbose: options.verbose,
             path: options.projectRoot,
             projectStrict: true,
+            allowParseErrors: true,
             quiet: false,
             noDefaultConfig: false
         },
@@ -290,6 +291,7 @@ function createFormatStageCommand(options: ValidatedFixCommandOptions): Commande
         options: {
             path: options.projectRoot,
             fix: !options.dryRun,
+            onParseError: "skip",
             verbose: options.verbose
         },
         helpText: "format [options]"

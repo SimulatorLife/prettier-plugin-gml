@@ -75,10 +75,15 @@ type WorkspaceEditMutableState = {
 const workspaceEditExactKeyState = new WeakMap<WorkspaceEdit, Set<string>>();
 const workspaceEditMutableState = new WeakMap<WorkspaceEdit, WorkspaceEditMutableState>();
 const TEXT_EDIT_IDENTITY_DELIMITER = "\u0000";
+const GROUPED_TEXT_EDIT_IDENTITY_DELIMITER = "\u0001";
 const DUPLICATE_EDIT_CHECK_MAX_SET_SIZE = 1024;
 
 function createTextEditIdentityKey(path: string, start: number, end: number, newText: string): string {
     return [path, String(start), String(end), newText].join(TEXT_EDIT_IDENTITY_DELIMITER);
+}
+
+function createGroupedTextEditIdentityKey(start: number, end: number, newText: string): string {
+    return [String(start), String(end), newText].join(GROUPED_TEXT_EDIT_IDENTITY_DELIMITER);
 }
 
 function getExactEditKeys(workspace: WorkspaceEdit): Set<string> {
@@ -171,6 +176,7 @@ export class WorkspaceEdit {
         }
 
         const grouped: GroupedTextEdits = new Map();
+        const groupedEditKeysByPath = new Map<string, Set<string>>();
 
         for (const edit of this.edits) {
             let fileEdits = grouped.get(edit.path);
@@ -178,6 +184,18 @@ export class WorkspaceEdit {
                 fileEdits = [];
                 grouped.set(edit.path, fileEdits);
             }
+
+            let groupedEditKeys = groupedEditKeysByPath.get(edit.path);
+            if (!groupedEditKeys) {
+                groupedEditKeys = new Set<string>();
+                groupedEditKeysByPath.set(edit.path, groupedEditKeys);
+            }
+
+            const groupedEditIdentity = createGroupedTextEditIdentityKey(edit.start, edit.end, edit.newText);
+            if (groupedEditKeys.has(groupedEditIdentity)) {
+                continue;
+            }
+            groupedEditKeys.add(groupedEditIdentity);
 
             fileEdits.push({
                 start: edit.start,

@@ -770,6 +770,31 @@ void test("prefer-string-interpolation rewrites string coercion calls with non-t
     assertEquals(result.output, expected);
 });
 
+void test("prefer-string-interpolation keeps full owner expressions for array access string coercions", () => {
+    const input =
+        'dump += "\\n  flat_player_render_mode: " + string(flat_player_render_mode[@ flat_player_render_mode]) + ",";\n';
+    const expected =
+        'dump += $"\\n  flat_player_render_mode: {flat_player_render_mode[@ flat_player_render_mode]},";\n';
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-string-interpolation keeps full owner expressions for member access string coercions", () => {
+    const input = 'dump += "pos=[" + string(player_pos.x) + "," + string(player_pos.y) + "]";\n';
+    const expected = 'dump += $"pos=[{player_pos.x},{player_pos.y}]";\n';
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("prefer-string-interpolation keeps full owner expressions for direct member concatenations", () => {
+    const input =
+        'dump += "\\n  flat_player_render_mode: " + flat_player_render_mode_names[@ flat_player_render_mode] + ",";\n';
+    const expected =
+        'dump += $"\\n  flat_player_render_mode: {flat_player_render_mode_names[@ flat_player_render_mode]},";\n';
+    const result = lintWithRule("prefer-string-interpolation", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("prefer-string-interpolation rewrites nested concatenation chains with a single diagnostic", () => {
     const input = 'message = ("HP: " + value) + " / 99";\n';
     const expected = 'message = $"HP: {value} / 99";\n';

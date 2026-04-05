@@ -166,7 +166,7 @@ void test("WorkspaceEdit ignores exact duplicate text edits", () => {
     });
 });
 
-void test("WorkspaceEdit duplicate dedupe guard disables after modest edit volumes", () => {
+void test("WorkspaceEdit groupByFile de-duplicates exact duplicates after the addEdit guard disables", () => {
     const workspace = new WorkspaceEdit();
 
     for (let index = 0; index <= 1024; index += 1) {
@@ -175,6 +175,10 @@ void test("WorkspaceEdit duplicate dedupe guard disables after modest edit volum
 
     workspace.addEdit("scripts/example.gml", 1024, 1025, "x");
     assert.equal(workspace.edits.length, 1026);
+
+    const grouped = workspace.groupByFile();
+    const groupedEdits = grouped.get("scripts/example.gml") ?? [];
+    assert.equal(groupedEdits.length, 1025);
 });
 
 void test("WorkspaceEdit revision only advances when the workspace changes", () => {

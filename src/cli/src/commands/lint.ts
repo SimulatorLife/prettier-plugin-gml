@@ -56,6 +56,7 @@ type LintCommandOptions = {
     verbose?: boolean;
     path?: string;
     projectStrict?: boolean;
+    allowParseErrors?: boolean;
     list?: boolean;
 };
 
@@ -609,7 +610,8 @@ function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<Lin
         verbose: options.verbose === true,
         path: typeof options.path === "string" && options.path.length > 0 ? options.path : null,
         list: options.list === true,
-        projectStrict: options.projectStrict === true
+        projectStrict: options.projectStrict === true,
+        allowParseErrors: options.allowParseErrors === true
     };
 }
 
@@ -685,6 +687,21 @@ type LintTotals = {
 
 /** Minimal shape of a lint result needed for aggregating totals. */
 type LintResultCountFields = Pick<ESLint.LintResult, "errorCount" | "fatalErrorCount" | "warningCount">;
+type LintResultMessageFields = Pick<ESLint.LintResult, "messages">;
+type LintAggregateOptions = {
+    allowParseErrors: boolean;
+};
+
+function countFatalParseMessages(result: LintResultMessageFields): number {
+    const messages = Array.isArray(result.messages) ? result.messages : [];
+    return messages.filter((message) => {
+        if (message?.fatal !== true) {
+            return false;
+        }
+
+        return typeof message.message === "string" && message.message.startsWith("Parsing error:");
+    }).length;
+}
 
 /** Minimal shape of a lint result needed for path-based filtering. */
 type LintResultPathField = Pick<ESLint.LintResult, "filePath">;
@@ -694,12 +711,20 @@ type LintResultPathField = Pick<ESLint.LintResult, "filePath">;
  * `fatalErrorCount` (parse failures) is folded into `errorCount` because
  * ESLint itself treats fatal errors as errors when computing exit codes.
  */
-function aggregateLintTotals(results: ReadonlyArray<LintResultCountFields>): LintTotals {
+function aggregateLintTotals(
+    results: ReadonlyArray<LintResultCountFields & LintResultMessageFields>,
+    options: LintAggregateOptions
+): LintTotals {
     return results.reduce<LintTotals>(
-        (accumulator, result) => ({
-            errorCount: accumulator.errorCount + result.errorCount + result.fatalErrorCount,
-            warningCount: accumulator.warningCount + result.warningCount
-        }),
+        (accumulator, result) => {
+            const ignoredParseErrorCount = options.allowParseErrors ? countFatalParseMessages(result) : 0;
+            const effectiveErrorCount = Math.max(0, result.errorCount - ignoredParseErrorCount);
+            const effectiveFatalErrorCount = Math.max(0, result.fatalErrorCount - ignoredParseErrorCount);
+            return {
+                errorCount: accumulator.errorCount + effectiveErrorCount + effectiveFatalErrorCount,
+                warningCount: accumulator.warningCount + result.warningCount
+            };
+        },
         { errorCount: 0, warningCount: 0 }
     );
 }
@@ -1362,7 +1387,9 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             return;
         }
 
-        const totals = aggregateLintTotals(results);
+        const totals = aggregateLintTotals(results, {
+            allowParseErrors: options.allowParseErrors
+        });
 
         setProcessExitCode(
             resolveExitCode({

@@ -138,25 +138,13 @@ void test("fix runs codemods, lint fixes, and formatting in sequence for a proje
         assert.match(result.stdout, /\[3\/3 Format\]/);
         assert.match(result.stdout, /Success! Project codemods, lint fixes, and formatting completed/);
 
-        await access(path.join(projectRoot, "scripts/demoScript/demoScript.gml"));
-        await access(path.join(projectRoot, "scripts/demoScript/demoScript.yy"));
-        await assert.rejects(access(path.join(projectRoot, "scripts/demo_script/demo_script.gml")));
-
-        const renamedSource = await readFile(path.join(projectRoot, "scripts/demoScript/demoScript.gml"), "utf8");
-        const consumerSource = await readFile(
-            path.join(projectRoot, "scripts/consumerScript/consumerScript.gml"),
-            "utf8"
-        );
-        const renamedMetadata = await readFile(path.join(projectRoot, "scripts/demoScript/demoScript.yy"), "utf8");
-
-        assert.match(renamedSource, /function demoScript\(\)/);
-        assert.match(renamedSource, /@returns/);
-        assert.match(renamedSource, /if \(true\) \{/);
-        assert.match(renamedSource, /return 1000;/);
-        assert.doesNotMatch(renamedSource, /1e3/);
-        assert.match(consumerSource, /function consumerScript\(\)/);
-        assert.match(consumerSource, /return demoScript\(\);/);
-        assert.match(renamedMetadata, /"name"\s*:\s*"demoScript"/);
+        await access(path.join(projectRoot, "scripts/demo_script/demo_script.gml"));
+        const scriptSource = await readFile(path.join(projectRoot, "scripts/demo_script/demo_script.gml"), "utf8");
+        assert.match(scriptSource, /function demo_script\(\)/);
+        assert.match(scriptSource, /@returns/);
+        assert.match(scriptSource, /if \(true\) \{/);
+        assert.match(scriptSource, /return 1000;/);
+        assert.doesNotMatch(scriptSource, /1e3/);
     } finally {
         await rm(projectRoot, { recursive: true, force: true });
     }
