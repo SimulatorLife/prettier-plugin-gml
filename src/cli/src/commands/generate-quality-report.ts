@@ -946,7 +946,7 @@ function resolveResultsMap(resultSet) {
 
 /** Shared record shape for test-case entries in the results maps. */
 type TestRecordNode = { file?: string; name?: string };
-type TestRecordEntry = { status?: string; node?: TestRecordNode };
+type TestRecordEntry = { status?: string; node?: TestRecordNode; reportFilePath?: string };
 
 /** Separator used when combining file path and test name into a lookup key. */
 const FILE_NAME_SEPARATOR = "::";
@@ -982,6 +982,45 @@ function buildBaseStatusesByFileAndName(baseResults: Map<string, unknown>): Map<
     const index = new Map<string, string>();
     for (const record of baseResults.values()) {
         const r = record as TestRecordEntry;
+        if (
+            r.status !== TestCaseStatus.FAILED &&
+            r.status !== TestCaseStatus.PASSED &&
+            r.status !== TestCaseStatus.SKIPPED
+        ) {
+            continue;
+        }
+        const { fileLowerCase, name } = getNormalizedTestRecordIdentity(r);
+        if (fileLowerCase && name) {
+            index.set(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`, r.status);
+        }
+    }
+    return index;
+}
+
+/**
+ * Return true when a record originated from canonical `tests.xml`.
+ */
+function isCanonicalTestRecord(record: TestRecordEntry): boolean {
+    return typeof record.reportFilePath === "string" && isCanonicalTestsXmlReportPath(record.reportFilePath);
+}
+
+/**
+ * Build a lookup of target statuses from canonical `tests.xml` keyed by
+ * `(file, testName)`.
+ *
+ * When auxiliary XML reports carry malformed suite wrappers, the same logical
+ * test may appear under a different key and look like a new failure. Canonical
+ * `tests.xml` output is authoritative when present, so regression detection
+ * should ignore auxiliary duplicates that map back to an existing canonical
+ * identity.
+ */
+function buildCanonicalTargetStatusesByFileAndName(targetResults: Map<string, unknown>): Map<string, string> {
+    const index = new Map<string, string>();
+    for (const record of targetResults.values()) {
+        const r = record as TestRecordEntry;
+        if (!isCanonicalTestRecord(r)) {
+            continue;
+        }
         if (
             r.status !== TestCaseStatus.FAILED &&
             r.status !== TestCaseStatus.PASSED &&
@@ -1054,15 +1093,24 @@ function createRegressionRecord({
     key,
     targetRecord,
     baseStatusesByFileAndName,
+    canonicalTargetStatusesByFileAndName,
     targetFilesWithPassingTests
 }: {
     baseResults: Map<string, unknown>;
     key: string;
     targetRecord: TestRecordEntry | null | undefined;
     baseStatusesByFileAndName: Map<string, string>;
+    canonicalTargetStatusesByFileAndName: Map<string, string>;
     targetFilesWithPassingTests: Set<string>;
 }): { key: string; from: string; to: string; detail: unknown } | null {
     if (!targetRecord || targetRecord.status !== TestCaseStatus.FAILED) {
+        return null;
+    }
+
+    const { fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
+    const identityKey = fileLowerCase && name ? `${fileLowerCase}${FILE_NAME_SEPARATOR}${name}` : "";
+    const canonicalTargetStatus = identityKey ? canonicalTargetStatusesByFileAndName.get(identityKey) : undefined;
+    if (!isCanonicalTestRecord(targetRecord) && canonicalTargetStatus) {
         return null;
     }
 
@@ -1080,11 +1128,7 @@ function createRegressionRecord({
     if (baseStatus === undefined) {
         // Newly introduced tests are intentionally excluded from regression checks.
         // Only renamed tests that map back to an existing base status are eligible.
-        const { fileLowerCase, name } = getNormalizedTestRecordIdentity(targetRecord);
-        const renamedBaseStatus =
-            fileLowerCase && name
-                ? baseStatusesByFileAndName.get(`${fileLowerCase}${FILE_NAME_SEPARATOR}${name}`)
-                : undefined;
+        const renamedBaseStatus = identityKey ? baseStatusesByFileAndName.get(identityKey) : undefined;
         if (!renamedBaseStatus) {
             return null;
         }
@@ -1116,6 +1160,7 @@ function createRegressionRecord({
 function collectRegressions({ baseResults, targetResults }) {
     const regressions = [];
     const baseStatusesByFileAndName = buildBaseStatusesByFileAndName(baseResults);
+    const canonicalTargetStatusesByFileAndName = buildCanonicalTargetStatusesByFileAndName(targetResults);
     const targetFilesWithPassingTests = buildTargetFilesWithPassingTests(targetResults);
 
     for (const [key, targetRecord] of targetResults.entries()) {
@@ -1124,6 +1169,7 @@ function collectRegressions({ baseResults, targetResults }) {
             key,
             targetRecord,
             baseStatusesByFileAndName,
+            canonicalTargetStatusesByFileAndName,
             targetFilesWithPassingTests
         });
 

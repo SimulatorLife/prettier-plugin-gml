@@ -3378,11 +3378,15 @@ function shouldFlattenSyntheticBinary(parent, expression, _path) {
         return false;
     }
 
+    const parentKey = safeGetPathName(_path);
+
     if (parent.operator === expression.operator) {
+        if ((parent.operator === "-" || parent.operator === "/") && parentKey === "right") {
+            return false;
+        }
         return true;
     }
 
-    const parentKey = safeGetPathName(_path);
     const parentIsAdditive = parent.operator === "+" || parent.operator === "-";
     const expressionIsAdditive = expression.operator === "+" || expression.operator === "-";
     if (!parentIsAdditive || !expressionIsAdditive) {
@@ -3404,6 +3408,12 @@ function shouldFlattenMultiplicationChain(parent, expression, _path) {
     const expressionInfo = getBinaryOperatorInfo(expression.operator);
 
     if (!parentInfo || !expressionInfo) {
+        return false;
+    }
+
+    const parentOperandKey = safeGetPathName(_path);
+
+    if (parent.operator === "/" && parentOperandKey === "right") {
         return false;
     }
 

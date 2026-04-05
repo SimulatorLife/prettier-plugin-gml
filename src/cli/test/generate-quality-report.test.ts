@@ -719,6 +719,51 @@ void test("does not report regressions when only auxiliary performance.xml diffe
     assert.strictEqual(regressions.length, 0);
 });
 
+void test("does not report regressions from auxiliary renamed failures when canonical tests.xml is passing", () => {
+    const baseDir = path.join(workspace, "base/reports");
+    const headDir = path.join(workspace, "reports");
+
+    writeXml(
+        baseDir,
+        "tests",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="stable test" classname="suite" file="/repo/src/cli/dist/test/stable.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "tests",
+        `<testsuites>
+      <testsuite name="root">
+        <testcase name="stable test" classname="suite" file="/repo/src/cli/dist/test/stable.test.js" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "performance",
+        `<testsuites>
+      <undefined name="wrapper drift">
+        <testsuite name="root">
+          <testcase name="stable test" classname="suite" file="/repo/src/cli/dist/test/stable.test.js">
+            <failure message="transient worker failure" />
+          </testcase>
+        </testsuite>
+      </undefined>
+    </testsuites>`
+    );
+
+    const base = readTestResults(["base/reports"], { workspace });
+    const head = readTestResults(["reports"], { workspace });
+    const regressions = detectRegressions(base, head);
+
+    assert.strictEqual(regressions.length, 0);
+});
+
 void test("readTestResults preserves project health stats when present", () => {
     const resultsDir = path.join(workspace, "reports");
 
