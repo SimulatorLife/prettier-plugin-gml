@@ -215,14 +215,21 @@ void test("namingConvention stress test stays within the selected-file planning 
 //   - eliminating the double composeExpectedIdentifierName call in evaluateNamingConvention
 //   - caching path-resolution results inside createPathSelectionMatcher
 //   - pre-sorting bannedAffixes at resolve time to avoid per-call spread+sort
+//   - replacing regex-based splitIdentifierUnderscoreAffixes with a charCode scan
+//   - replacing the for...of iterator in toCamelCaseFromLowerSnakeCore with an
+//     indexed charCode loop to avoid iterator allocation overhead
+//   - inlining the Map increment in the collectLocalScopeNames hot loop instead
+//     of delegating to Core.incrementMapValue (which validates types on every call)
+//   - eliminating the spread+filter+map chain when building duplicateScopedDeclarationKeys
 //
-// Baseline (before optimisations): ~148 ms standalone, ~350 ms under CI suite load.
-// After optimisations: ~88 ms standalone, ~175 ms under CI suite load.
-// Threshold is set to 280 ms — well below the pre-optimisation estimate under load
+// Baseline (before first optimisation pass): ~148 ms standalone, ~350 ms under CI suite load.
+// After first optimisation pass: ~88 ms standalone, ~220 ms under parallel test load.
+// After second optimisation pass (this PR): ~33 ms standalone, ~194 ms under parallel test load.
+// Threshold is set to 240 ms — well below the pre-second-pass estimate under load
 // while providing enough headroom to absorb normal CI variance.
 const LARGE_FILE_COUNT = 300;
 const LARGE_TARGETS_PER_FILE = 50;
-const LARGE_PERFORMANCE_THRESHOLD_MS = 280;
+const LARGE_PERFORMANCE_THRESHOLD_MS = 240;
 
 void test("namingConvention large-scale stress test locks in the hot-path optimisation gain", async () => {
     const projectRoot = "/project";

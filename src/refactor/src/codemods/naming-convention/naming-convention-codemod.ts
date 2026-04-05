@@ -93,6 +93,9 @@ function getLocalDeclarationKey(target: { category: NamingCategory; name: string
  * rename planning can reason about currently-occupied normalized names while
  * avoiding duplicate declaration rows from semantic adapters.
  *
+ * Uses inline Map increment instead of `Core.incrementMapValue` to avoid the
+ * validation and type-coercion overhead of the generic helper in this hot path.
+ *
  * @param selectedTargets - Candidate naming targets returned by semantic.
  * @param localScopeNames - Destination normalized-name counters by scope.
  * @param localScopeDeclarations - Destination declaration dedupe sets by scope.
@@ -112,7 +115,8 @@ function collectLocalScopeNames(
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const declarationKey = getLocalDeclarationKey(target);
         const scopedDeclarationKey = `${scopeKey}:${declarationKey}`;
-        Core.incrementMapValue(scopedDeclarationCounts, scopedDeclarationKey);
+        // Inline increment avoids the validation overhead of Core.incrementMapValue in this hot loop.
+        scopedDeclarationCounts.set(scopedDeclarationKey, (scopedDeclarationCounts.get(scopedDeclarationKey) ?? 0) + 1);
         if (!scopeKeysRequiringNameConflictChecks.has(scopeKey)) {
             continue;
         }
@@ -124,7 +128,8 @@ function collectLocalScopeNames(
         }
 
         declarations.add(declarationKey);
-        Core.incrementMapValue(names, target.name.toLowerCase());
+        const normalizedName = target.name.toLowerCase();
+        names.set(normalizedName, (names.get(normalizedName) ?? 0) + 1);
         localScopeNames.set(scopeKey, names);
         localScopeDeclarations.set(scopeKey, declarations);
     }
@@ -272,7 +277,8 @@ function processLocalNamingConventionRename(parameters: {
     }
     if (existingNames !== undefined) {
         decrementScopedNameCount(existingNames, normalizedIdentifierName);
-        Core.incrementMapValue(existingNames, normalizedSuggestedName);
+        // Inline increment avoids the validation overhead of Core.incrementMapValue in this hot path.
+        existingNames.set(normalizedSuggestedName, (existingNames.get(normalizedSuggestedName) ?? 0) + 1);
         parameters.localScopeNames.set(scopeKey, existingNames);
     }
     return 1;
@@ -539,11 +545,15 @@ export async function planNamingConventionCodemod(
         scopedDeclarationCounts,
         scopeKeysRequiringNameConflictChecks
     );
-    const duplicateScopedDeclarationKeys = new Set(
-        [...scopedDeclarationCounts.entries()]
-            .filter(([, count]) => count > 1)
-            .map(([scopedDeclarationKey]) => scopedDeclarationKey)
-    );
+    // Build the duplicate-declaration key set without array spread to avoid
+    // allocating an intermediate array for the common case where most entries
+    // have count = 1 (no duplicates).
+    const duplicateScopedDeclarationKeys = new Set<string>();
+    for (const [scopedDeclarationKey, count] of scopedDeclarationCounts.entries()) {
+        if (count > 1) {
+            duplicateScopedDeclarationKeys.add(scopedDeclarationKey);
+        }
+    }
     const hasDuplicateScopedDeclarations = duplicateScopedDeclarationKeys.size > 0;
 
     for (const target of selectedTargets) {
