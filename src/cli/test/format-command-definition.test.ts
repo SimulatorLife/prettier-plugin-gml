@@ -21,6 +21,7 @@ void test("createFormatCommand exposes shared --list and --verbose options", () 
     const command = createFormatCommand();
 
     assert.ok(command.options.some((option) => option.long === "--path"));
+    assert.ok(command.options.some((option) => option.long === "--config"));
     assert.ok(command.options.some((option) => option.long === "--fix"));
     assert.ok(command.options.some((option) => option.long === "--list"));
     assert.ok(command.options.some((option) => option.long === "--verbose"));

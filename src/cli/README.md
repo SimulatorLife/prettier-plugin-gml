@@ -25,7 +25,9 @@ pnpm run cli -- path/to/project --help
 
 **Options:**
 
-- `--check` - Check if files are formatted without writing changes
+- `--path <path>` - Target file or directory path (defaults to current working directory)
+- `--config <path>` - Path to `gmloop.json` used for formatter-owned options
+- `--fix` - Apply formatting changes (without this flag, format runs in dry-run mode)
 - `--log-level <level>` - Set Prettier log level (debug, info, warn, error, silent)
 - `--verbose` - Emit per-file timing and total run duration diagnostics
 - `--on-parse-error <action>` - How to handle parse errors (skip, revert, abort)
@@ -52,7 +54,7 @@ pnpm run cli -- lint --fix path/to/project
 - `--warn-ignored` - Include ignored-file warnings from ESLint (disabled by default to reduce noisy output)
 - `--formatter <name>` - Formatter output (`stylish|json|checkstyle`)
 - `--max-warnings <count>` - Fail when warning count exceeds limit
-- `--config <path>` - Use an explicit flat config
+- `--config <path>` - Path to a custom/override `gmloop.json`
 - `--no-default-config` - Disable bundled fallback config
 - `--path <path>` - Force project root directory or `.yyp` path
 - `--project-strict` - Fail when linted files are outside forced project root
@@ -85,15 +87,15 @@ Runs the project-wide write workflow in one command:
 3. `format`
 
 ```bash
-pnpm run cli -- fix path/to/project
+pnpm run cli -- fix --path path/to/project
 pnpm run cli -- fix --only namingConvention
 ```
 
 **Options:**
 
-- `[projectPath]` - Project directory or `.yyp` path (default: current project)
 - `--path <path>` - Explicit GameMaker project root directory or `.yyp` path
-- `--config <path>` - Explicit `gmloop.json` path for the refactor stage
+- `--config <path>` - Path to a custom/override `gmloop.json`
+- `--fix` - Apply writes for the full workflow (without this flag, workflow runs dry-run)
 - `--only <ids>` - Comma-separated list of configured refactor codemod ids to run
 - `--verbose` - Enable verbose diagnostics for all three stages
 

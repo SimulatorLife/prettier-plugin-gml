@@ -19,6 +19,7 @@ import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { CliUsageError, isCliUsageError } from "../cli-core/errors.js";
 import {
     createApplyFixesOption,
+    createConfigOption,
     createListOption,
     createPathOption,
     createVerboseOption
@@ -527,7 +528,7 @@ export function createRefactorCommand(): Command {
         )
         .addOption(new Option("--new-name <name>", "New name for the symbol"))
         .addOption(createPathOption())
-        .addOption(new Option("--config <path>", "Path to gmloop.json for configured codemod execution"))
+        .addOption(createConfigOption())
         .addOption(createApplyFixesOption())
         .addOption(new Option("--only <ids>", "Comma-separated list of configured codemod ids to run"))
         .addOption(createListOption())
