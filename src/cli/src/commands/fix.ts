@@ -7,7 +7,13 @@ import { Command, Option } from "commander";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { CliUsageError } from "../cli-core/errors.js";
-import { createListOption, createPathOption, createVerboseOption } from "../cli-core/shared-command-options.js";
+import {
+    createApplyFixesOption,
+    createConfigOption,
+    createListOption,
+    createPathOption,
+    createVerboseOption
+} from "../cli-core/shared-command-options.js";
 import { SKIP_CLI_RUN_ENV_VAR } from "../shared/skip-cli-run.js";
 import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 import { runFormatCommand } from "./format.js";
@@ -17,6 +23,7 @@ import { executeRefactorCommand } from "./refactor.js";
 type FixCommandOptions = {
     path?: string;
     config?: string;
+    fix?: boolean;
     only?: string;
     verbose?: boolean;
     list?: boolean;
@@ -25,6 +32,7 @@ type FixCommandOptions = {
 type ValidatedFixCommandOptions = {
     projectRoot: string;
     configPath: string;
+    dryRun: boolean;
     only: string | undefined;
     verbose: boolean;
     list: boolean;
@@ -90,11 +98,6 @@ function createStubCommand(parameters: StubCommandParameters): CommanderCommandL
     };
 }
 
-function normalizeFixProjectArgument(command: CommanderCommandLike): string | undefined {
-    const projectArgument = Array.isArray(command.args) ? command.args[0] : undefined;
-    return typeof projectArgument === "string" && projectArgument.length > 0 ? projectArgument : undefined;
-}
-
 function getFixCommandUsage(command: CommanderCommandLike): string {
     return command.helpInformation();
 }
@@ -118,20 +121,16 @@ function createFixCommandValidationError(error: unknown, command: CommanderComma
 
 async function validateFixCommandOptions(command: CommanderCommandLike): Promise<ValidatedFixCommandOptions> {
     const options = (command.opts() ?? {}) as FixCommandOptions;
-    const projectArgument = normalizeFixProjectArgument(command);
-
-    if (projectArgument && options.path) {
-        throw new Error("Pass either a positional project path or --path, not both.");
-    }
 
     const projectRoot = await discoverProjectRoot({
-        explicitProjectPath: projectArgument ?? options.path,
+        explicitProjectPath: options.path,
         configPath: options.config
     });
 
     return {
         projectRoot,
         configPath: await resolveExistingGmloopConfigPath(projectRoot, options.config),
+        dryRun: options.fix !== true,
         only: options.only,
         verbose: options.verbose === true,
         list: options.list === true
@@ -192,7 +191,7 @@ function createRefactorStageCommand(options: ValidatedFixCommandOptions): Comman
         options: {
             path: options.projectRoot,
             config: options.configPath,
-            fix: true,
+            fix: !options.dryRun,
             only: options.only,
             list: false,
             verbose: options.verbose
@@ -202,7 +201,11 @@ function createRefactorStageCommand(options: ValidatedFixCommandOptions): Comman
 }
 
 function createRefactorCodemodArgs(options: ValidatedFixCommandOptions): Array<string> {
-    const args = ["refactor", "codemod", "--path", options.projectRoot, "--config", options.configPath, "--fix"];
+    const args = ["refactor", "codemod", "--path", options.projectRoot, "--config", options.configPath];
+
+    if (!options.dryRun) {
+        args.push("--fix");
+    }
 
     if (options.only) {
         args.push("--only", options.only);
@@ -262,14 +265,14 @@ function printFixCommandSettings(options: ValidatedFixCommandOptions): void {
     console.log(`Config path: ${options.configPath}`);
     console.log(`Selected codemods: ${selectedCodemods}`);
     console.log(`Verbose mode: ${options.verbose ? "enabled" : "disabled"}`);
-    console.log("Execution mode: apply changes (always enforced by fix workflow)");
+    console.log(`Execution mode: ${options.dryRun ? "dry-run (default)" : "apply changes (--fix)"}`);
 }
 
 function createLintStageCommand(options: ValidatedFixCommandOptions): CommanderCommandLike {
     return createStubCommand({
         args: [options.projectRoot],
         options: {
-            fix: true,
+            fix: !options.dryRun,
             formatter: "stylish",
             verbose: options.verbose,
             path: options.projectRoot,
@@ -286,7 +289,7 @@ function createFormatStageCommand(options: ValidatedFixCommandOptions): Commande
         args: [],
         options: {
             path: options.projectRoot,
-            fix: true,
+            fix: !options.dryRun,
             verbose: options.verbose
         },
         helpText: "format [options]"
@@ -336,9 +339,9 @@ export function createFixCommand(): Command {
     return applyStandardCommandOptions(
         new Command("fix")
             .description("Run project codemods, lint fixes, and formatting in sequence")
-            .argument("[projectPath]", "Project directory or .yyp path. Defaults to the current project.")
             .addOption(createPathOption())
-            .addOption(new Option("--config <path>", "Path to gmloop.json for the refactor codemod stage"))
+            .addOption(createConfigOption())
+            .addOption(createApplyFixesOption())
             .addOption(new Option("--only <ids>", "Comma-separated list of configured codemod ids to run"))
             .addOption(createListOption())
             .addOption(createVerboseOption())
@@ -346,7 +349,8 @@ export function createFixCommand(): Command {
                 [
                     "",
                     "Examples:",
-                    "  pnpm dlx prettier-plugin-gml fix path/to/project",
+                    "  pnpm dlx prettier-plugin-gml fix --path path/to/project",
+                    "  pnpm dlx prettier-plugin-gml fix --fix --path path/to/project",
                     "  pnpm dlx prettier-plugin-gml fix --only namingConvention",
                     ""
                 ].join("\n")
@@ -377,5 +381,7 @@ export async function runFixCommand(command: CommanderCommandLike): Promise<void
 
     await runFixWorkflowStages(options);
 
-    console.log("\nSuccess! Project codemods, lint fixes, and formatting completed.");
+    console.log(
+        `\nSuccess! Project codemods, lint fixes, and formatting completed (${options.dryRun ? "dry-run" : "write mode"}).`
+    );
 }

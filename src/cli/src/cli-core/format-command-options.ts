@@ -37,6 +37,7 @@ export interface CollectFormatCommandOptionsParameters {
 export interface FormatCommandOptionsResult extends FormatCommandSampleLimits, ResolvedPrettierConfiguration {
     targetPathInput: unknown;
     targetPathProvided: boolean;
+    configPath: string | null;
     rawTargetPathInput?: string;
     usage: string;
 }
@@ -114,6 +115,7 @@ export function collectFormatCommandOptions(
     return {
         targetPathInput,
         targetPathProvided,
+        configPath: getNonEmptyTrimmedString(options.config as string | undefined) ?? null,
         prettierLogLevel,
         onParseError,
         dryRunMode,

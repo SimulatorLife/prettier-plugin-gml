@@ -23,6 +23,7 @@ import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
 import {
     createApplyFixesOption,
+    createConfigOption,
     createListOption,
     createPathOption,
     createVerboseOption
@@ -61,6 +62,7 @@ import {
     readMonotonicNanoseconds
 } from "../shared/elapsed-time.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
+import { resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 import {
     isHelpRequest,
     resolveTargetPathFromInput,
@@ -71,10 +73,12 @@ import {
 const {
     compactArray,
     createEnumeratedOptionHelpers,
+    getNonEmptyTrimmedString,
     getErrorMessageOrFallback,
     isErrorLike,
     isNonEmptyArray,
     isPathInside,
+    loadGmloopProjectConfig,
     mergeUniqueValues,
     readTextFile,
     toArray,
@@ -400,6 +404,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             .description("Format GameMaker Language files using the prettier plugin.")
     )
         .addOption(createPathOption())
+        .addOption(createConfigOption())
         .addOption(createApplyFixesOption())
         .addOption(createListOption())
         .addOption(skippedDirectorySampleLimitOption)
@@ -1323,6 +1328,32 @@ async function resolveFormattingOptions(filePath): Promise<PrettierOptions> {
     return mergedOptions;
 }
 
+async function resolveProjectFormatOverrides(
+    configPath: string | null,
+    targetPath: string
+): Promise<Record<string, unknown>> {
+    const normalizedConfigPath = getNonEmptyTrimmedString(configPath);
+    if (!normalizedConfigPath) {
+        return {};
+    }
+
+    const targetStats = await stat(path.resolve(targetPath));
+    const projectRoot = targetStats.isDirectory() ? path.resolve(targetPath) : path.dirname(path.resolve(targetPath));
+    const resolvedConfigPath = await resolveExistingGmloopConfigPath(projectRoot, normalizedConfigPath);
+    const projectConfig = await loadGmloopProjectConfig(resolvedConfigPath);
+    const formatModule = await importFormatModule();
+    const formatNamespace = (formatModule as { Format?: { extractProjectFormatOptions?: unknown } }).Format;
+    const extractProjectFormatOptions = formatNamespace?.extractProjectFormatOptions;
+    if (typeof extractProjectFormatOptions !== "function") {
+        return {};
+    }
+
+    const extractedOptions = extractProjectFormatOptions(projectConfig);
+    return typeof extractedOptions === "object" && extractedOptions !== null
+        ? (extractedOptions as Record<string, unknown>)
+        : {};
+}
+
 async function formatSingleFile(filePath, activeIgnorePaths = []) {
     if (abortRequested) {
         return;
@@ -1572,6 +1603,7 @@ function printFormatCommandSettings(commandOptions: ReturnType<typeof collectFor
         `Execution mode: ${commandOptions.dryRunMode ? "dry-run (default, no writes)" : "apply changes (--fix)"}`
     );
     console.log(`Verbose mode: ${commandOptions.verbose ? "enabled" : "disabled"}`);
+    console.log(`Config path: ${commandOptions.configPath ?? "(auto-discover gmloop.json in project root)"}`);
     console.log(`Log level: ${commandOptions.prettierLogLevel}`);
     console.log(`Parse error mode: ${commandOptions.onParseError}`);
     console.log(
@@ -1600,7 +1632,8 @@ export async function runFormatCommand(command) {
         rawTargetPathInput,
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
-        unsupportedExtensionSampleLimit
+        unsupportedExtensionSampleLimit,
+        configPath
     } = commandOptions;
 
     if (list) {
@@ -1621,6 +1654,8 @@ export async function runFormatCommand(command) {
     const targetPath = resolveTargetPathFromInput(targetPathInput, {
         rawTargetPathInput
     });
+    const projectFormatOverrides = await resolveProjectFormatOverrides(configPath, targetPath);
+    Object.assign(options, projectFormatOverrides);
 
     // Keep the original input (before path resolution) for better error messages
     const originalInput = typeof targetPathInput === "string" ? targetPathInput : undefined;

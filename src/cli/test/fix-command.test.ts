@@ -77,9 +77,11 @@ void test("createFixCommand exposes the project fix workflow", () => {
         "Should not expose legacy --project-root option"
     );
     assert.ok(command.options.some((option) => option.long === "--config"));
+    assert.ok(command.options.some((option) => option.long === "--fix"));
     assert.ok(command.options.some((option) => option.long === "--only"));
     assert.ok(command.options.some((option) => option.long === "--list"));
     assert.ok(command.options.some((option) => option.long === "--verbose"));
+    assert.equal(command.registeredArguments.length, 0);
 });
 
 void test("fix --help documents the combined workflow", async () => {
@@ -89,7 +91,7 @@ void test("fix --help documents the combined workflow", async () => {
 
     assert.equal(result.exitCode, 0);
     assert.match(result.stdout, /Run project codemods, lint fixes, and formatting in sequence/);
-    assert.match(result.stdout, /pnpm dlx prettier-plugin-gml fix path\/to\/project/);
+    assert.match(result.stdout, /pnpm dlx prettier-plugin-gml fix --path path\/to\/project/);
 });
 
 void test("fix --list prints command settings and exits", async () => {
@@ -104,7 +106,7 @@ void test("fix --list prints command settings and exits", async () => {
         assert.equal(result.exitCode, 0);
         assert.match(result.stdout, /Project root:/);
         assert.match(result.stdout, /Config path:/);
-        assert.match(result.stdout, /Execution mode: apply changes \(always enforced by fix workflow\)/);
+        assert.match(result.stdout, /Execution mode: dry-run \(default\)/);
     } finally {
         await rm(projectRoot, { recursive: true, force: true });
     }
@@ -126,7 +128,7 @@ void test("fix runs codemods, lint fixes, and formatting in sequence for a proje
         );
 
         const result = await runCliTestCommand({
-            argv: ["fix"],
+            argv: ["fix", "--fix"],
             cwd: projectRoot
         });
 
@@ -134,7 +136,7 @@ void test("fix runs codemods, lint fixes, and formatting in sequence for a proje
         assert.match(result.stdout, /\[1\/3 Refactor Codemods\]/);
         assert.match(result.stdout, /\[2\/3 Lint Fixes\]/);
         assert.match(result.stdout, /\[3\/3 Format\]/);
-        assert.match(result.stdout, /Success! Project codemods, lint fixes, and formatting completed\./);
+        assert.match(result.stdout, /Success! Project codemods, lint fixes, and formatting completed/);
 
         await access(path.join(projectRoot, "scripts/demoScript/demoScript.gml"));
         await access(path.join(projectRoot, "scripts/demoScript/demoScript.yy"));
@@ -162,7 +164,7 @@ void test("fix runs codemods, lint fixes, and formatting in sequence for a proje
 
 void test("fix surfaces missing gmloop config errors as actionable usage guidance", async () => {
     const result = await runCliTestCommand({
-        argv: ["fix", "/tmp/does-not-exist"]
+        argv: ["fix", "--path", "/tmp/does-not-exist"]
     });
 
     assert.equal(result.exitCode, 1);
@@ -171,6 +173,6 @@ void test("fix surfaces missing gmloop config errors as actionable usage guidanc
         result.stderr,
         /Run this command from a project directory containing gmloop\.json or pass --config <path-to-gmloop\.json>\./
     );
-    assert.match(result.stderr, /Usage: prettier-plugin-gml fix \[options\] \[projectPath\]/);
+    assert.match(result.stderr, /Usage: prettier-plugin-gml fix \[options\]/);
     assert.doesNotMatch(result.stderr, /\bat .*\/fix\.js/);
 });
