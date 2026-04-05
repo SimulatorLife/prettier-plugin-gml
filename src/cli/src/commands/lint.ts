@@ -821,6 +821,22 @@ function emitVerboseLintRunTimingSummary(parameters: {
     );
 }
 
+/**
+ * Print a confirmation message when all linted files pass with no diagnostics.
+ *
+ * The message mirrors the `format` command's "All matched files are already
+ * formatted." signal, giving users and CI pipelines an unambiguous success
+ * indicator instead of a silent exit.  It is intentionally suppressed when:
+ * - the ESLint formatter already produced visible output (e.g. the `json` and
+ *   `checkstyle` formatters always emit content, so they don't need an extra
+ *   line); or
+ * - `--quiet` is active (callers have explicitly opted for minimal output).
+ */
+function emitLintCleanSummary(fileCount: number): void {
+    const fileLabel = fileCount === 1 ? "file" : "files";
+    console.log(`✓ ${fileCount} ${fileLabel} checked, no problems found.`);
+}
+
 function toEslintOverrideConfig(): NonNullable<ConstructorParameters<typeof ESLint>[0]>["overrideConfig"] {
     const entries = LINT_NAMESPACE.configs.recommended.map((entry) => ({
         ...entry,
@@ -1381,23 +1397,40 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             if (formatterOutput.length > 0) {
                 process.stdout.write(`${formatterOutput}\n`);
             }
-        } catch (error) {
-            console.error(Core.isErrorLike(error) ? error.message : String(error));
-            setProcessExitCode(2);
-            return;
-        }
 
-        const totals = aggregateLintTotals(results, {
-            allowParseErrors: options.allowParseErrors
-        });
+            const totals = aggregateLintTotals(results, {
+                allowParseErrors: options.allowParseErrors
+            });
 
-        setProcessExitCode(
-            resolveExitCode({
+            const exitCode = resolveExitCode({
                 errorCount: totals.errorCount,
                 warningCount: totals.warningCount,
                 maxWarnings: options.maxWarnings
-            })
-        );
+            });
+
+            // When the stylish formatter produces no output it means no
+            // diagnostics were reported.  Emit a single confirmation line so
+            // users and CI pipelines get an explicit success signal rather
+            // than a silent zero exit, consistent with the format command's
+            // "All matched files are already formatted." message.
+            //
+            // This condition is intentionally formatter-agnostic: the `json`
+            // and `checkstyle` formatters always emit non-empty output even
+            // for clean runs (a JSON array, an XML document), so
+            // `formatterOutput.length === 0` is only true when using `stylish`
+            // or any other formatter that is deliberately silent on success.
+            // We do not check `options.formatter` by name to avoid hardcoding
+            // that assumption and to remain compatible with future formatters
+            // that follow the same silent-on-success convention.
+            if (exitCode === 0 && formatterOutput.length === 0 && results.length > 0 && !options.quiet) {
+                emitLintCleanSummary(results.length);
+            }
+
+            setProcessExitCode(exitCode);
+        } catch (error) {
+            console.error(Core.isErrorLike(error) ? error.message : String(error));
+            setProcessExitCode(2);
+        }
     } finally {
         if (options.verbose) {
             const elapsedNanoseconds = calculateElapsedNanoseconds({
@@ -1446,5 +1479,6 @@ export const __lintCommandTest__ = Object.freeze({
     collectOutOfRootFilePaths,
     formatPathSample,
     formatOutOfRootWarning,
-    OUT_OF_ROOT_DISPLAY_LIMIT
+    OUT_OF_ROOT_DISPLAY_LIMIT,
+    emitLintCleanSummary
 });

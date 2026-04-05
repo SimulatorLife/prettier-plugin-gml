@@ -9,7 +9,8 @@ const {
     collectOutOfRootFilePaths,
     formatPathSample,
     formatOutOfRootWarning,
-    OUT_OF_ROOT_DISPLAY_LIMIT
+    OUT_OF_ROOT_DISPLAY_LIMIT,
+    emitLintCleanSummary
 } = __lintCommandTest__;
 
 // ---------------------------------------------------------------------------
@@ -294,4 +295,38 @@ void test("formatOutOfRootWarning delegates truncation to formatPathSample", () 
     const output = formatOutOfRootWarning(paths);
     assert.ok(output.startsWith("GML_PROJECT_OUT_OF_ROOT:\n"));
     assert.ok(output.includes("and 7 more..."), `expected suffix in: ${output}`);
+});
+
+// ---------------------------------------------------------------------------
+// emitLintCleanSummary
+// ---------------------------------------------------------------------------
+
+void test("emitLintCleanSummary logs singular 'file' label for fileCount of 1", () => {
+    const logged: Array<string> = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => {
+        logged.push(args.map(String).join(" "));
+    };
+    try {
+        emitLintCleanSummary(1);
+    } finally {
+        console.log = original;
+    }
+    assert.equal(logged.length, 1);
+    assert.match(logged[0], /✓ 1 file checked, no problems found\./);
+});
+
+void test("emitLintCleanSummary logs plural 'files' label for fileCount greater than 1", () => {
+    const logged: Array<string> = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => {
+        logged.push(args.map(String).join(" "));
+    };
+    try {
+        emitLintCleanSummary(3);
+    } finally {
+        console.log = original;
+    }
+    assert.equal(logged.length, 1);
+    assert.match(logged[0], /✓ 3 files checked, no problems found\./);
 });
