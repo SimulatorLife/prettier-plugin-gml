@@ -1413,6 +1413,15 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
             // users and CI pipelines get an explicit success signal rather
             // than a silent zero exit, consistent with the format command's
             // "All matched files are already formatted." message.
+            //
+            // This condition is intentionally formatter-agnostic: the `json`
+            // and `checkstyle` formatters always emit non-empty output even
+            // for clean runs (a JSON array, an XML document), so
+            // `formatterOutput.length === 0` is only true when using `stylish`
+            // or any other formatter that is deliberately silent on success.
+            // We do not check `options.formatter` by name to avoid hardcoding
+            // that assumption and to remain compatible with future formatters
+            // that follow the same silent-on-success convention.
             if (exitCode === 0 && formatterOutput.length === 0 && results.length > 0 && !options.quiet) {
                 emitLintCleanSummary(results.length);
             }
