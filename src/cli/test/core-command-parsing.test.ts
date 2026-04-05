@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it, test } from "node:test";
+import { describe, it } from "node:test";
 
 import { Core } from "@gmloop/core";
 import { Command, InvalidArgumentError } from "commander";
@@ -146,12 +146,39 @@ void describe("wrapInvalidArgumentResolver", () => {
     });
 });
 
-void test("integer coercion helpers live in Core, not in command-parsing", () => {
+void describe("integer coercion helpers — import from Core, not command-parsing", () => {
     // coercePositiveInteger, coerceNonNegativeInteger, and resolveIntegerOption
     // were previously re-exported from command-parsing.ts under the same names,
     // adding indirection with no extra semantics (the "defaultNow" anti-pattern).
     // They were removed so callers always import from @gmloop/core directly.
-    assert.strictEqual(Core.coercePositiveInteger(5, { createErrorMessage: () => "too small" }), 5);
-    assert.strictEqual(Core.coerceNonNegativeInteger(0, { createErrorMessage: () => "negative" }), 0);
-    assert.strictEqual(Core.resolveIntegerOption(42, { coerce: (v) => v }), 42);
+
+    void it("coercePositiveInteger accepts valid positive integers", () => {
+        assert.strictEqual(Core.coercePositiveInteger(5, { createErrorMessage: () => "too small" }), 5);
+    });
+
+    void it("coercePositiveInteger rejects non-positive values", () => {
+        assert.throws(
+            () => Core.coercePositiveInteger(0, { createErrorMessage: () => "must be positive" }),
+            /must be positive/
+        );
+    });
+
+    void it("coerceNonNegativeInteger accepts zero", () => {
+        assert.strictEqual(Core.coerceNonNegativeInteger(0, { createErrorMessage: () => "negative" }), 0);
+    });
+
+    void it("coerceNonNegativeInteger rejects negative values", () => {
+        assert.throws(
+            () => Core.coerceNonNegativeInteger(-1, { createErrorMessage: () => "must be >= 0" }),
+            /must be >= 0/
+        );
+    });
+
+    void it("resolveIntegerOption returns the coerced value", () => {
+        assert.strictEqual(Core.resolveIntegerOption(42, { coerce: (v) => v }), 42);
+    });
+
+    void it("resolveIntegerOption returns defaultValue for undefined input", () => {
+        assert.strictEqual(Core.resolveIntegerOption(undefined, { defaultValue: 7, coerce: (v) => v }), 7);
+    });
 });
