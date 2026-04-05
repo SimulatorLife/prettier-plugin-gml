@@ -64,3 +64,21 @@ void test("optimize-math-expressions canonicalizes sqrt of 3-axis squared sums t
 
     assert.equal(result.output, "p1_p3 = point_distance_3d(0, 0, 0, P1toP3x, P1toP3y, P1toP3z);\n");
 });
+
+void test("optimize-math-expressions keeps fast dot_product rewrites stable across large repeated batches", () => {
+    const lineCount = 200;
+    const lines: string[] = [];
+    for (let index = 0; index < lineCount; index += 1) {
+        lines.push(`result_${index} = a_${index} * b_${index} + c_${index} * d_${index} + e_${index} * f_${index};`);
+    }
+    lines.push("");
+    const input = lines.join("\n");
+
+    const result = lintWithRule("optimize-math-expressions", input, {});
+
+    assert.equal(result.messages.length, 1);
+    for (let index = 0; index < lineCount; index += 1) {
+        assert.match(result.output, new RegExp(String.raw`result_${index}\s*=\s*dot_product_3d\(`, "u"));
+    }
+    assert.doesNotMatch(result.output, /\bpoint_distance_3d\(/u);
+});

@@ -477,6 +477,14 @@ function hasOverlappingRange(start: number, end: number, edits: ReadonlyArray<So
     return edits.some((edit) => start < edit.end && end > edit.start);
 }
 
+function hasOverlapWithLastScheduledEdit(
+    start: number,
+    end: number,
+    lastScheduledEdit: SourceTextEdit | null
+): boolean {
+    return lastScheduledEdit !== null && start < lastScheduledEdit.end && end > lastScheduledEdit.start;
+}
+
 type SourceTextRange = Readonly<{ start: number; end: number }>;
 
 const MATH_OPTIMIZATION_SIGNAL_PATTERN =
@@ -1200,6 +1208,7 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
     const normalizedExpressionRanges: SourceTextRange[] = [];
     const commentTokenRangeIndex = createCommentTokenRangeIndex(sourceText);
     const replacementByCandidateText = new Map<string, string | null>();
+    let lastScheduledEdit: SourceTextEdit | null = null;
 
     walkAstNodesWithParent(node, (visitContext) => {
         const { node: visitedNode, parent, parentKey } = visitContext;
@@ -1250,6 +1259,24 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                 return;
             }
 
+            const fastDotProductReplacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
+            if (
+                fastDotProductReplacement &&
+                !rangeContainsCommentToken(commentTokenRangeIndex, start, end) &&
+                !hasOverlapWithLastScheduledEdit(start, end, lastScheduledEdit) &&
+                !hasOverlappingRange(start, end, edits)
+            ) {
+                const replacementText =
+                    isIfTest && !fastDotProductReplacement.startsWith("(")
+                        ? `(${fastDotProductReplacement})`
+                        : fastDotProductReplacement;
+                const scheduledEdit = { start, end, text: replacementText };
+                edits.push(scheduledEdit);
+                lastScheduledEdit = scheduledEdit;
+                normalizedExpressionRanges.push(targetRange);
+                return;
+            }
+
             const sourceTextOfNode = readNodeText(sourceText, targetNode);
             if (sourceTextOfNode) {
                 if (hasComment(targetNode)) {
@@ -1277,13 +1304,23 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                 const replacementCacheKey = `${targetNode.type}:${sourceTextOfNode}`;
                 let replacement = replacementByCandidateText.get(replacementCacheKey);
                 if (replacement === undefined) {
-                    replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
+                    let shouldApplyCanonicalSourceAwareReplacement = true;
+
+                    if (NUMERIC_LITERAL_SIGNAL_PATTERN.test(sourceTextOfNode)) {
+                        replacement = tryBuildConstantNumericReplacement(sourceText, targetNode);
+                    }
+
                     if (!replacement) {
                         replacement = tryBuildFastDotProductReplacement(sourceText, targetNode);
+                        if (replacement) {
+                            shouldApplyCanonicalSourceAwareReplacement = false;
+                        }
                     }
+
                     if (!replacement && shouldAttemptManualNormalization(sourceTextOfNode)) {
                         replacement = attemptManualNormalization(sourceText, targetNode);
                     }
+
                     if (!replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
                         replacement = simplifyMathExpression(sourceText, targetNode, sourceTextOfNode);
                     } else if (replacement && DIVISION_BASED_OPTIMIZATION_SIGNAL_PATTERN.test(sourceTextOfNode)) {
@@ -1298,12 +1335,15 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                                 countDivisionLikeOperators(replacement)
                         ) {
                             replacement = divisionFallbackReplacement;
+                            shouldApplyCanonicalSourceAwareReplacement = true;
                         }
                     }
 
                     replacement =
                         replacement && replacement !== sourceTextOfNode
-                            ? applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement)
+                            ? shouldApplyCanonicalSourceAwareReplacement
+                                ? applySourceAwareCanonicalMathReplacement(sourceText, targetNode, replacement)
+                                : replacement
                             : null;
 
                     replacementByCandidateText.set(replacementCacheKey, replacement);
@@ -1314,8 +1354,13 @@ function performGeneralExpressionSimplification(node: any, sourceText: string, e
                         replacement = `(${replacement})`;
                     }
 
-                    if (!hasOverlappingRange(start, end, edits)) {
-                        edits.push({ start, end, text: replacement });
+                    if (
+                        !hasOverlapWithLastScheduledEdit(start, end, lastScheduledEdit) &&
+                        !hasOverlappingRange(start, end, edits)
+                    ) {
+                        const scheduledEdit = { start, end, text: replacement };
+                        edits.push(scheduledEdit);
+                        lastScheduledEdit = scheduledEdit;
                         normalizedExpressionRanges.push(targetRange);
                     }
                 }
@@ -1351,14 +1396,16 @@ export function createOptimizeMathExpressionsRule(definition: GmlRuleDefinition)
                     let rewrittenByAstEdits = sourceText;
                     if (edits.length > 0) {
                         const deduplicated: SourceTextEdit[] = [];
+                        let deduplicatedLastEnd = -1;
                         for (const edit of edits.toSorted(
                             (left, right) => left.start - right.start || left.end - right.end
                         )) {
-                            if (hasOverlappingRange(edit.start, edit.end, deduplicated)) {
+                            if (edit.start < deduplicatedLastEnd) {
                                 continue;
                             }
 
                             deduplicated.push(edit);
+                            deduplicatedLastEnd = edit.end;
                         }
 
                         rewrittenByAstEdits = applySourceTextEdits(sourceText, deduplicated);
