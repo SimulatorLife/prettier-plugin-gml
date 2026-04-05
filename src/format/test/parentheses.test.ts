@@ -31,6 +31,20 @@ void test("preserves parentheses that change grouping in multiplicative expressi
     assert.equal(formatted, "var value = a * (b + c);\n");
 });
 
+void test("preserves right-side multiplicative grouping in division expressions", async () => {
+    const source = "var value = a / (b * c);\n";
+    const formatted = await Format.format(source);
+
+    assert.equal(formatted, "var value = a / (b * c);\n");
+});
+
+void test("preserves right-side divisive grouping in division expressions", async () => {
+    const source = "var value = a / (b / c);\n";
+    const formatted = await Format.format(source);
+
+    assert.equal(formatted, "var value = a / (b / c);\n");
+});
+
 void test("omits redundant parentheses around a simple identifier", async () => {
     const source = "var value = (a);\n";
     const formatted = await Format.format(source);
