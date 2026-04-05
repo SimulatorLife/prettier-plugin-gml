@@ -141,10 +141,6 @@ function deduplicateSymbolOccurrences(occurrences: Array<SymbolOccurrence>): Arr
     return [...deduplicatedByStart.values()];
 }
 
-function deduplicateStableValues(values: ReadonlyArray<string>): Array<string> {
-    return [...new Set(values)];
-}
-
 function semanticSupportsBatchWorkspaceOverlay(
     semantic: PartialSemanticAnalyzer | null
 ): semantic is PartialSemanticAnalyzer &
@@ -1242,8 +1238,8 @@ export class RefactorEngine {
             dryRunOverlayReadCacheMaxEntries = 32,
             dryRunOverlayStorageBackend
         } = request;
-        const targetPaths = deduplicateStableValues(request.targetPaths);
-        const gmlFilePaths = deduplicateStableValues(request.gmlFilePaths);
+        const targetPaths = Core.uniqueArray(request.targetPaths) as Array<string>;
+        const gmlFilePaths = Core.uniqueArray(request.gmlFilePaths) as Array<string>;
 
         Core.assertNonEmptyString(projectRoot, {
             errorMessage: "executeConfiguredCodemods requires a projectRoot"
