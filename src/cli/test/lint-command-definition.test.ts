@@ -65,3 +65,93 @@ void test("lint reports when no .gml files are found in the provided path", asyn
         await rm(temporaryDirectory, { recursive: true, force: true });
     }
 });
+
+void test("lint prints a clean-run summary when all files pass with no diagnostics", async () => {
+    const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-cli-lint-clean-"));
+
+    try {
+        // A trivial GML script that triggers no lint rules.
+        await writeFile(path.join(temporaryDirectory, "clean.gml"), "var x = 1;\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["lint", "--no-default-config", temporaryDirectory]
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.match(result.stdout, /✓.*file.*checked.*no problems found/);
+    } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+});
+
+void test("lint clean-run summary is suppressed when --quiet is active", async () => {
+    const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-cli-lint-quiet-"));
+
+    try {
+        await writeFile(path.join(temporaryDirectory, "clean.gml"), "var x = 1;\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["lint", "--quiet", "--no-default-config", temporaryDirectory]
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.stdout, "");
+    } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+});
+
+void test("lint clean-run summary is not printed when the formatter produces its own output", async () => {
+    const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-cli-lint-json-"));
+
+    try {
+        await writeFile(path.join(temporaryDirectory, "clean.gml"), "var x = 1;\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["lint", "--formatter", "json", "--no-default-config", temporaryDirectory]
+        });
+
+        assert.equal(result.exitCode, 0);
+        // JSON formatter always produces output; the clean summary must not be appended.
+        assert.doesNotMatch(result.stdout, /✓.*no problems found/);
+        // Output must still be valid JSON.
+        assert.doesNotThrow(() => JSON.parse(result.stdout));
+    } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+});
+
+void test("lint clean-run summary uses singular 'file' for exactly one file", async () => {
+    const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-cli-lint-singular-"));
+
+    try {
+        await writeFile(path.join(temporaryDirectory, "clean.gml"), "var x = 1;\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["lint", "--no-default-config", temporaryDirectory]
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.match(result.stdout, /✓ 1 file checked, no problems found\./);
+    } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+});
+
+void test("lint clean-run summary uses plural 'files' for more than one file", async () => {
+    const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-cli-lint-plural-"));
+
+    try {
+        await writeFile(path.join(temporaryDirectory, "a.gml"), "var x = 1;\n", "utf8");
+        await writeFile(path.join(temporaryDirectory, "b.gml"), "var y = 2;\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["lint", "--no-default-config", temporaryDirectory]
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.match(result.stdout, /✓ 2 files checked, no problems found\./);
+    } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+});
