@@ -748,6 +748,35 @@ void describe("Prettier wrapper CLI", () => {
         }
     });
 
+    void it("stops inheriting ancestor ignore rules at nested project boundaries", async () => {
+        const workspaceDirectory = await createTemporaryDirectory();
+        const nestedProjectDirectory = path.join(workspaceDirectory, "vendor", "3DSpider");
+
+        try {
+            await fs.mkdir(path.join(nestedProjectDirectory, "scripts"), { recursive: true });
+
+            await fs.writeFile(path.join(workspaceDirectory, ".prettierignore"), "vendor/\n", "utf8");
+            await fs.writeFile(
+                path.join(nestedProjectDirectory, "3D-ish spider thing 2.yyp"),
+                `${JSON.stringify({ name: "3D-ish spider thing 2", resourceType: "GMProject", resources: [] }, null, 2)}\n`,
+                "utf8"
+            );
+            await fs.writeFile(path.join(nestedProjectDirectory, "gmloop.json"), "{}\n", "utf8");
+
+            const targetFile = path.join(nestedProjectDirectory, "scripts", "draw.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            await execFileAsync("node", [wrapperPath, "--path", nestedProjectDirectory, "--fix"], {
+                cwd: workspaceDirectory
+            });
+
+            const formatted = await fs.readFile(targetFile, "utf8");
+            assert.strictEqual(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(workspaceDirectory, { recursive: true, force: true });
+        }
+    });
+
     void it("does not rewrite files when formatting produces no changes", async () => {
         const tempDirectory = await createTemporaryDirectory();
 

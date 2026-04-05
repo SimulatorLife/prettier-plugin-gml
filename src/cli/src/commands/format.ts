@@ -1048,14 +1048,86 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
  *
  * @param {string} directory
  */
-function resolveIgnoreSearchBounds(directory) {
+/**
+ * Check whether a directory contains project-boundary markers.
+ *
+ * A boundary is detected when the directory contains either `gmloop.json` or
+ * at least one `.yyp` file, which indicates that ignore-file discovery should
+ * stop walking further into ancestor directories.
+ */
+async function directoryContainsProjectBoundaryMarker(directory) {
+    const projectConfigPath = path.join(directory, "gmloop.json");
+    try {
+        const configStats = await stat(projectConfigPath);
+        if (configStats.isFile()) {
+            return true;
+        }
+    } catch {
+        // Continue probing for `.yyp` files when gmloop.json is absent or unreadable.
+    }
+
+    try {
+        const entries = await readdir(directory, { withFileTypes: true });
+        return entries.some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".yyp"));
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Return the first directory in scan order that contains a project-boundary marker.
+ *
+ * @param candidateDirectories Ancestor directories to probe from nearest to farthest.
+ * @returns The first matching directory, or `null` when no marker is found.
+ */
+async function findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories: Array<string>) {
+    const matches: Array<string> = [];
+    await Core.runSequentially(candidateDirectories, async (candidateDirectory) => {
+        if (matches.length > 0 || !candidateDirectory) {
+            return;
+        }
+
+        if (await directoryContainsProjectBoundaryMarker(candidateDirectory)) {
+            matches.push(candidateDirectory);
+        }
+    });
+
+    return matches[0] ?? null;
+}
+
+async function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
     const resolvedWorkingDirectory = process.cwd();
     const shouldLimitToWorkingDirectory = isPathInside(resolvedDirectory, resolvedWorkingDirectory);
 
+    if (!shouldLimitToWorkingDirectory) {
+        return {
+            resolvedDirectory,
+            searchRoot: null
+        };
+    }
+
+    const candidateDirectories = [];
+    for (const candidateDirectory of walkAncestorDirectories(resolvedDirectory)) {
+        candidateDirectories.push(candidateDirectory);
+        if (candidateDirectory === resolvedWorkingDirectory) {
+            break;
+        }
+    }
+
+    const discoveredProjectBoundaryDirectory =
+        await findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories);
+
+    if (discoveredProjectBoundaryDirectory !== null) {
+        return {
+            resolvedDirectory,
+            searchRoot: discoveredProjectBoundaryDirectory
+        };
+    }
+
     return {
         resolvedDirectory,
-        searchRoot: shouldLimitToWorkingDirectory ? resolvedWorkingDirectory : null
+        searchRoot: resolvedWorkingDirectory
     };
 }
 
@@ -1115,11 +1187,11 @@ async function collectExistingIgnoreFiles(candidatePaths) {
     return compactArray(discovered);
 }
 
-function resolveProjectIgnorePaths(directory) {
-    const { resolvedDirectory, searchRoot } = resolveIgnoreSearchBounds(directory);
+async function resolveProjectIgnorePaths(directory) {
+    const { resolvedDirectory, searchRoot } = await resolveIgnoreSearchBounds(directory);
     const directoriesToInspect = collectIgnoreSearchDirectories(resolvedDirectory, searchRoot);
     const candidatePaths = collectIgnoreCandidatePaths(directoriesToInspect);
-    return collectExistingIgnoreFiles(candidatePaths);
+    return await collectExistingIgnoreFiles(candidatePaths);
 }
 
 /**
