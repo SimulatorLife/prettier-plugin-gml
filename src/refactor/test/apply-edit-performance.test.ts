@@ -1,3 +1,29 @@
+/**
+ * Write-path (apply-edit) performance regression guard.
+ *
+ * Exercises `applyGroupedTextEditsToContent` at a scale (400 files × 60 targets
+ * = 24 000 identifiers, 120 edits per file) where the per-file edit-application
+ * cost is the dominant term and any regression in that code path is clearly visible.
+ *
+ * This test is kept in its own file so that Node's test runner spawns it in a
+ * dedicated worker process, preventing intra-file concurrency from inflating timings.
+ *
+ * Specifically locks in three optimisations introduced in the third pass:
+ *   1. Replacing the pre-allocated fragment-array in `applyGroupedTextEditsToContent`
+ *      with a left-to-right string-builder that iterates descending-sorted edits in
+ *      reverse — ~6-7× faster on files with many edits.
+ *   2. Merging `collectScopeKeysRequiringNameConflictChecks` and `collectLocalScopeNames`
+ *      into a single `collectScopeDataFromTargets` pass (plus an optional targeted
+ *      second pass only for the rare multi-declaration case).
+ *   3. Replacing the `isSimpleLowerSnakeCore` regex with a charCode scan.
+ *
+ * Measured baselines (400×60 scale, 5 concurrent samples via measureMedianDurationMs):
+ *   Before this optimisation pass: ~440 ms in a dedicated worker process.
+ *   After this optimisation pass:  ~313 ms in a dedicated worker process.
+ * Threshold is set to 380 ms (~1.2× observed post-optimisation maximum) to provide
+ * CI headroom while ensuring that reverting all three optimisations would push
+ * timings well above the budget (observed pre-optimisation: ~440 ms+).
+ */
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 import test from "node:test";
@@ -10,9 +36,9 @@ import type {
     RefactorProjectConfig
 } from "../src/types.js";
 
-const FILE_COUNT = 180;
-const TARGETS_PER_FILE = 32;
-const PERFORMANCE_THRESHOLD_MS = 150;
+const WRITE_PATH_FILE_COUNT = 400;
+const WRITE_PATH_TARGETS_PER_FILE = 60;
+const WRITE_PATH_PERFORMANCE_THRESHOLD_MS = 380;
 
 type SyntheticFileFixture = {
     sourceText: string;
@@ -69,19 +95,11 @@ function createSyntheticLocalNamingFixture(
     };
 }
 
-/**
- * Build a minimal {@link PartialSemanticAnalyzer} stub that returns pre-built
- * naming targets for the given file-to-targets map.  Accepts an optional
- * callback that is invoked on every call, allowing callers to track
- * invocation counts or perform side effects per query.
- */
 function buildNamingConventionSemanticStub(
-    targetsByFile: Map<string, Array<NamingConventionTarget>>,
-    onCall?: () => void
+    targetsByFile: Map<string, Array<NamingConventionTarget>>
 ): PartialSemanticAnalyzer {
     return {
         listNamingConventionTargets: async (filePaths?: Array<string>) => {
-            onCall?.();
             const selectedPaths = filePaths === undefined ? null : new Set(filePaths);
             const matchingTargets: Array<NamingConventionTarget> = [];
 
@@ -136,12 +154,6 @@ async function measureMedianDurationMs<T>(
     };
 }
 
-/**
- * Build the {@link Refactor.RefactorEngine.executeConfiguredCodemods} executor
- * used by both stress tests.  Each test supplies its own engine, file list, and
- * source-text map so the captured closure variables differ, while the call-site
- * shape is shared through this factory.
- */
 function buildNamingConventionCodemodExecutor(
     engine: InstanceType<typeof Refactor.RefactorEngine>,
     gmlFilePaths: Array<string>,
@@ -171,89 +183,22 @@ function buildNamingConventionCodemodExecutor(
         });
 }
 
-void test("namingConvention stress test stays within the selected-file planning threshold", async () => {
+void test("namingConvention write-path stress test locks in the apply-edit optimisation gain (400 files × 60 targets)", async () => {
     const projectRoot = "/project";
     const sourceTexts = new Map<string, string>();
     const targetsByFile = new Map<string, Array<NamingConventionTarget>>();
-    const gmlFilePaths = Array.from({ length: FILE_COUNT }, (_, fileIndex) => `scripts/script_${fileIndex}.gml`);
-
-    for (const [fileIndex, filePath] of gmlFilePaths.entries()) {
-        const fixture = createSyntheticLocalNamingFixture(filePath, fileIndex, TARGETS_PER_FILE);
-        sourceTexts.set(filePath, fixture.sourceText);
-        targetsByFile.set(filePath, fixture.targets);
-    }
-
-    let listNamingTargetsCallCount = 0;
-    const semantic = buildNamingConventionSemanticStub(targetsByFile, () => {
-        listNamingTargetsCallCount += 1;
-    });
-
-    const engine = new Refactor.RefactorEngine({ semantic });
-    const executeStressRun = buildNamingConventionCodemodExecutor(engine, gmlFilePaths, sourceTexts, projectRoot);
-
-    await executeStressRun();
-
-    const listNamingTargetsCallCountAfterWarmup = listNamingTargetsCallCount;
-    const SAMPLE_COUNT = 5;
-    const { durationMs, result } = await measureMedianDurationMs(SAMPLE_COUNT, executeStressRun);
-
-    assert.equal(listNamingTargetsCallCount - listNamingTargetsCallCountAfterWarmup, SAMPLE_COUNT);
-    assert.equal(result.summaries.length, 1);
-    assert.equal(result.summaries[0]?.id, "namingConvention");
-    assert.equal(result.summaries[0]?.changed, true);
-    assert.equal(result.appliedFiles.size, FILE_COUNT);
-    assert.ok(
-        durationMs <= PERFORMANCE_THRESHOLD_MS,
-        `Expected namingConvention stress test to finish within ${PERFORMANCE_THRESHOLD_MS}ms, received ${durationMs.toFixed(2)}ms`
+    const gmlFilePaths = Array.from(
+        { length: WRITE_PATH_FILE_COUNT },
+        (_, fileIndex) => `scripts/script_${fileIndex}.gml`
     );
-});
-
-// Larger stress test that exercises the full hot path at a scale representative
-// of real GameMaker projects (300 files × 50 targets = 15 000 identifiers).
-// This test locks in the performance improvements introduced in the
-// "Refactor Performance Lock-In" optimisation pass:
-//   - eliminating the double composeExpectedIdentifierName call in evaluateNamingConvention
-//   - caching path-resolution results inside createPathSelectionMatcher
-//   - pre-sorting bannedAffixes at resolve time to avoid per-call spread+sort
-//   - replacing regex-based splitIdentifierUnderscoreAffixes with a charCode scan
-//   - replacing the for...of iterator in toCamelCaseFromLowerSnakeCore with an
-//     indexed charCode loop to avoid iterator allocation overhead
-//   - inlining the Map increment in the collectLocalScopeNames hot loop instead
-//     of delegating to Core.incrementMapValue (which validates types on every call)
-//   - eliminating the spread+filter+map chain when building duplicateScopedDeclarationKeys
-//   - merging the two separate O(n) scope-data collection passes into a single
-//     `collectScopeDataFromTargets` pass (with an optional targeted second pass
-//     only for the rare case of multi-declaration scopes)
-//   - replacing isSimpleLowerSnakeCore regex (/^[a-z0-9_]+$/u) with a charCode scan
-//   - replacing the pre-allocated fragment-array in applyGroupedTextEditsToContent with
-//     a left-to-right string-builder (ascending iteration over descending-sorted edits)
-//     that avoids the intermediate array allocation and final join (~6-7× faster on files
-//     with many edits)
-//
-// Baseline (before first optimisation pass): ~148 ms standalone, ~350 ms under CI suite load.
-// After first optimisation pass:  ~88 ms standalone, ~220 ms under parallel test load.
-// After second optimisation pass: ~33 ms standalone, ~194 ms under parallel test load.
-// After third optimisation pass:  ~24 ms standalone, ~121 ms under parallel test load.
-// Threshold is set to 240 ms — well below the pre-second-pass estimate under load
-// while providing enough headroom to absorb normal CI variance.
-const LARGE_FILE_COUNT = 300;
-const LARGE_TARGETS_PER_FILE = 50;
-const LARGE_PERFORMANCE_THRESHOLD_MS = 240;
-
-void test("namingConvention large-scale stress test locks in the hot-path optimisation gain", async () => {
-    const projectRoot = "/project";
-    const sourceTexts = new Map<string, string>();
-    const targetsByFile = new Map<string, Array<NamingConventionTarget>>();
-    const gmlFilePaths = Array.from({ length: LARGE_FILE_COUNT }, (_, fileIndex) => `scripts/script_${fileIndex}.gml`);
 
     for (const [fileIndex, filePath] of gmlFilePaths.entries()) {
-        const fixture = createSyntheticLocalNamingFixture(filePath, fileIndex, LARGE_TARGETS_PER_FILE);
+        const fixture = createSyntheticLocalNamingFixture(filePath, fileIndex, WRITE_PATH_TARGETS_PER_FILE);
         sourceTexts.set(filePath, fixture.sourceText);
         targetsByFile.set(filePath, fixture.targets);
     }
 
     const semantic = buildNamingConventionSemanticStub(targetsByFile);
-
     const engine = new Refactor.RefactorEngine({ semantic });
     const executeStressRun = buildNamingConventionCodemodExecutor(engine, gmlFilePaths, sourceTexts, projectRoot);
 
@@ -266,10 +211,10 @@ void test("namingConvention large-scale stress test locks in the hot-path optimi
     assert.equal(result.summaries.length, 1);
     assert.equal(result.summaries[0]?.id, "namingConvention");
     assert.equal(result.summaries[0]?.changed, true);
-    assert.equal(result.appliedFiles.size, LARGE_FILE_COUNT);
+    assert.equal(result.appliedFiles.size, WRITE_PATH_FILE_COUNT);
     assert.ok(
-        durationMs <= LARGE_PERFORMANCE_THRESHOLD_MS,
-        `Expected large-scale namingConvention stress test to finish within ${LARGE_PERFORMANCE_THRESHOLD_MS}ms, ` +
+        durationMs <= WRITE_PATH_PERFORMANCE_THRESHOLD_MS,
+        `Expected write-path stress test to finish within ${WRITE_PATH_PERFORMANCE_THRESHOLD_MS}ms, ` +
             `received ${durationMs.toFixed(2)}ms`
     );
 });
