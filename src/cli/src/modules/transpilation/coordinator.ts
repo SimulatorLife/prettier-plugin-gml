@@ -168,7 +168,9 @@ function classifyTranspilationError(error: unknown): {
         };
     }
 
-    const errorString = error instanceof Error ? error.toString() : "Unknown error";
+    // Use a capability probe rather than `instanceof Error` so that cross-realm
+    // errors (e.g. from sandboxed modules) are handled correctly.
+    const errorString = Core.isErrorLike(error) ? String(error) : "Unknown error";
 
     return {
         category: "unknown",
