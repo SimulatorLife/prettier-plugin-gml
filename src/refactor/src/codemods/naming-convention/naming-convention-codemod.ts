@@ -527,12 +527,12 @@ async function listNamingConventionTargetsResilient(parameters: {
     const { semantic, queryPaths, requestedCategories } = parameters;
     const warnings: Array<string> = [];
     const listTargets = async (filePaths?: Array<string>): Promise<Array<NamingConventionTarget>> =>
-        await semantic.listNamingConventionTargets(filePaths, requestedCategories);
+        await semantic.listNamingConventionTargets.call(semantic, filePaths, requestedCategories);
 
     if (queryPaths.length === 0) {
         try {
             return {
-                targets: await listTargets(undefined),
+                targets: await listTargets(),
                 warnings
             };
         } catch (error) {
@@ -635,7 +635,7 @@ export async function planNamingConventionCodemod(
     const selectedFilePaths = (parameters.gmlFilePaths ?? []).filter((filePath) => isSelectedTargetPath(filePath));
     const queryPaths = buildNamingTargetQueryPaths(parameters.projectRoot, selectedFilePaths);
     const namingTargetProvider = {
-        listNamingConventionTargets: semantic.listNamingConventionTargets
+        listNamingConventionTargets: semantic.listNamingConventionTargets.bind(semantic)
     };
     const queriedTargetsResult = await listNamingConventionTargetsResilient({
         semantic: namingTargetProvider,

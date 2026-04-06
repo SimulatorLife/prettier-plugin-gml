@@ -2081,6 +2081,78 @@ void test("executeConfiguredCodemods recovers naming targets when one file fails
     assert.equal(result.appliedFiles.get("scripts/example.gml"), "var badName = 1;\nshow_debug_message(badName);\n");
 });
 
+void test("executeConfiguredCodemods preserves semantic method context for naming target discovery", async () => {
+    const sourceText = "var bad_name = 1;\nshow_debug_message(bad_name);\n";
+    const firstOccurrence = sourceText.indexOf("bad_name");
+    const secondOccurrence = sourceText.lastIndexOf("bad_name");
+    const projectRoot = "/project";
+    const semanticContext: PartialSemanticAnalyzer & { projectRoot: string } = {
+        projectRoot,
+        listNamingConventionTargets(this: { projectRoot: string }, filePaths?: Array<string>) {
+            if (this.projectRoot !== projectRoot) {
+                throw new TypeError('The "paths[0]" argument must be of type string. Received undefined');
+            }
+
+            const selectedPaths = filePaths ?? [];
+            if (!selectedPaths.some((filePath) => filePath.includes("example.gml"))) {
+                return [];
+            }
+
+            return [
+                {
+                    name: "bad_name",
+                    category: "localVariable",
+                    path: "scripts/example.gml",
+                    scopeId: "scope:local",
+                    symbolId: null,
+                    occurrences: [
+                        {
+                            path: "scripts/example.gml",
+                            start: firstOccurrence,
+                            end: firstOccurrence + "bad_name".length,
+                            kind: Refactor.OccurrenceKind.DEFINITION,
+                            scopeId: "scope:local"
+                        },
+                        {
+                            path: "scripts/example.gml",
+                            start: secondOccurrence,
+                            end: secondOccurrence + "bad_name".length,
+                            kind: Refactor.OccurrenceKind.REFERENCE,
+                            scopeId: "scope:local"
+                        }
+                    ]
+                }
+            ];
+        }
+    };
+    const engine = new Refactor.RefactorEngine({
+        semantic: semanticContext
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot,
+        targetPaths: [projectRoot],
+        gmlFilePaths: ["scripts/example.gml"],
+        config: {
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        localVariable: {
+                            caseStyle: "camel"
+                        }
+                    }
+                }
+            }
+        },
+        readFile: async () => sourceText
+    });
+
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.errors.length ?? 1, 0);
+    assert.equal(result.summaries[0]?.warnings.length ?? 1, 0);
+    assert.equal(result.appliedFiles.get("scripts/example.gml"), "var badName = 1;\nshow_debug_message(badName);\n");
+});
+
 void test("executeConfiguredCodemods handles duplicate case-only local variable renames", async () => {
     const sourceText = [
         "for (var i = 0; i < arm_num; i++) {",
