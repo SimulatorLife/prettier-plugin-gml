@@ -474,11 +474,7 @@ function toCamelCaseFromLowerSnakeCore(value: string): string {
         }
 
         // Uppercase the character when following an underscore and it's a-z (97–122).
-        if (uppercaseNext && code >= 97 && code <= 122) {
-            formatted += String.fromCharCode(code - 32);
-        } else {
-            formatted += String.fromCharCode(code);
-        }
+        formatted += uppercaseNext && code >= 97 && code <= 122 ? String.fromCharCode(code - 32) : String.fromCharCode(code);
         uppercaseNext = false;
     }
 
@@ -655,7 +651,11 @@ function stripOneAffixDirection(
             const separator = match[2];
             const remainder = match[3];
 
-            if (prefixWord === coreTargetPrefix || prefixWord === coreTargetPrefix[0]) {
+            if (
+                prefixWord === coreTargetPrefix ||
+                prefixWord === coreTargetPrefix[0] ||
+                (prefixWord.length > 1 && coreTargetPrefix.startsWith(prefixWord))
+            ) {
                 return separator === "_" ? remainder : separator + remainder;
             }
         }

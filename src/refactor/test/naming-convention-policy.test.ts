@@ -205,6 +205,24 @@ void test("evaluateNamingConvention preserves allowed leading underscores when e
     assert.equal(needsCaseFix.suggestedName, "_target_shader");
 });
 
+void test("evaluateNamingConvention replaces underscore resource prefixes for shader resources", () => {
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            resource: {
+                caseStyle: "lower_snake"
+            },
+            shaderResourceName: {
+                prefix: "shd_"
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const evaluation = Refactor.evaluateNamingConvention("sh_cm_debug", "shaderResourceName", policy, resolved);
+    assert.equal(evaluation.compliant, false);
+    assert.equal(evaluation.suggestedName, "shd_cm_debug");
+});
+
 void test("evaluateNamingConvention fast-path handles simple case-style-only rules", () => {
     const policy = Refactor.normalizeNamingConventionPolicy({
         rules: {
