@@ -1535,6 +1535,22 @@ void test("normalize-operator-aliases does not rewrite escaped quote string cont
     assertEquals(result.output, input);
 });
 
+void test("normalize-operator-aliases rewrites logical aliases without mutating identifiers that contain operator substrings", () => {
+    const input = "var show_mode0_origin = flat_dbg_draw_mode0_origin or flat_dbg_compare_mode0_overlay;\n";
+    const expected = "var show_mode0_origin = flat_dbg_draw_mode0_origin || flat_dbg_compare_mode0_overlay;\n";
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assertEquals(result.output, expected);
+});
+
+void test("normalize-operator-aliases keeps member identifiers intact while rewriting logical aliases", () => {
+    const input =
+        "player_intent.move_active = abs(player_intent.world.Magnitude2D()) > eps or abs(spd_hor.Magnitude2D()) > 2;\n";
+    const expected =
+        "player_intent.move_active = abs(player_intent.world.Magnitude2D()) > eps || abs(spd_hor.Magnitude2D()) > 2;\n";
+    const result = lintWithRule("normalize-operator-aliases", input, {});
+    assertEquals(result.output, expected);
+});
+
 void test("normalize-operator-aliases reports from explicit locations when node loc metadata is absent", () => {
     const source = "if (left and right) {\n    value = 1;\n}\n";
     const operatorStart = source.indexOf("and");
