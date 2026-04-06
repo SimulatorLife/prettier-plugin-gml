@@ -13,6 +13,7 @@ import {
     listMacroExpansionDependencies
 } from "./macro-expansion-dependencies.js";
 import { ParsedLocalNamingCategoryResolver } from "./parsed-local-naming-categories.js";
+import { readExclusiveSemanticLocationIndex, readSemanticLocationIndex } from "./semantic-index-helpers.js";
 
 type ResourceAssetReferenceRecord = {
     propertyPath: string;
@@ -705,7 +706,7 @@ export class GmlSemanticBridge {
             entriesByRelatedName.set(name, new Set([entry]));
         };
 
-        const appendLookupEntry = (name: string, scopeId: string | undefined): void => {
+        const appendLookupEntry = (name: string, scopeId?: string): void => {
             if (!Core.isNonEmptyString(name)) {
                 return;
             }
@@ -819,7 +820,7 @@ export class GmlSemanticBridge {
             const resourceScipId = this.generateResourceScipId(resource);
             resourcesByExactName.set(resource.name, resource);
             resourcesByLowerName.set(resource.name.toLowerCase(), resource);
-            appendLookupEntry(resource.name, undefined);
+            appendLookupEntry(resource.name);
             registerResolveSymbolId(resource.name, resourceScipId);
 
             if (!Core.isNonEmptyString(resource.path)) {
@@ -2806,8 +2807,8 @@ export class GmlSemanticBridge {
                 continue;
             }
 
-            const startIndex = this.readLocationIndex(reference.start);
-            const endIndex = this.readExclusiveLocationIndex(reference.end);
+            const startIndex = readSemanticLocationIndex(reference.start);
+            const endIndex = readExclusiveSemanticLocationIndex(reference.end);
             if (startIndex === null || endIndex === null) {
                 continue;
             }
@@ -2816,7 +2817,7 @@ export class GmlSemanticBridge {
                 continue;
             }
 
-            const declarationStartIndex = this.readLocationIndex(referenceDeclaration.start);
+            const declarationStartIndex = readSemanticLocationIndex(referenceDeclaration.start);
             const declarationScopeId =
                 typeof referenceDeclaration.scopeId === "string" ? referenceDeclaration.scopeId : null;
             const referenceKey = this.createLocalReferenceKey(
@@ -2837,16 +2838,6 @@ export class GmlSemanticBridge {
 
         this.localReferenceOccurrencesByFilePath.set(filePath, indexedOccurrences);
         return indexedOccurrences;
-    }
-
-    private readLocationIndex(location: unknown): number | null {
-        const record = Core.isObjectLike(location) ? (location as Record<string, unknown>) : null;
-        return typeof record?.index === "number" ? record.index : null;
-    }
-
-    private readExclusiveLocationIndex(location: unknown): number | null {
-        const index = this.readLocationIndex(location);
-        return index === null ? null : toExclusiveEndIndex(index);
     }
 
     private isMemberAccessReference(sourceText: string | null, startIndex: number): boolean {
@@ -2872,16 +2863,8 @@ export class GmlSemanticBridge {
         const occurrences: Array<SymbolOccurrence> = [];
 
         for (const declaration of entry.declarations ?? []) {
-            const declarationStartRecord = Core.isObjectLike(declaration.start)
-                ? (declaration.start as Record<string, unknown>)
-                : null;
-            const declarationEndRecord = Core.isObjectLike(declaration.end)
-                ? (declaration.end as Record<string, unknown>)
-                : null;
-            const declarationStart =
-                typeof declarationStartRecord?.index === "number" ? declarationStartRecord.index : 0;
-            const declarationEnd =
-                typeof declarationEndRecord?.index === "number" ? toExclusiveEndIndex(declarationEndRecord.index) : 0;
+            const declarationStart = readSemanticLocationIndex(declaration.start) ?? 0;
+            const declarationEnd = readExclusiveSemanticLocationIndex(declaration.end) ?? 0;
 
             occurrences.push({
                 path: typeof declaration.filePath === "string" ? declaration.filePath : "",
@@ -2893,27 +2876,13 @@ export class GmlSemanticBridge {
         }
 
         for (const reference of entry.references ?? []) {
-            const referenceStartRecord = Core.isObjectLike(reference.start)
-                ? (reference.start as Record<string, unknown>)
-                : null;
-            const referenceEndRecord = Core.isObjectLike(reference.end)
-                ? (reference.end as Record<string, unknown>)
-                : null;
             const referenceLocationRecord = Core.isObjectLike(reference.location)
                 ? (reference.location as Record<string, unknown>)
                 : null;
-            const locationStartRecord = Core.isObjectLike(referenceLocationRecord?.start)
-                ? (referenceLocationRecord.start as Record<string, unknown>)
-                : null;
-            const locationEndRecord = Core.isObjectLike(referenceLocationRecord?.end)
-                ? (referenceLocationRecord.end as Record<string, unknown>)
-                : null;
-            const referenceStart = typeof referenceStartRecord?.index === "number" ? referenceStartRecord.index : 0;
-            const referenceEnd =
-                typeof referenceEndRecord?.index === "number" ? toExclusiveEndIndex(referenceEndRecord.index) : 0;
-            const locationStart = typeof locationStartRecord?.index === "number" ? locationStartRecord.index : 0;
-            const locationEnd =
-                typeof locationEndRecord?.index === "number" ? toExclusiveEndIndex(locationEndRecord.index) : 0;
+            const referenceStart = readSemanticLocationIndex(reference.start) ?? 0;
+            const referenceEnd = readExclusiveSemanticLocationIndex(reference.end) ?? 0;
+            const locationStart = readSemanticLocationIndex(referenceLocationRecord?.start) ?? 0;
+            const locationEnd = readExclusiveSemanticLocationIndex(referenceLocationRecord?.end) ?? 0;
 
             occurrences.push({
                 path: typeof reference.filePath === "string" ? reference.filePath : "",
@@ -2947,14 +2916,8 @@ export class GmlSemanticBridge {
                 continue;
             }
 
-            const startRecord = Core.isObjectLike(unresolvedReference.reference.start)
-                ? (unresolvedReference.reference.start as Record<string, unknown>)
-                : null;
-            const endRecord = Core.isObjectLike(unresolvedReference.reference.end)
-                ? (unresolvedReference.reference.end as Record<string, unknown>)
-                : null;
-            const start = typeof startRecord?.index === "number" ? startRecord.index : null;
-            const end = typeof endRecord?.index === "number" ? toExclusiveEndIndex(endRecord.index) : null;
+            const start = readSemanticLocationIndex(unresolvedReference.reference.start);
+            const end = readExclusiveSemanticLocationIndex(unresolvedReference.reference.end);
 
             if (start === null || end === null || end <= start) {
                 continue;
@@ -2985,14 +2948,8 @@ export class GmlSemanticBridge {
 
         for (const unresolvedReference of this.getIndexes().unresolvedReferencesByExactName.get(symbolName) ?? []) {
             const classifications = Core.asArray(unresolvedReference.reference.classifications);
-            const startRecord = Core.isObjectLike(unresolvedReference.reference.start)
-                ? (unresolvedReference.reference.start as Record<string, unknown>)
-                : null;
-            const endRecord = Core.isObjectLike(unresolvedReference.reference.end)
-                ? (unresolvedReference.reference.end as Record<string, unknown>)
-                : null;
-            const start = typeof startRecord?.index === "number" ? startRecord.index : null;
-            const end = typeof endRecord?.index === "number" ? toExclusiveEndIndex(endRecord.index) : null;
+            const start = readSemanticLocationIndex(unresolvedReference.reference.start);
+            const end = readExclusiveSemanticLocationIndex(unresolvedReference.reference.end);
 
             if (start === null || end === null || end <= start) {
                 continue;
@@ -3123,10 +3080,7 @@ export class GmlSemanticBridge {
         declaration: Record<string, unknown>,
         sourceText: string | null
     ): Extract<BridgeNamingConventionCategory, "localVariable" | "loopIndexVariable" | "staticVariable"> {
-        const declarationStart = Core.isObjectLike(declaration.start)
-            ? (declaration.start as Record<string, unknown>)
-            : null;
-        const startIndex = typeof declarationStart?.index === "number" ? declarationStart.index : null;
+        const startIndex = readSemanticLocationIndex(declaration.start);
         if (typeof declaration.name !== "string" || startIndex === null) {
             return "localVariable";
         }
@@ -3142,10 +3096,7 @@ export class GmlSemanticBridge {
         declaration: Record<string, unknown>,
         sourceText: string | null
     ): boolean {
-        const declarationStart = Core.isObjectLike(declaration.start)
-            ? (declaration.start as Record<string, unknown>)
-            : null;
-        const startIndex = typeof declarationStart?.index === "number" ? declarationStart.index : null;
+        const startIndex = readSemanticLocationIndex(declaration.start);
         if (typeof declaration.name !== "string" || startIndex === null) {
             return false;
         }
@@ -3176,10 +3127,7 @@ export class GmlSemanticBridge {
         )) {
             const sourceText = this.readProjectSourceText(filePath);
             for (const declaration of fileRecord.declarations ?? []) {
-                const declarationStart = Core.isObjectLike(declaration.start)
-                    ? (declaration.start as Record<string, unknown>)
-                    : null;
-                const startIndex = typeof declarationStart?.index === "number" ? declarationStart.index : null;
+                const startIndex = readSemanticLocationIndex(declaration.start);
                 if (typeof declaration.name !== "string" || startIndex === null) {
                     continue;
                 }
