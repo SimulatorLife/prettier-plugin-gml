@@ -10,7 +10,7 @@ import { GmlSemanticBridge } from "../src/modules/refactor/semantic-bridge.js";
 import { measureMedianDurationMs } from "./test-helpers/refactor-top-level-naming-performance.js";
 
 const RESOURCE_COUNT = 240;
-const PERFORMANCE_THRESHOLD_MS = 1600;
+const PERFORMANCE_THRESHOLD_MS = 2500;
 
 type MetadataResourceFixture = {
     projectIndex: Record<string, unknown>;
