@@ -5,7 +5,7 @@ const NANOSECONDS_PER_CENTI_MILLISECOND = 10_000n;
  * Read the current monotonic timestamp in nanoseconds.
  *
  * Monotonic time avoids wall-clock jumps (NTP, DST, manual changes) so
- * duration measurements remain stable across long-running CLI operations.
+ * duration measurements remain stable across long-running operations.
  *
  * @returns {bigint} Monotonic timestamp in nanoseconds.
  */

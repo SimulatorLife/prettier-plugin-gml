@@ -19,11 +19,6 @@ import {
     createVerboseOption,
     PATH_OPTION_FLAGS
 } from "../cli-core/shared-command-options.js";
-import {
-    calculateElapsedNanoseconds,
-    formatElapsedNanosecondsAsMilliseconds,
-    readMonotonicNanoseconds
-} from "../shared/elapsed-time.js";
 import { resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 
 const FLAT_CONFIG_CANDIDATES = Object.freeze([
@@ -538,7 +533,7 @@ function lintTargetsWithRuntimeRecovery(parameters: {
         await orderedTargets.reduce<Promise<void>>(async (previousTargetPromise, lintTarget) => {
             await previousTargetPromise;
 
-            const targetStartedAtNanoseconds = readMonotonicNanoseconds();
+            const targetStartedAtNanoseconds = Core.readMonotonicNanoseconds();
             const executorForTarget = parameters.createExecutorForTarget
                 ? parameters.createExecutorForTarget()
                 : parameters.eslint;
@@ -551,9 +546,9 @@ function lintTargetsWithRuntimeRecovery(parameters: {
             await parameters.onTargetCompleted({
                 target: lintTarget.target,
                 targetResults,
-                elapsedNanoseconds: calculateElapsedNanoseconds({
+                elapsedNanoseconds: Core.calculateElapsedNanoseconds({
                     startedAtNanoseconds: targetStartedAtNanoseconds,
-                    completedAtNanoseconds: readMonotonicNanoseconds()
+                    completedAtNanoseconds: Core.readMonotonicNanoseconds()
                 })
             });
 
@@ -776,7 +771,7 @@ function emitVerboseLintTargetTiming(parameters: {
     elapsedNanoseconds: bigint;
     writeProgressLine: LintProgressLineWriter;
 }): void {
-    const elapsedText = formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds);
+    const elapsedText = Core.formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds);
     if (parameters.targetResults.length === 0) {
         parameters.writeProgressLine(
             `[timing] Lint target '${parameters.target}' completed in ${elapsedText} (no files matched).`
@@ -815,7 +810,7 @@ function emitVerboseLintRunTimingSummary(parameters: {
     writeProgressLine: LintProgressLineWriter;
 }): void {
     const fileLabel = parameters.lintedFileCount === 1 ? "file" : "files";
-    const elapsedText = formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds);
+    const elapsedText = Core.formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds);
     parameters.writeProgressLine(
         `[timing] Completed lint run for ${parameters.lintedFileCount} ${fileLabel} in ${elapsedText}.`
     );
@@ -1303,7 +1298,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    const lintRunStartedAtNanoseconds = readMonotonicNanoseconds();
+    const lintRunStartedAtNanoseconds = Core.readMonotonicNanoseconds();
     let lintedFileCount = 0;
 
     let results: Array<ESLint.LintResult>;
@@ -1433,9 +1428,9 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         }
     } finally {
         if (options.verbose) {
-            const elapsedNanoseconds = calculateElapsedNanoseconds({
+            const elapsedNanoseconds = Core.calculateElapsedNanoseconds({
                 startedAtNanoseconds: lintRunStartedAtNanoseconds,
-                completedAtNanoseconds: readMonotonicNanoseconds()
+                completedAtNanoseconds: Core.readMonotonicNanoseconds()
             });
             emitVerboseLintRunTimingSummary({
                 lintedFileCount,

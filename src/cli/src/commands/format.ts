@@ -56,11 +56,6 @@ import {
     resolveSkippedDirectorySampleLimit,
     resolveUnsupportedExtensionSampleLimit
 } from "../runtime-options/sample-limits.js";
-import {
-    calculateElapsedNanoseconds,
-    formatElapsedNanosecondsAsMilliseconds,
-    readMonotonicNanoseconds
-} from "../shared/elapsed-time.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
 import { resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 import {
@@ -519,7 +514,7 @@ function configureDryRunMode(enabled) {
 }
 
 function formatTimingSuffixFromNanoseconds(elapsedNanoseconds: bigint): string {
-    return ` (${formatElapsedNanosecondsAsMilliseconds(elapsedNanoseconds)})`;
+    return ` (${Core.formatElapsedNanosecondsAsMilliseconds(elapsedNanoseconds)})`;
 }
 
 function logVerbosePerFileTiming(parameters: {
@@ -534,7 +529,7 @@ function logVerbosePerFileTiming(parameters: {
     const timingSuffix = formatTimingSuffixFromNanoseconds(parameters.elapsedNanoseconds);
     if (parameters.phase === "checked") {
         console.log(
-            `Checked ${formatPathForDisplay(parameters.filePath)} (already formatted, ${formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds)})`
+            `Checked ${formatPathForDisplay(parameters.filePath)} (already formatted, ${Core.formatElapsedNanosecondsAsMilliseconds(parameters.elapsedNanoseconds)})`
         );
         return;
     }
@@ -1358,7 +1353,7 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
     if (abortRequested) {
         return;
     }
-    const formatFileStartedAtNanoseconds = readMonotonicNanoseconds();
+    const formatFileStartedAtNanoseconds = Core.readMonotonicNanoseconds();
     try {
         const formattingOptions = await resolveFormattingOptions(filePath);
         const prettier = await resolvePrettier();
@@ -1397,9 +1392,9 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
             logVerbosePerFileTiming({
                 filePath,
                 phase: "checked",
-                elapsedNanoseconds: calculateElapsedNanoseconds({
+                elapsedNanoseconds: Core.calculateElapsedNanoseconds({
                     startedAtNanoseconds: formatFileStartedAtNanoseconds,
-                    completedAtNanoseconds: readMonotonicNanoseconds()
+                    completedAtNanoseconds: Core.readMonotonicNanoseconds()
                 })
             });
             return;
@@ -1410,9 +1405,9 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
             logVerbosePerFileTiming({
                 filePath,
                 phase: "would-format",
-                elapsedNanoseconds: calculateElapsedNanoseconds({
+                elapsedNanoseconds: Core.calculateElapsedNanoseconds({
                     startedAtNanoseconds: formatFileStartedAtNanoseconds,
-                    completedAtNanoseconds: readMonotonicNanoseconds()
+                    completedAtNanoseconds: Core.readMonotonicNanoseconds()
                 })
             });
             if (!verboseTimingEnabled) {
@@ -1427,9 +1422,9 @@ async function formatSingleFile(filePath, activeIgnorePaths = []) {
         logVerbosePerFileTiming({
             filePath,
             phase: "formatted",
-            elapsedNanoseconds: calculateElapsedNanoseconds({
+            elapsedNanoseconds: Core.calculateElapsedNanoseconds({
                 startedAtNanoseconds: formatFileStartedAtNanoseconds,
-                completedAtNanoseconds: readMonotonicNanoseconds()
+                completedAtNanoseconds: Core.readMonotonicNanoseconds()
             })
         });
         if (!verboseTimingEnabled) {
@@ -1474,7 +1469,7 @@ async function prepareFormattingRun({
     await resetFormattingSession(normalizedParseErrorAction);
     configureDryRunMode(dryRunMode);
     verboseTimingEnabled = verbose;
-    formattingRunStartedAtNanoseconds = readMonotonicNanoseconds();
+    formattingRunStartedAtNanoseconds = Core.readMonotonicNanoseconds();
 }
 
 /**
@@ -1563,13 +1558,13 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
     }
 
     if (verboseTimingEnabled) {
-        const elapsedNanoseconds = calculateElapsedNanoseconds({
+        const elapsedNanoseconds = Core.calculateElapsedNanoseconds({
             startedAtNanoseconds: formattingRunStartedAtNanoseconds,
-            completedAtNanoseconds: readMonotonicNanoseconds()
+            completedAtNanoseconds: Core.readMonotonicNanoseconds()
         });
         const label = timedFormattableFileCount === 1 ? "file" : "files";
         console.log(
-            `Verbose timing: processed ${timedFormattableFileCount} formattable ${label} in ${formatElapsedNanosecondsAsMilliseconds(elapsedNanoseconds)}.`
+            `Verbose timing: processed ${timedFormattableFileCount} formattable ${label} in ${Core.formatElapsedNanosecondsAsMilliseconds(elapsedNanoseconds)}.`
         );
     }
 }
