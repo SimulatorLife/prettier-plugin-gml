@@ -585,6 +585,59 @@ void test("executeConfiguredCodemods preserves allowed leading underscores for r
     assert.deepEqual(result.summaries[0]?.warnings, []);
 });
 
+void test("executeConfiguredCodemods replaces shader prefix instead of duplicating it", async () => {
+    const semantic: PartialSemanticAnalyzer = {
+        listNamingConventionTargets: async () => [
+            {
+                name: "sh_cm_debug",
+                category: "shaderResourceName",
+                path: "shaders/sh_cm_debug/sh_cm_debug.gml",
+                scopeId: null,
+                symbolId: "gml/shaders/sh_cm_debug",
+                occurrences: []
+            }
+        ]
+    };
+    const engine = new Refactor.RefactorEngine({ semantic });
+    const preparedRenameRequests: Array<Array<{ newName: string; symbolId: string }>> = [];
+
+    Object.assign(engine, {
+        async prepareBatchRenamePlan(
+            request: Array<{ symbolId: string; newName: string }>
+        ): Promise<BatchRenamePlanSummary> {
+            preparedRenameRequests.push(request);
+            return createBatchRenamePlanSummary([]);
+        }
+    });
+
+    const result = await engine.executeConfiguredCodemods({
+        projectRoot: "/project",
+        targetPaths: ["/project"],
+        gmlFilePaths: ["shaders/sh_cm_debug/sh_cm_debug.gml"],
+        config: {
+            codemods: {
+                namingConvention: {
+                    rules: {
+                        resource: {
+                            caseStyle: "lower_snake"
+                        },
+                        shaderResourceName: {
+                            prefix: "shd_"
+                        }
+                    }
+                }
+            }
+        },
+        readFile: async () => "",
+        dryRun: true
+    });
+
+    assert.deepEqual(preparedRenameRequests, [[{ symbolId: "gml/shaders/sh_cm_debug", newName: "shd_cm_debug" }]]);
+    assert.equal(result.summaries[0]?.id, "namingConvention");
+    assert.equal(result.summaries[0]?.changed, false);
+    assert.match(result.summaries[0]?.warnings[0] ?? "", /No occurrences found/);
+});
+
 void test("executeConfiguredCodemods applies namingConvention write-mode renames through one merged workspace", async () => {
     const namingTargets = Array.from({ length: 65 }, (_, index) => ({
         name: `bad_name_${index}`,
