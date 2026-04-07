@@ -225,9 +225,8 @@ void test("recommended baseline rules expose stable messageIds and exact schemas
 
         assertEquals(typeof rule.meta?.messages?.[ruleDefinition.messageId], "string");
         assert.deepEqual(rule.meta?.schema, ruleDefinition.schema);
-        if (ruleDefinition.shortName !== "no-globalvar") {
-            assertEquals(rule.meta?.fixable, "code");
-        }
+        const expectedFixable = ruleDefinition.shortName === "no-globalvar" ? undefined : "code";
+        assertEquals(rule.meta?.fixable, expectedFixable);
     }
 });
 
