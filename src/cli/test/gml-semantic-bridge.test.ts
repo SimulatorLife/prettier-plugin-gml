@@ -741,7 +741,7 @@ void describe("GmlSemanticBridge tests", () => {
     });
 
     void it("getAdditionalSymbolEdits skips directory rename when destination folder already exists", () => {
-        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-existing-destination-folder-"));
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-bridge-existing-dest-"));
         const sourceResourcePath = "objects/oGravitySphere/oGravitySphere.yy";
         const destinationResourcePath = "objects/oGravityWell/oGravityWell.yy";
         const projectManifestPath = "project.yyp";

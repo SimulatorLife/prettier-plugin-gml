@@ -677,6 +677,11 @@ export class GmlSemanticBridge {
         return fs.existsSync(absoluteSourcePath);
     }
 
+    /**
+     * Check whether a directory path exists in the effective workspace view.
+     * This considers both on-disk paths and staged rename overlays so batch
+     * rename planning can treat already-staged destinations as existing.
+     */
     private doesWorkspaceDirectoryPathExist(candidatePath: string): boolean {
         const absoluteCandidatePath = path.resolve(this.projectRoot, candidatePath);
         if (fs.existsSync(absoluteCandidatePath) && fs.lstatSync(absoluteCandidatePath).isDirectory()) {
@@ -1222,10 +1227,10 @@ export class GmlSemanticBridge {
         const resourceDirName = path.posix.basename(resourceDir);
         const parentDir = path.posix.dirname(resourceDir);
         const shouldRenameResourceDirectory = resourceDirName === oldName;
-        const newResourceDir = shouldRenameResourceDirectory ? path.posix.join(parentDir, newName) : resourceDir;
+        const renamedResourceDirectoryPath = path.posix.join(parentDir, newName);
         const destinationDirectoryExists =
-            shouldRenameResourceDirectory && this.doesWorkspaceDirectoryPathExist(newResourceDir);
-        const fileRenameDestinationDir = destinationDirectoryExists ? newResourceDir : resourceDir;
+            shouldRenameResourceDirectory && this.doesWorkspaceDirectoryPathExist(renamedResourceDirectoryPath);
+        const fileRenameDestinationDir = destinationDirectoryExists ? renamedResourceDirectoryPath : resourceDir;
 
         // 1. Rename files inside the directory that match the old name.
         // We do this BEFORE renaming the directory because GameMaker assets keep
@@ -1257,7 +1262,7 @@ export class GmlSemanticBridge {
 
         // 2. Rename the directory itself if it matches the resource name.
         if (shouldRenameResourceDirectory && !destinationDirectoryExists) {
-            edit.addFileRename(resourceDir, newResourceDir);
+            edit.addFileRename(resourceDir, renamedResourceDirectoryPath);
         }
 
         this.addResourceMetadataEdits(edit, resource, oldName, newName, currentResourcePath);
