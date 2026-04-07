@@ -100,6 +100,15 @@ type SymbolOccurrence = {
     start: number;
 };
 
+/** Minimal shape of a reference record within a semantic identifier entry's `references` array. */
+type SemanticEntryReferenceRecord = {
+    end?: { index?: number };
+    filePath?: unknown;
+    location?: { end?: { index?: number }; start?: { index?: number } };
+    scopeId?: unknown;
+    start?: { index?: number };
+};
+
 type FileSymbol = {
     id: string;
 };
@@ -307,6 +316,29 @@ function toExclusiveEndIndex(endIndex: number): number {
 
 function resolveOccurrenceEndIndex(endIndex: unknown): number | null {
     return typeof endIndex === "number" ? toExclusiveEndIndex(endIndex) : null;
+}
+
+/**
+ * Extract position data from a semantic entry reference record and push a validated
+ * reference occurrence onto the accumulator. Silently skips records with missing or
+ * invalid location data.
+ */
+function pushEntryReferenceOccurrence(ref: SemanticEntryReferenceRecord, occurrences: Array<SymbolOccurrence>): void {
+    const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
+    const end = resolveOccurrenceEndIndex(ref.end?.index ?? ref.location?.end?.index);
+    const filePath = typeof ref.filePath === "string" ? ref.filePath : "";
+
+    if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
+        return;
+    }
+
+    occurrences.push({
+        path: filePath,
+        start,
+        end,
+        scopeId: typeof ref.scopeId === "string" ? ref.scopeId : undefined,
+        kind: "reference"
+    });
 }
 
 function createWorkspaceEdit(): WorkspaceEdit {
@@ -1755,21 +1787,7 @@ export class GmlSemanticBridge {
                         continue;
                     }
 
-                    const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
-                    const end = resolveOccurrenceEndIndex(ref.end?.index ?? ref.location?.end?.index);
-                    const filePath = typeof ref.filePath === "string" ? ref.filePath : "";
-
-                    if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
-                        continue;
-                    }
-
-                    occurrences.push({
-                        path: filePath,
-                        start,
-                        end,
-                        scopeId: ref.scopeId,
-                        kind: "reference"
-                    });
+                    pushEntryReferenceOccurrence(ref, occurrences);
                 }
             }
 
@@ -1785,21 +1803,7 @@ export class GmlSemanticBridge {
         if (Array.isArray(entry.references)) {
             for (const ref of entry.references) {
                 if (ref.targetName === symbolName) {
-                    const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
-                    const end = resolveOccurrenceEndIndex(ref.end?.index ?? ref.location?.end?.index);
-                    const filePath = typeof ref.filePath === "string" ? ref.filePath : "";
-
-                    if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
-                        continue;
-                    }
-
-                    occurrences.push({
-                        path: filePath,
-                        start,
-                        end,
-                        scopeId: ref.scopeId,
-                        kind: "reference"
-                    });
+                    pushEntryReferenceOccurrence(ref, occurrences);
                 }
             }
         }
@@ -1899,21 +1903,7 @@ export class GmlSemanticBridge {
         // Add references
         if (Array.isArray(entry.references)) {
             for (const ref of entry.references) {
-                const start = ref.start?.index ?? ref.location?.start?.index ?? 0;
-                const end = resolveOccurrenceEndIndex(ref.end?.index ?? ref.location?.end?.index);
-                const filePath = typeof ref.filePath === "string" ? ref.filePath : "";
-
-                if (!Core.isNonEmptyString(filePath) || end === null || end <= start) {
-                    continue;
-                }
-
-                occurrences.push({
-                    path: filePath,
-                    start,
-                    end,
-                    scopeId: ref.scopeId,
-                    kind: "reference"
-                });
+                pushEntryReferenceOccurrence(ref, occurrences);
             }
         }
     }
