@@ -2,7 +2,10 @@ import { Core } from "@gmloop/core";
 
 import { executeNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 import { normalizeNamingConventionPolicy } from "./naming-convention-policy.js";
-import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
+import {
+    assertRefactorConfigPlainObject,
+    assertRefactorConfigPlainObjectWithAllowedKeys
+} from "./refactor-config-assertions.js";
 import type {
     CodemodEngine,
     ConfiguredCodemodRunRequest,
@@ -41,6 +44,8 @@ function isNullableString(value: unknown): value is string | null {
     return typeof value === "string" || value === null;
 }
 
+const LOOP_LENGTH_HOISTING_ALLOWED_KEYS = new Set(["functionSuffixes"]);
+
 function normalizeLoopLengthHoistingConfig(
     value: unknown,
     context: string
@@ -49,14 +54,7 @@ function normalizeLoopLengthHoistingConfig(
         return false;
     }
 
-    const object = assertRefactorConfigPlainObject(value, context);
-    const allowedKeys = new Set(["functionSuffixes"]);
-
-    for (const key of Object.keys(object)) {
-        if (!allowedKeys.has(key)) {
-            throw new TypeError(`${context} contains unknown property ${JSON.stringify(key)}`);
-        }
-    }
+    const object = assertRefactorConfigPlainObjectWithAllowedKeys(value, LOOP_LENGTH_HOISTING_ALLOWED_KEYS, context);
 
     if (object.functionSuffixes === undefined) {
         return {};
