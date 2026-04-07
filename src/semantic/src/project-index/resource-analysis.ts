@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gmloop/core";
 
-import { isProjectMetadataParseError, parseProjectMetadataDocumentWithSchema } from "../project-metadata/yy-adapter.js";
+import { isProjectMetadataParseError, parseProjectMetadataDocument } from "../project-metadata/yy-adapter.js";
 import {
     isProjectManifestPath,
     matchProjectResourceMetadataExtension,
@@ -184,8 +184,7 @@ function createResourceAnalysisContext() {
 async function loadResourceDocument(
     file,
     fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile">> = defaultFsFacade,
-    options = {},
-    logger: { log: typeof console.log } | null = null
+    options = {}
 ) {
     const { ensureNotAborted } = Core.createAbortGuard(options, {
         fallbackMessage: RESOURCE_ANALYSIS_ABORT_MESSAGE
@@ -203,14 +202,12 @@ async function loadResourceDocument(
     ensureNotAborted();
 
     try {
-        const parsed = parseProjectMetadataDocumentWithSchema(rawContents, file.absolutePath ?? file.relativePath);
-        if (parsed.schemaName && !parsed.schemaValidated && logger) {
-            logger.log(
-                `WARN: Resource metadata at '${file.relativePath}' does not fully match '${parsed.schemaName}' schema; continuing with parsed document.`
-            );
-        }
-
-        return parsed.document;
+        // Use plain parse (no schema) to preserve the original document structure.
+        // Schema-validated parsing fills in schema defaults and can replace custom
+        // fields (e.g. sprite sequence channel data) with empty defaults, causing
+        // asset reference data loss. Schema validation is only needed for mutation
+        // workflows, not for read-only resource analysis.
+        return parseProjectMetadataDocument(rawContents, file.absolutePath ?? file.relativePath);
     } catch (error) {
         if (isProjectMetadataParseError(error)) {
             return null;
@@ -354,7 +351,7 @@ export async function analyseResourceFiles({
 
     await Core.runSequentially(yyFiles, async (file) => {
         Core.throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
-        const parsed = await loadResourceDocument(file, fsFacade, { signal }, logger);
+        const parsed = await loadResourceDocument(file, fsFacade, { signal });
         if (!parsed) {
             skippedCount++;
             return;

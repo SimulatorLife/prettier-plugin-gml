@@ -138,11 +138,16 @@ void test("fix runs codemods, lint fixes, and formatting in sequence for a proje
         assert.match(result.stdout, /\[3\/3 Format\]/);
         assert.match(result.stdout, /Success! Project codemods, lint fixes, and formatting completed/);
 
-        await access(path.join(projectRoot, "scripts/demo_script/demo_script.gml"));
-        const scriptSource = await readFile(path.join(projectRoot, "scripts/demo_script/demo_script.gml"), "utf8");
-        assert.match(scriptSource, /function demo_script\(\)/);
+        // The naming convention (scriptResourceName: camel) renames demo_script → demoScript.
+        await access(path.join(projectRoot, "scripts/demoScript/demoScript.gml"));
+        const scriptSource = await readFile(path.join(projectRoot, "scripts/demoScript/demoScript.gml"), "utf8");
+        // The refactor codemod renames the function to camelCase.
+        assert.match(scriptSource, /function demoScript\(\)/);
+        // The lint fix adds a @returns annotation.
         assert.match(scriptSource, /@returns/);
+        // The formatter applies spacing around the if-condition parentheses.
         assert.match(scriptSource, /if \(true\) \{/);
+        // The lint fix inlines the variable and expands the numeric literal 1e3 → 1000.
         assert.match(scriptSource, /return 1000;/);
         assert.doesNotMatch(scriptSource, /1e3/);
     } finally {
