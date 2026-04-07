@@ -1318,6 +1318,8 @@ export function runGenerateQualityReport({ command }: any = {}) {
         process.exitCode = exitCode;
         throw new CliUsageError("Test regressions detected.");
     }
+
+    return 0;
 }
 
 type ReportTableState = {
@@ -1407,6 +1409,38 @@ function formatQualityReportTable({ testRows, qualityRows }: ReportTableState): 
     return [...testRows, "", ...qualityRows].join("\n");
 }
 
+function formatRegressionComparisonFlow({
+    base,
+    head,
+    merged
+}: {
+    base: { usedDir?: string | null };
+    head: { usedDir?: string | null };
+    merged: { usedDir?: string | null };
+}): string {
+    const lines = [
+        "#### Regression Comparison Flow",
+        "",
+        "- Base: baseline snapshot used as the source of truth for historical pass/fail state.",
+        "- PR (Head): pull request head commit snapshot."
+    ];
+
+    if (merged.usedDir) {
+        lines.push(
+            "- Merged: synthetic merge snapshot for this PR event (`base.sha + head.sha`).",
+            "- Regression gate target: **Merged**."
+        );
+    } else {
+        lines.push("- Merged: unavailable for this run.", "- Regression gate target: **PR (Head)**.");
+    }
+
+    if (!base.usedDir && !head.usedDir && !merged.usedDir) {
+        lines.push("- Regression gate target: unavailable (missing required artifacts).");
+    }
+
+    return lines.join("\n");
+}
+
 function runCli(options: any = {}) {
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
     const reportFile = options.reportFile || path.join("reports", "summary-report.md");
@@ -1454,23 +1488,30 @@ function runCli(options: any = {}) {
     });
 
     const table = formatQualityReportTable(reportTables);
+    const comparisonFlow = formatRegressionComparisonFlow({
+        base,
+        head,
+        merged
+    });
     console.log(table);
+    console.log(`\n${comparisonFlow}`);
 
     let exitCode = 0;
     let statusLine;
 
     if (base.usedDir && target.usedDir) {
         const regressions = detectRegressions(base, target);
+        const gateLabel = usingMerged ? "Base → Merged" : "Base → PR (Head)";
         if (regressions.length > 0) {
             exitCode = 10;
             const cause = describeRegressionCause(regressions, diffStats[usingMerged ? "merge" : "head"]);
             const summary = summarizeRegressedTests(regressions);
-            statusLine = `❌ Test regressions detected. ${summary}. Cause: ${cause}`;
+            statusLine = `❌ Test regressions detected (${gateLabel}). ${summary}. Cause: ${cause}`;
         } else {
-            statusLine = "✅ No test regressions detected.";
+            statusLine = `✅ No test regressions detected (${gateLabel}).`;
         }
     } else {
-        statusLine = "⚠️ Unable to compare base and target results.";
+        statusLine = "⚠️ Unable to compare base and target results (missing artifacts for gate target).";
     }
 
     console.log(`\n${statusLine}`);
@@ -1481,6 +1522,8 @@ function runCli(options: any = {}) {
             "### Quality Report Summary",
             "",
             table,
+            "",
+            comparisonFlow,
             "",
             statusLine
         ].join("\n");

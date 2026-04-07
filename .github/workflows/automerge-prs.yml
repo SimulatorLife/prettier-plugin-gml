@@ -76,13 +76,15 @@ jobs:
         id: ref
         run: |
           if [ "${{ matrix.target }}" = "base" ]; then
-            # Use the live base branch ref so the base leg stays aligned with the
-            # synthetic merge ref, which GitHub rebuilds against the current base tip.
-            echo "ref=${{ github.event.pull_request.base.ref }}" >> "$GITHUB_OUTPUT"
+            # Freeze base to the exact PR-event snapshot so comparisons stay stable
+            # even if the base branch advances while this workflow is running.
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ matrix.target }}" = "head" ]; then
-            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            # Explicit PR head commit (not the synthetic merge commit).
+            echo "ref=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
           else
-            echo "ref=refs/pull/${{ github.event.pull_request.number }}/merge" >> "$GITHUB_OUTPUT"
+            # Synthetic merge commit captured for this PR event.
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
       # If the synthetic merge ref doesn't exist, continue so the leg can still upload nothing and be summarized.
@@ -364,7 +366,10 @@ jobs:
             const lines = [
               marker,
               '',
-              `${agentMention} The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
+              `${agentMention} The auto-merge workflow detected test regressions on this PR ` +
+                `while comparing the base results with the merged results ` +
+                `(or with PR head results when merged results are unavailable). ` +
+                "Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.",
             ];
 
             if (regressionSummaryLine) {

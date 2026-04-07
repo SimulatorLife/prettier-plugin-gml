@@ -12,7 +12,8 @@ import {
     detectResolvedFailures,
     ensureResultsAvailability,
     readTestResults,
-    reportRegressionSummary
+    reportRegressionSummary,
+    runGenerateQualityReport
 } from "../src/commands/generate-quality-report.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
@@ -29,6 +30,12 @@ function writeXml(dir, name, contents) {
 function writeJson(dir, name, value) {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, name), JSON.stringify(value, null, 2));
+}
+
+function createMockCommand(options) {
+    return {
+        opts: () => options
+    };
 }
 
 let workspace;
@@ -788,6 +795,103 @@ void test("readTestResults preserves project health stats when present", () => {
     const result = readTestResults(["reports"], { workspace });
 
     assert.deepStrictEqual(result.health, health);
+});
+
+void test("quality report explains merged snapshot gate semantics when merge artifacts are present", () => {
+    const baseDir = path.join(workspace, "base/reports");
+    const headDir = path.join(workspace, "head/reports");
+    const mergeDir = path.join(workspace, "merge/reports");
+    const reportFile = path.join(workspace, "reports/summary-report.md");
+    fs.mkdirSync(path.dirname(reportFile), { recursive: true });
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stable test" classname="suite" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stable test" classname="suite" />
+        <testcase name="new passing test" classname="suite" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        mergeDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stable test" classname="suite" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const exitCode = runGenerateQualityReport({
+        command: createMockCommand({
+            base: baseDir,
+            head: headDir,
+            merge: mergeDir,
+            reportFile
+        })
+    });
+
+    assert.strictEqual(exitCode, 0);
+    const markdown = fs.readFileSync(reportFile, "utf8");
+    assert.match(markdown, /#### Regression Comparison Flow/u);
+    assert.match(markdown, /Regression gate target: \*\*Merged\*\*\./u);
+    assert.match(markdown, /✅ No test regressions detected \(Base → Merged\)\./u);
+});
+
+void test("quality report falls back to PR head gate semantics when merge artifacts are missing", () => {
+    const baseDir = path.join(workspace, "base/reports");
+    const headDir = path.join(workspace, "head/reports");
+    const reportFile = path.join(workspace, "reports/summary-report.md");
+    fs.mkdirSync(path.dirname(reportFile), { recursive: true });
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stable test" classname="suite" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stable test" classname="suite">
+          <failure message="regression" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const exitCode = runGenerateQualityReport({
+        command: createMockCommand({
+            base: baseDir,
+            head: headDir,
+            merge: path.join(workspace, "missing-merge/reports"),
+            reportFile
+        })
+    });
+
+    assert.strictEqual(exitCode, 10);
+    const markdown = fs.readFileSync(reportFile, "utf8");
+    assert.match(markdown, /Regression gate target: \*\*PR \(Head\)\*\*\./u);
+    assert.match(markdown, /❌ Test regressions detected \(Base → PR \(Head\)\)\./u);
 });
 
 void test("command accepts options without positional arguments", async () => {
