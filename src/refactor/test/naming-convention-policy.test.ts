@@ -223,6 +223,36 @@ void test("evaluateNamingConvention replaces underscore resource prefixes for sh
     assert.equal(evaluation.suggestedName, "shd_cm_debug");
 });
 
+void test("evaluateNamingConvention preserves camelCase prefix-word when it matches only the first character of the target prefix", () => {
+    // "oCamera" has a camelCase prefix-word "o" that happens to match the first character
+    // of the target prefix "obj". The "o" must NOT be stripped—it is part of the word
+    // structure and should be kept, producing "obj_o_camera" (not "obj_camera").
+    const policy = Refactor.normalizeNamingConventionPolicy({
+        rules: {
+            resource: {
+                caseStyle: "lower_snake"
+            },
+            objectResourceName: {
+                prefix: "obj_"
+            }
+        }
+    });
+    const resolved = Refactor.resolveNamingConventionRules(policy);
+
+    const camera = Refactor.evaluateNamingConvention("oCamera", "objectResourceName", policy, resolved);
+    assert.equal(camera.compliant, false);
+    assert.equal(camera.suggestedName, "obj_o_camera");
+
+    const compound = Refactor.evaluateNamingConvention("oColmesh2DemoCylinder", "objectResourceName", policy, resolved);
+    assert.equal(compound.compliant, false);
+    assert.equal(compound.suggestedName, "obj_o_colmesh2demo_cylinder");
+
+    // Underscore-separated prefix "o_" IS stripped (that's a real prefix, not a word).
+    const underscorePrefixed = Refactor.evaluateNamingConvention("o_camera", "objectResourceName", policy, resolved);
+    assert.equal(underscorePrefixed.compliant, false);
+    assert.equal(underscorePrefixed.suggestedName, "obj_camera");
+});
+
 void test("evaluateNamingConvention fast-path handles simple case-style-only rules", () => {
     const policy = Refactor.normalizeNamingConventionPolicy({
         rules: {

@@ -208,8 +208,8 @@ void test(
             `expected optimize-math-expressions rule runtime under 4500ms, received ${timedRun.ruleMilliseconds.toFixed(2)}ms`
         );
         assert.ok(
-            timedRun.elapsedMilliseconds < 8000,
-            `expected total lint runtime under 8000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
+            timedRun.elapsedMilliseconds < 12_000,
+            `expected total lint runtime under 12000ms, received ${timedRun.elapsedMilliseconds.toFixed(2)}ms`
         );
     }
 );

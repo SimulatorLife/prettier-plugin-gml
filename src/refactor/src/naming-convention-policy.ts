@@ -474,7 +474,8 @@ function toCamelCaseFromLowerSnakeCore(value: string): string {
         }
 
         // Uppercase the character when following an underscore and it's a-z (97–122).
-        formatted += uppercaseNext && code >= 97 && code <= 122 ? String.fromCharCode(code - 32) : String.fromCharCode(code);
+        formatted +=
+            uppercaseNext && code >= 97 && code <= 122 ? String.fromCharCode(code - 32) : String.fromCharCode(code);
         uppercaseNext = false;
     }
 
@@ -653,7 +654,11 @@ function stripOneAffixDirection(
 
             if (
                 prefixWord === coreTargetPrefix ||
-                prefixWord === coreTargetPrefix[0] ||
+                // Only strip a single-char prefix-word when it is underscore-separated
+                // (e.g. "o_camera" → strip "o_" → "camera"). For camelCase names like
+                // "oCamera" the leading "o" is part of the word structure and must not
+                // be stripped—it will be kept and converted as a normal word.
+                (prefixWord === coreTargetPrefix[0] && separator === "_") ||
                 (prefixWord.length > 1 && coreTargetPrefix.startsWith(prefixWord))
             ) {
                 return separator === "_" ? remainder : separator + remainder;
