@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { formatDuration, timeSync } from "../src/utils/time.js";
+import { formatDuration, timeSync } from "../src/shared/time-utils.js";
 
 function createCollectingLogger() {
     const calls: unknown[][] = [];
