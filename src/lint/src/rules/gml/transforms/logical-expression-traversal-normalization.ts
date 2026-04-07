@@ -193,38 +193,8 @@ function simplifyIfStatement(node: any): boolean {
         }
     }
 
-    // 3. if (cond) x = A; else x = B; -> x = cond ? A : B;
-    if (alternate) {
-        const consExp = getAssignmentExpressionFromStatementLikeNode(consequent);
-        const altExp = getAssignmentExpressionFromStatementLikeNode(alternate);
-
-        if (consExp && altExp && nodesRecursiveEqual(consExp.left, altExp.left)) {
-            // x = cond ? A : B;
-            const conditional = {
-                type: "ConditionalExpression",
-                test: node.test,
-                consequent: consExp.right,
-                alternate: altExp.right
-            };
-            const assignment = {
-                type: "AssignmentExpression",
-                operator: consExp.operator, // Assume same operator (=)
-                left: consExp.left,
-                right: conditional
-            };
-            const statement = {
-                type: "ExpressionStatement",
-                expression: assignment,
-                start: node.start,
-                end: node.end
-            };
-            replaceNode(node, statement);
-            return true;
-        }
-    }
-
-    // 4. if (is_undefined(x)) x = y; -> x ??= y;
-    // 5. if (x == undefined) x = y; -> x ??= y;
+    // 3. if (is_undefined(x)) x = y; -> x ??= y;
+    // 4. if (x == undefined) x = y; -> x ??= y;
     if (!node.alternate) {
         const assignment = getAssignmentExpressionFromStatementLikeNode(consequent);
         if (!assignment || assignment.operator !== "=") {
