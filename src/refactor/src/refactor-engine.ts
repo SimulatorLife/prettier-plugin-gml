@@ -270,9 +270,21 @@ export class RefactorEngine {
 
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
+     *
+     * On the first call the raw semantic result is deduplicated and the clean
+     * array is stored back in the cache via {@link SemanticQueryCache.primeOccurrenceCache}.
+     * On every subsequent cache hit {@link SemanticQueryCache.isOccurrencePrimed} returns
+     * `true`, so the deduplication step is skipped entirely — avoiding redundant
+     * O(n) iteration over an already-clean occurrence array in batch-rename scenarios
+     * where the same symbol is queried multiple times.
      */
     gatherSymbolOccurrences(symbolName: string, symbolId: string | null = null): Promise<Array<SymbolOccurrence>> {
         return this.semanticCache.getSymbolOccurrences(symbolName, symbolId).then((occurrences) => {
+            // Skip deduplication when the cache entry is already known to be clean.
+            if (this.semanticCache.isOccurrencePrimed(symbolName, symbolId)) {
+                return occurrences;
+            }
+
             const deduplicated = deduplicateSymbolOccurrences(occurrences);
             // Replace the raw occurrence cache entry with the deduped+range-merged
             // result so that every subsequent cache hit for the same symbol skips
