@@ -83,4 +83,52 @@ void describe("resolveCliVersion", { concurrency: 1 }, () => {
             }
         }
     });
+
+    void test("resolveCliVersion skips whitespace-only PRETTIER_PLUGIN_GML_VERSION and falls back to npm_package_version", () => {
+        const originalEnv = process.env.PRETTIER_PLUGIN_GML_VERSION;
+        const originalNpmVersion = process.env.npm_package_version;
+
+        try {
+            process.env.PRETTIER_PLUGIN_GML_VERSION = "   ";
+            process.env.npm_package_version = "4.5.6";
+
+            assert.equal(resolveCliVersion(), "4.5.6");
+        } finally {
+            if (originalEnv === undefined) {
+                delete process.env.PRETTIER_PLUGIN_GML_VERSION;
+            } else {
+                process.env.PRETTIER_PLUGIN_GML_VERSION = originalEnv;
+            }
+
+            if (originalNpmVersion === undefined) {
+                delete process.env.npm_package_version;
+            } else {
+                process.env.npm_package_version = originalNpmVersion;
+            }
+        }
+    });
+
+    void test("resolveCliVersion skips empty PRETTIER_PLUGIN_GML_VERSION and falls back to npm_package_version", () => {
+        const originalEnv = process.env.PRETTIER_PLUGIN_GML_VERSION;
+        const originalNpmVersion = process.env.npm_package_version;
+
+        try {
+            process.env.PRETTIER_PLUGIN_GML_VERSION = "";
+            process.env.npm_package_version = "2.0.0";
+
+            assert.equal(resolveCliVersion(), "2.0.0");
+        } finally {
+            if (originalEnv === undefined) {
+                delete process.env.PRETTIER_PLUGIN_GML_VERSION;
+            } else {
+                process.env.PRETTIER_PLUGIN_GML_VERSION = originalEnv;
+            }
+
+            if (originalNpmVersion === undefined) {
+                delete process.env.npm_package_version;
+            } else {
+                process.env.npm_package_version = originalNpmVersion;
+            }
+        }
+    });
 });
