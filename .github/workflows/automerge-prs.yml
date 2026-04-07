@@ -369,7 +369,7 @@ jobs:
               `${agentMention} The auto-merge workflow detected test regressions on this PR ` +
                 `while comparing the base results with the merged results ` +
                 `(or with PR head results when merged results are unavailable). ` +
-                "Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.",
+                "Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged. Do not remove tests or relax performance requirements without a clear, well-reasoned justification, as doing so can harm the overall health of the project.",
             ];
 
             if (regressionSummaryLine) {
