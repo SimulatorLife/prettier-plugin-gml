@@ -1,5 +1,8 @@
 import { listRegisteredCodemods, normalizeRegisteredCodemodConfig } from "./codemod-registry.js";
-import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
+import {
+    assertRefactorConfigPlainObject,
+    assertRefactorConfigPlainObjectWithAllowedKeys
+} from "./refactor-config-assertions.js";
 import type { RefactorCodemodId, RefactorProjectConfig } from "./types.js";
 
 const REFACTOR_CONFIG_KEYS = new Set(["codemods"]);
@@ -21,13 +24,11 @@ export function normalizeRefactorProjectConfig(config: unknown): RefactorProject
         return {};
     }
 
-    const object = assertRefactorConfigPlainObject(config, "gmloop.json refactor config");
-
-    for (const key of Object.keys(object)) {
-        if (!REFACTOR_CONFIG_KEYS.has(key)) {
-            throw new TypeError(`gmloop.json refactor config contains unknown property ${JSON.stringify(key)}`);
-        }
-    }
+    const object = assertRefactorConfigPlainObjectWithAllowedKeys(
+        config,
+        REFACTOR_CONFIG_KEYS,
+        "gmloop.json refactor config"
+    );
 
     const normalized: RefactorProjectConfig = {};
 
