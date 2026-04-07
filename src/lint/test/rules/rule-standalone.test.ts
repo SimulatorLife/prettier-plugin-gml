@@ -963,7 +963,7 @@ void test("no-globalvar diagnoses declared globals", () => {
     assertEquals(result.output, input);
 });
 
-void test("no-globalvar diagnoses comma-separated declarations", () => {
+void test("no-globalvar diagnoses comma-separated declarations in repeated runs", () => {
     const input = ["globalvar score, lives;", "score = 1;", "if (lives > 0) {", "    score += lives;", "}", ""].join(
         "\n"
     );
