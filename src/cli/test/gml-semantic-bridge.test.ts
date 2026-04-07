@@ -797,12 +797,17 @@ void describe("GmlSemanticBridge tests", () => {
         const edits = bridge.getAdditionalSymbolEdits("gml/objects/oGravitySphere", "oGravityWell");
 
         assert.ok(edits, "Expected additional edits for resource rename");
+        assert.ok(fs.existsSync(destinationMarkerAbsolute), "Expected pre-existing destination directory content");
         assert.deepEqual(edits.fileRenames, [
             {
                 oldPath: sourceResourcePath,
                 newPath: destinationResourcePath
             }
         ]);
+        assert.ok(
+            edits.fileRenames.every((rename) => rename.oldPath !== "objects/oGravitySphere"),
+            "Expected no directory-level rename when destination directory already exists"
+        );
     });
 
     void it("getAdditionalSymbolEdits updates sprite keyframe self-reference paths without mutating keyframe UUID names", async () => {
