@@ -23,6 +23,7 @@ import { Transpiler } from "@gmloop/transpiler";
 import { Command, Option } from "commander";
 
 import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
@@ -508,6 +509,8 @@ export function resolveDependentRetranspileConcurrency(configuredMaximum: number
  */
 export function createWatchCommand(): Command {
     const command = new Command("watch");
+
+    applyStandardCommandOptions(command);
 
     command
         .description("Watch GML source files and coordinate hot-reload pipeline actions")

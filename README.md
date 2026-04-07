@@ -88,11 +88,11 @@ pnpm run cli -- lint /absolute/path/to/MyGame --fix
 The refactor workspace implements a GML-native Collection API (similar to `jscodeshift`) for atomic cross-file transactions and metadata edits.
 
 ```bash
-# dry-run rename preview
-pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --dry-run
+# preview rename (dry-run is the default; no files are written without --fix)
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 
 # apply rename
-pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --fix
 ```
 
 ## Architecture overview
