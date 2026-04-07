@@ -95,7 +95,8 @@ void test("applyLoopLengthHoistingCodemod single-pass traversal stays within the
 
     samples.sort((left, right) => left - right);
     const medianSampleIndex = Math.floor(samples.length / 2);
-    const medianDurationMs = samples[medianSampleIndex] ?? 0;
+    // samples.length === SAMPLE_COUNT (a positive constant) so the index is always valid.
+    const medianDurationMs = samples[medianSampleIndex];
 
     // All files have at least one hoistable loop, so every file should be changed.
     assert.equal(lastChangedCount, FILE_COUNT, `Expected all ${FILE_COUNT} files to have hoistable loops`);

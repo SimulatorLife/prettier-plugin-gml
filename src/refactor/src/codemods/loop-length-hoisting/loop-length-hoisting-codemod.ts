@@ -249,8 +249,9 @@ export function applyLoopLengthHoistingCodemod(
 
     // Collect identifier names and for-statement contexts in a single AST pass
     // instead of two separate traversals, cutting per-file node visits in half.
+    // The returned `identifierNames` set is mutable and accumulates hoisted
+    // variable names as loops are processed, preventing naming conflicts.
     const { identifierNames, forStatementContexts: loopContexts } = collectAstData(ast);
-    const localIdentifierNames = identifierNames;
     const lineEnding = Core.dominantLineEnding(sourceText);
 
     const edits: Array<LoopLengthHoistingEdit> = [];
@@ -261,7 +262,7 @@ export function applyLoopLengthHoistingCodemod(
             sourceText,
             loopContext,
             suffixMap,
-            localIdentifierNames,
+            localIdentifierNames: identifierNames,
             lineEnding
         });
 
@@ -280,7 +281,7 @@ export function applyLoopLengthHoistingCodemod(
 
         const hoistedIdentifierName = rewrite.callRewrites[0]?.text;
         if (Core.isNonEmptyString(hoistedIdentifierName)) {
-            localIdentifierNames.add(hoistedIdentifierName);
+            identifierNames.add(hoistedIdentifierName);
         }
         diagnosticOffsets.push(rewrite.reportOffset);
     }
