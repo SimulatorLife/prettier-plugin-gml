@@ -182,6 +182,10 @@ function canIfStatementBenefitFromNormalization(node: unknown): boolean {
         return false;
     }
 
+    if (canBooleanLiteralComparisonBenefitFromNormalization(ifNode.test)) {
+        return true;
+    }
+
     const consequentStatement = unwrapSingleStatement(ifNode.consequent);
     const alternateStatement = unwrapSingleStatement(ifNode.alternate);
 
@@ -222,6 +226,33 @@ function canIfStatementBenefitFromNormalization(node: unknown): boolean {
     }
 
     return isUndefinedCheckAgainstTarget(ifNode.test, consequentExpression.left);
+}
+
+function canBooleanLiteralComparisonBenefitFromNormalization(node: unknown): boolean {
+    const comparisonNode = unwrapParenthesizedNode(node);
+    if (
+        !comparisonNode ||
+        comparisonNode.type !== "BinaryExpression" ||
+        (comparisonNode.operator !== "==" && comparisonNode.operator !== "!=")
+    ) {
+        return false;
+    }
+
+    const left = unwrapParenthesizedNode(comparisonNode.left);
+    const right = unwrapParenthesizedNode(comparisonNode.right);
+    if (!left || !right) {
+        return false;
+    }
+
+    const leftBoolean = Core.getBooleanLiteralValue(left as BooleanLiteralInput, {
+        acceptBooleanPrimitives: true
+    });
+    const rightBoolean = Core.getBooleanLiteralValue(right as BooleanLiteralInput, {
+        acceptBooleanPrimitives: true
+    });
+    const hasLeftBoolean = leftBoolean === "true" || leftBoolean === "false";
+    const hasRightBoolean = rightBoolean === "true" || rightBoolean === "false";
+    return hasLeftBoolean !== hasRightBoolean;
 }
 
 function unwrapParenthesizedNode(node: unknown): AstRecord | null {
