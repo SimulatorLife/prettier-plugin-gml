@@ -9,7 +9,7 @@ import {
     stringifyProjectMetadataDocument,
     updateProjectMetadataReferenceByPath,
     writeProjectMetadataDocumentToFile
-} from "../../project-metadata/yy-adapter.js";
+} from "../../project-metadata/index.js";
 import { DEFAULT_WRITE_ACCESS_MODE, defaultIdentifierCaseFsFacade as defaultFsFacade } from "../fs-facade.js";
 
 type IdentifierCaseProjectIndex = {
