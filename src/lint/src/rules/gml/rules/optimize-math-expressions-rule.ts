@@ -285,13 +285,35 @@ function collectMultiplicativeComponents(sourceText: string, node: any): Multipl
     return null;
 }
 
-function buildMultiplicativeExpression(components: MultiplicativeComponents): string {
+function formatNonScientificNumericLiteral(value: number): string | null {
+    if (!Number.isFinite(value)) {
+        return null;
+    }
+
+    if (Object.is(value, -0)) {
+        return "0";
+    }
+
+    const literal = value.toString();
+    if (literal.includes("e") || literal.includes("E")) {
+        return null;
+    }
+
+    return literal;
+}
+
+function buildMultiplicativeExpression(components: MultiplicativeComponents): string | null {
     const { coefficient, factors } = components;
     if (coefficient === 0) {
         return "0";
     }
 
     const terms: string[] = [];
+    const coefficientText = coefficient === 1 ? "1" : formatNonScientificNumericLiteral(coefficient);
+    if (coefficient !== 1 && coefficientText === null) {
+        return null;
+    }
+
     // Normally we prefer to render the numeric coefficient first to canonicalize
     // expressions (e.g. "2 * x" instead of "x * 2"). However, when the
     // coefficient is a positive fraction less than 1, moving it to the front
@@ -303,7 +325,7 @@ function buildMultiplicativeExpression(components: MultiplicativeComponents): st
     const shouldPrefixCoefficient =
         coefficient !== 1 && (factors.size === 0 || coefficient <= -1 || coefficient >= 1 || coefficient < 0);
     if (shouldPrefixCoefficient) {
-        terms.push(coefficient.toString());
+        terms.push(coefficientText);
     }
 
     for (const [factor, power] of factors) {
@@ -323,7 +345,7 @@ function buildMultiplicativeExpression(components: MultiplicativeComponents): st
     // was a small positive fraction) then append it now so the term sequence
     // still includes the numeric factor.
     if (!shouldPrefixCoefficient && coefficient !== 1) {
-        terms.push(coefficient.toString());
+        terms.push(coefficientText);
     }
 
     return terms.join(" * ");
@@ -361,7 +383,12 @@ function simplifyMathExpression(sourceText: string, node: any, _source?: string)
         return "0";
     }
 
-    const simplified = normalizeLeadingNumericCoefficientOrder(buildMultiplicativeExpression(components));
+    const multiplicativeExpression = buildMultiplicativeExpression(components);
+    if (!multiplicativeExpression) {
+        return null;
+    }
+
+    const simplified = normalizeLeadingNumericCoefficientOrder(multiplicativeExpression);
     const originalText = readNodeText(sourceText, node);
     if (originalText && trimOuterParentheses(originalText) === trimOuterParentheses(simplified)) {
         return null;

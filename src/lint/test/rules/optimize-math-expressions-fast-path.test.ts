@@ -43,6 +43,15 @@ void test("optimize-math-expressions applies the same cached reciprocal rewrite 
     assert.equal(result.output, ["a = size * 0.5;", "b = size * 0.5;", "c = size * 0.5;", ""].join("\n"));
 });
 
+void test("optimize-math-expressions does not rewrite reciprocal multipliers that require scientific notation", () => {
+    const input = ["return _lcg / 2147483648;", "return value / 4;", ""].join("\n");
+    const result = lintWithRule("optimize-math-expressions", input, {});
+
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.messages[0]?.messageId, "optimizeMathExpressions");
+    assert.equal(result.output, ["return _lcg / 2147483648;", "return value * 0.25;", ""].join("\n"));
+});
+
 void test("optimize-math-expressions does not rewrite additive scalar products into dot_product", () => {
     const input = "result = (current_time / 3000) + ((i / currArmNum) * 6 * pi);\n";
     const result = lintWithRule("optimize-math-expressions", input, {});
