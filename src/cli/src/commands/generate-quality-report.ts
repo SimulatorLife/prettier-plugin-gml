@@ -1318,6 +1318,8 @@ export function runGenerateQualityReport({ command }: any = {}) {
         process.exitCode = exitCode;
         throw new CliUsageError("Test regressions detected.");
     }
+
+    return 0;
 }
 
 type ReportTableState = {
@@ -1410,13 +1412,11 @@ function formatQualityReportTable({ testRows, qualityRows }: ReportTableState): 
 function formatRegressionComparisonFlow({
     base,
     head,
-    merged,
-    usingMerged
+    merged
 }: {
     base: { usedDir?: string | null };
     head: { usedDir?: string | null };
     merged: { usedDir?: string | null };
-    usingMerged: boolean;
 }): string {
     const lines = [
         "#### Regression Comparison Flow",
@@ -1428,13 +1428,13 @@ function formatRegressionComparisonFlow({
     if (merged.usedDir) {
         lines.push(
             "- Merged: synthetic merge snapshot for this PR event (`base.sha + head.sha`).",
-            `- Regression gate target: **Merged** (${usingMerged ? "active" : "inactive"}).`
+            "- Regression gate target: **Merged**."
         );
     } else {
         lines.push("- Merged: unavailable for this run.", "- Regression gate target: **PR (Head)**.");
     }
 
-    if (!base.usedDir || (!head.usedDir && !merged.usedDir)) {
+    if (!base.usedDir && !head.usedDir && !merged.usedDir) {
         lines.push("- Regression gate target: unavailable (missing required artifacts).");
     }
 
@@ -1491,8 +1491,7 @@ function runCli(options: any = {}) {
     const comparisonFlow = formatRegressionComparisonFlow({
         base,
         head,
-        merged,
-        usingMerged
+        merged
     });
     console.log(table);
     console.log(`\n${comparisonFlow}`);

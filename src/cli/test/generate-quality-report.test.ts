@@ -32,6 +32,12 @@ function writeJson(dir, name, value) {
     fs.writeFileSync(path.join(dir, name), JSON.stringify(value, null, 2));
 }
 
+function createMockCommand(options) {
+    return {
+        opts: () => options
+    };
+}
+
 let workspace;
 
 beforeEach(() => {
@@ -829,20 +835,19 @@ void test("quality report explains merged snapshot gate semantics when merge art
     </testsuites>`
     );
 
-    runGenerateQualityReport({
-        command: {
-            opts: () => ({
-                base: baseDir,
-                head: headDir,
-                merge: mergeDir,
-                reportFile
-            })
-        }
+    const exitCode = runGenerateQualityReport({
+        command: createMockCommand({
+            base: baseDir,
+            head: headDir,
+            merge: mergeDir,
+            reportFile
+        })
     });
 
+    assert.strictEqual(exitCode, 0);
     const markdown = fs.readFileSync(reportFile, "utf8");
     assert.match(markdown, /#### Regression Comparison Flow/u);
-    assert.match(markdown, /Regression gate target: \*\*Merged\*\* \(active\)\./u);
+    assert.match(markdown, /Regression gate target: \*\*Merged\*\*\./u);
     assert.match(markdown, /✅ No test regressions detected \(Base → Merged\)\./u);
 });
 
@@ -875,14 +880,12 @@ void test("quality report falls back to PR head gate semantics when merge artifa
     );
 
     const exitCode = runGenerateQualityReport({
-        command: {
-            opts: () => ({
-                base: baseDir,
-                head: headDir,
-                merge: path.join(workspace, "missing-merge/reports"),
-                reportFile
-            })
-        }
+        command: createMockCommand({
+            base: baseDir,
+            head: headDir,
+            merge: path.join(workspace, "missing-merge/reports"),
+            reportFile
+        })
     });
 
     assert.strictEqual(exitCode, 10);

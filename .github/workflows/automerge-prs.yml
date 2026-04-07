@@ -366,7 +366,10 @@ jobs:
             const lines = [
               marker,
               '',
-              `${agentMention} The auto-merge workflow detected test regressions on this PR while comparing the base snapshot to the regression gate target (merged snapshot when available, otherwise PR head). Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
+              `${agentMention} The auto-merge workflow detected test regressions on this PR ` +
+                `while comparing the base results with the merged results ` +
+                `(or with PR head results when merged results are unavailable). ` +
+                "Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.",
             ];
 
             if (regressionSummaryLine) {
