@@ -1,6 +1,9 @@
 import { Core } from "@gmloop/core";
 
-import { assertRefactorConfigPlainObject } from "./refactor-config-assertions.js";
+import {
+    assertRefactorConfigPlainObject,
+    assertRefactorConfigPlainObjectWithAllowedKeys
+} from "./refactor-config-assertions.js";
 import type {
     NamingCaseStyle,
     NamingCategory,
@@ -63,6 +66,18 @@ type RuntimeResolvedNamingRule = ResolvedNamingRule & {
 const NAMING_CATEGORY_SET = new Set(Object.keys(NAMING_CATEGORY_PARENTS));
 const NAMING_CASE_STYLE_SET: ReadonlySet<string> = new Set(NAMING_CASE_STYLES);
 
+const NAMING_RULE_CONFIG_ALLOWED_KEYS = new Set([
+    "caseStyle",
+    "prefix",
+    "suffix",
+    "minChars",
+    "maxChars",
+    "bannedPrefixes",
+    "bannedSuffixes"
+]);
+
+const NAMING_CONVENTION_POLICY_ALLOWED_KEYS = new Set(["rules", "exclusivePrefixes", "exclusiveSuffixes"]);
+
 function isNamingCategory(value: unknown): value is NamingCategory {
     return typeof value === "string" && NAMING_CATEGORY_SET.has(value);
 }
@@ -86,22 +101,7 @@ function normalizeStringArray(value: unknown, context: string): Array<string> {
 }
 
 function normalizeNamingRuleConfig(config: unknown, context: string): NamingRuleConfig {
-    const object = assertRefactorConfigPlainObject(config, context);
-    const allowedKeys = new Set([
-        "caseStyle",
-        "prefix",
-        "suffix",
-        "minChars",
-        "maxChars",
-        "bannedPrefixes",
-        "bannedSuffixes"
-    ]);
-
-    for (const key of Object.keys(object)) {
-        if (!allowedKeys.has(key)) {
-            throw new TypeError(`${context} contains unknown property ${JSON.stringify(key)}`);
-        }
-    }
+    const object = assertRefactorConfigPlainObjectWithAllowedKeys(config, NAMING_RULE_CONFIG_ALLOWED_KEYS, context);
 
     const normalized: NamingRuleConfig = {};
 
@@ -190,14 +190,11 @@ export function normalizeNamingConventionPolicy(
         };
     }
 
-    const object = assertRefactorConfigPlainObject(policy, context);
-    const allowedKeys = new Set(["rules", "exclusivePrefixes", "exclusiveSuffixes"]);
-
-    for (const key of Object.keys(object)) {
-        if (!allowedKeys.has(key)) {
-            throw new TypeError(`${context} contains unknown property ${JSON.stringify(key)}`);
-        }
-    }
+    const object = assertRefactorConfigPlainObjectWithAllowedKeys(
+        policy,
+        NAMING_CONVENTION_POLICY_ALLOWED_KEYS,
+        context
+    );
 
     const rulesObject = assertRefactorConfigPlainObject(object.rules ?? {}, `${context}.rules`);
     const rules: NamingConventionPolicy["rules"] = {};

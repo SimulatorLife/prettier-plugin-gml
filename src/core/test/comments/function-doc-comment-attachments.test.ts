@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { normalizeFunctionDocCommentAttachments } from "../../src/comments/doc-comment/function-doc-comment-attachments.js";
+import { Core } from "../../index.js";
 
 type CommentLike = {
     type: string;
@@ -42,21 +42,21 @@ function createDocCommentFixture(functionStartIndex: number): {
     return { comment, functionNode, rootNode };
 }
 
-void test("normalizeFunctionDocCommentAttachments attaches reachable function tag comments", () => {
+void test("Core.normalizeFunctionDocCommentAttachments attaches reachable function tag comments", () => {
     const { comment, functionNode, rootNode } = createDocCommentFixture(20);
     const sourceText = ["/// @function demo()", "function demo() {}", ""].join("\n");
 
-    normalizeFunctionDocCommentAttachments(rootNode, [comment], sourceText);
+    Core.normalizeFunctionDocCommentAttachments(rootNode, [comment], sourceText);
 
     assert.deepStrictEqual(functionNode.docComments, [comment]);
     assert.equal(comment._gmlAttachedDocComment, true);
 });
 
-void test("normalizeFunctionDocCommentAttachments does not cross non-comment code when finding a target", () => {
+void test("Core.normalizeFunctionDocCommentAttachments does not cross non-comment code when finding a target", () => {
     const { comment, functionNode, rootNode } = createDocCommentFixture(31);
     const sourceText = ["/// @function demo()", "var blocker = 1;", "function demo() {}", ""].join("\n");
 
-    normalizeFunctionDocCommentAttachments(rootNode, [comment], sourceText);
+    Core.normalizeFunctionDocCommentAttachments(rootNode, [comment], sourceText);
 
     assert.equal(functionNode.docComments, undefined);
     assert.equal(comment._gmlAttachedDocComment, undefined);

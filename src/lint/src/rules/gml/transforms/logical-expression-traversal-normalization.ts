@@ -67,6 +67,12 @@ function simplifyNode(node: any): boolean {
     if (node.type === "UnaryExpression" && node.operator === "!") {
         return simplifyNot(node);
     }
+    if (node.type === "LogicalExpression" || node.type === "BinaryExpression") {
+        const simplifiedComparison = simplifyBooleanLiteralComparison(node);
+        if (simplifiedComparison) {
+            return true;
+        }
+    }
     if (isLogicalBinaryNode(node)) {
         return simplifyLogical(node);
     }
@@ -78,6 +84,37 @@ function simplifyNode(node: any): boolean {
         return simplifyStatementList(node.body);
     }
     return false;
+}
+
+function simplifyBooleanLiteralComparison(node: any): boolean {
+    if (!node || typeof node !== "object" || node.type !== "BinaryExpression") {
+        return false;
+    }
+
+    const operator = Core.getNormalizedOperator(node);
+    if (operator !== "==" && operator !== "!=") {
+        return false;
+    }
+
+    const leftBoolean = getBooleanValue(node.left);
+    const rightBoolean = getBooleanValue(node.right);
+    const hasLeftBoolean = leftBoolean !== undefined;
+    const hasRightBoolean = rightBoolean !== undefined;
+
+    if (hasLeftBoolean === hasRightBoolean) {
+        return false;
+    }
+
+    const comparedBoolean = hasLeftBoolean ? leftBoolean : rightBoolean;
+    const comparedExpression = hasLeftBoolean ? node.right : node.left;
+    if (comparedBoolean === undefined || !comparedExpression) {
+        return false;
+    }
+
+    const shouldNegate = operator === "==" ? comparedBoolean === false : comparedBoolean === true;
+    const replacement = shouldNegate ? negateNode(comparedExpression) : comparedExpression;
+    replaceNode(node, replacement);
+    return true;
 }
 
 function isLogicalOperator(operator: unknown): boolean {
