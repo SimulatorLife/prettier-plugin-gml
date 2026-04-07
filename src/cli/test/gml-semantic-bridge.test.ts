@@ -740,6 +740,71 @@ void describe("GmlSemanticBridge tests", () => {
         assert.match(resourceEdit.content, /"resourcePath"\s*:\s*"objects\/oGravityWell\/oGravityWell\.yy"/);
     });
 
+    void it("getAdditionalSymbolEdits skips directory rename when destination folder already exists", () => {
+        const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-existing-destination-folder-"));
+        const sourceResourcePath = "objects/oGravitySphere/oGravitySphere.yy";
+        const destinationResourcePath = "objects/oGravityWell/oGravityWell.yy";
+        const projectManifestPath = "project.yyp";
+
+        const sourceResourceAbsolute = path.join(tmpRoot, sourceResourcePath);
+        const destinationResourceAbsolute = path.join(tmpRoot, destinationResourcePath);
+        const destinationMarkerAbsolute = path.join(tmpRoot, "objects/oGravityWell/keep.txt");
+        const projectManifestAbsolute = path.join(tmpRoot, projectManifestPath);
+        fs.mkdirSync(path.dirname(sourceResourceAbsolute), { recursive: true });
+        fs.mkdirSync(path.dirname(destinationResourceAbsolute), { recursive: true });
+
+        fs.writeFileSync(
+            sourceResourceAbsolute,
+            `{"name":"oGravitySphere","resourceType":"GMObject","resourcePath":"objects/oGravitySphere/oGravitySphere.yy",}`,
+            "utf8"
+        );
+        fs.writeFileSync(destinationMarkerAbsolute, "existing directory marker", "utf8");
+        fs.writeFileSync(
+            projectManifestAbsolute,
+            `{
+                "name":"MyGame",
+                "resourceType":"GMProject",
+                "resources":[{"id":{"name":"oGravitySphere","path":"objects/oGravitySphere/oGravitySphere.yy",}}],
+            }`,
+            "utf8"
+        );
+
+        const mockProjectIndex = {
+            identifiers: {},
+            resources: {
+                [sourceResourcePath]: {
+                    path: sourceResourcePath,
+                    name: "oGravitySphere",
+                    resourceType: "GMObject",
+                    assetReferences: []
+                },
+                [projectManifestPath]: {
+                    path: projectManifestPath,
+                    name: "MyGame",
+                    resourceType: "GMProject",
+                    assetReferences: [
+                        {
+                            propertyPath: "resources.0.id",
+                            targetPath: sourceResourcePath,
+                            targetName: "oGravitySphere"
+                        }
+                    ]
+                }
+            }
+        };
+
+        const bridge = new GmlSemanticBridge(mockProjectIndex, tmpRoot);
+        const edits = bridge.getAdditionalSymbolEdits("gml/objects/oGravitySphere", "oGravityWell");
+
+        assert.ok(edits, "Expected additional edits for resource rename");
+        assert.deepEqual(edits.fileRenames, [
+            {
+                oldPath: sourceResourcePath,
+                newPath: destinationResourcePath
+            }
+        ]);
+    });
+
     void it("getAdditionalSymbolEdits updates sprite keyframe self-reference paths without mutating keyframe UUID names", async () => {
         const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gml-semantic-bridge-sprite-keyframe-id-"));
         const spritePath = "sprites/sArm/sArm.yy";

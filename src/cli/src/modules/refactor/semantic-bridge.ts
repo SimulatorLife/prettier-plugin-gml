@@ -677,6 +677,21 @@ export class GmlSemanticBridge {
         return fs.existsSync(absoluteSourcePath);
     }
 
+    private doesWorkspaceDirectoryPathExist(candidatePath: string): boolean {
+        const absoluteCandidatePath = path.resolve(this.projectRoot, candidatePath);
+        if (fs.existsSync(absoluteCandidatePath) && fs.lstatSync(absoluteCandidatePath).isDirectory()) {
+            return true;
+        }
+
+        const sourcePath = this.resolveWorkspaceSourcePath(candidatePath);
+        if (sourcePath === candidatePath) {
+            return false;
+        }
+
+        const absoluteSourcePath = path.resolve(this.projectRoot, sourcePath);
+        return fs.existsSync(absoluteSourcePath) && fs.lstatSync(absoluteSourcePath).isDirectory();
+    }
+
     /**
      * Get the resources map from the project index.
      */
@@ -1206,6 +1221,11 @@ export class GmlSemanticBridge {
         const resourceDir = path.posix.dirname(currentResourcePath);
         const resourceDirName = path.posix.basename(resourceDir);
         const parentDir = path.posix.dirname(resourceDir);
+        const shouldRenameResourceDirectory = resourceDirName === oldName;
+        const newResourceDir = shouldRenameResourceDirectory ? path.posix.join(parentDir, newName) : resourceDir;
+        const destinationDirectoryExists =
+            shouldRenameResourceDirectory && this.doesWorkspaceDirectoryPathExist(newResourceDir);
+        const fileRenameDestinationDir = destinationDirectoryExists ? newResourceDir : resourceDir;
 
         // 1. Rename files inside the directory that match the old name.
         // We do this BEFORE renaming the directory because GameMaker assets keep
@@ -1225,7 +1245,7 @@ export class GmlSemanticBridge {
 
         for (const ext of extensionsToRename) {
             const oldFilePath = ext === ".yy" ? currentResourcePath : path.posix.join(resourceDir, `${oldName}${ext}`);
-            const newFilePath = path.posix.join(resourceDir, `${newName}${ext}`);
+            const newFilePath = path.posix.join(fileRenameDestinationDir, `${newName}${ext}`);
 
             // Later batch plans may target a path introduced by an earlier staged
             // folder rename. Accept either the current staged destination or the
@@ -1236,8 +1256,7 @@ export class GmlSemanticBridge {
         }
 
         // 2. Rename the directory itself if it matches the resource name.
-        if (resourceDirName === oldName) {
-            const newResourceDir = path.posix.join(parentDir, newName);
+        if (shouldRenameResourceDirectory && !destinationDirectoryExists) {
             edit.addFileRename(resourceDir, newResourceDir);
         }
 
