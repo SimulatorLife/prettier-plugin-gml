@@ -958,19 +958,19 @@ void test("no-globalvar diagnoses declared globals", () => {
         "}",
         ""
     ].join("\n");
-    const expected = [
-        "",
-        "if (should_exit()) return;",
-        "",
-        "",
-        "if (global.doExit == global.exitState) {",
-        "    exit;",
-        "}",
-        ""
-    ].join("\n");
     const result = lintWithRule("no-globalvar", input, {});
     assertEquals(result.messages.length > 0, true);
-    assertEquals(result.output, expected);
+    assertEquals(result.output, input);
+});
+
+void test("no-globalvar diagnoses comma-separated declarations without rewriting source", () => {
+    const input = ["globalvar score, lives;", "score = 1;", "if (lives > 0) {", "    score += lives;", "}", ""].join(
+        "\n"
+    );
+
+    const result = lintWithRule("no-globalvar", input, {});
+    assertEquals(result.messages.length > 0, true);
+    assertEquals(result.output, input);
 });
 
 void test("no-globalvar diagnoses comma-separated declarations", () => {
@@ -978,35 +978,9 @@ void test("no-globalvar diagnoses comma-separated declarations", () => {
         "\n"
     );
 
-    const expected = [
-        "",
-        "global.score = 1;",
-        "if (global.lives > 0) {",
-        "    global.score += global.lives;",
-        "}",
-        ""
-    ].join("\n");
     const result = lintWithRule("no-globalvar", input, {});
     assertEquals(result.messages.length > 0, true);
-    assertEquals(result.output, expected);
-});
-
-void test("no-globalvar diagnoses comma-separated declarations", () => {
-    const input = ["globalvar score, lives;", "score = 1;", "if (lives > 0) {", "    score += lives;", "}", ""].join(
-        "\n"
-    );
-
-    const expected = [
-        "",
-        "global.score = 1;",
-        "if (global.lives > 0) {",
-        "    global.score += global.lives;",
-        "}",
-        ""
-    ].join("\n");
-    const result = lintWithRule("no-globalvar", input, {});
-    assertEquals(result.messages.length > 0, true);
-    assertEquals(result.output, expected);
+    assertEquals(result.output, input);
 });
 
 void test("prefer-hoistable-loop-accessors respects null suffix override by disabling loop-test diagnostics", () => {
