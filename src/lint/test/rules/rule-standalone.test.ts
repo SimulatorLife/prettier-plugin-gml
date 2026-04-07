@@ -1687,7 +1687,7 @@ void test("optimize-logical-flow handles parenthesized logical operands without 
     assertEquals(result.output, input);
 });
 
-void test("optimize-logical-flow prevents collapsing else-if assignment chains into invalid ternary syntax", () => {
+void test("optimize-logical-flow preserves else-if assignment chains", () => {
     const input = [
         "function detect_pad_type(vendor, product, description) {",
         '    if (vendor == "aaa") {',
@@ -1705,5 +1705,6 @@ void test("optimize-logical-flow prevents collapsing else-if assignment chains i
 
     const result = lintWithRule("optimize-logical-flow", input, {});
 
+    assertEquals(result.messages.length, 0);
     assertEquals(result.output, input);
 });
