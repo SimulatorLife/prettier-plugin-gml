@@ -97,6 +97,16 @@ export class SemanticQueryCache {
     private dependentsCache = new Map<string, CacheEntry<Array<DependentSymbol>>>();
     private existenceCache = new Map<string, CacheEntry<boolean>>();
 
+    /**
+     * Tracks occurrence cache keys whose stored array has already been deduplicated
+     * by the caller (via {@link primeOccurrenceCache}).  A hit on a primed key means
+     * the returned array needs no further deduplication work.
+     *
+     * Entries are cleared alongside the occurrence cache entry itself — on
+     * {@link invalidateAll}, {@link invalidateFile}, cache eviction, and TTL expiry.
+     */
+    private primedOccurrenceKeys = new Set<string>();
+
     private stats = {
         hits: 0,
         misses: 0,
@@ -143,6 +153,19 @@ export class SemanticQueryCache {
 
         const cacheKey = symbolId === null ? symbolName : `${symbolId}::${symbolName}`;
         this.setCached(this.occurrenceCache, cacheKey, deduplicated);
+        this.primedOccurrenceKeys.add(cacheKey);
+    }
+
+    /**
+     * Return `true` when the occurrence cache entry for the given symbol was stored
+     * via {@link primeOccurrenceCache} and is therefore already deduplicated.
+     *
+     * Callers can use this to skip the deduplication step on subsequent cache hits,
+     * avoiding redundant O(n) iteration over an already-clean occurrence array.
+     */
+    isOccurrencePrimed(symbolName: string, symbolId: string | null): boolean {
+        const cacheKey = symbolId === null ? symbolName : `${symbolId}::${symbolName}`;
+        return this.primedOccurrenceKeys.has(cacheKey);
     }
 
     /**
@@ -230,6 +253,7 @@ export class SemanticQueryCache {
         this.fileSymbolsCache.clear();
         this.dependentsCache.clear();
         this.existenceCache.clear();
+        this.primedOccurrenceKeys.clear();
     }
 
     /**
@@ -257,10 +281,12 @@ export class SemanticQueryCache {
             }
         }
 
-        // Clear occurrence cache entries that reference this file
+        // Clear occurrence cache entries that reference this file and remove their
+        // primed status so the next fetch goes through deduplication again.
         for (const [key, entry] of this.occurrenceCache.entries()) {
             if (entry.value.some((occ) => occ.path === filePath)) {
                 this.occurrenceCache.delete(key);
+                this.primedOccurrenceKeys.delete(key);
             }
         }
     }
@@ -338,6 +364,10 @@ export class SemanticQueryCache {
         const age = Date.now() - entry.timestamp;
         if (age > this.config.ttlMs) {
             cache.delete(key);
+            // Keep primed status in sync: a re-fetched (raw) entry is no longer deduped.
+            if (cache === this.occurrenceCache) {
+                this.primedOccurrenceKeys.delete(key);
+            }
             return null;
         }
 
@@ -360,6 +390,11 @@ export class SemanticQueryCache {
             if (firstKey !== undefined) {
                 cache.delete(firstKey);
                 this.stats.evictions++;
+                // Clear primed status for the evicted occurrence entry so a future
+                // re-fetch goes through deduplication before being re-primed.
+                if (cache === this.occurrenceCache) {
+                    this.primedOccurrenceKeys.delete(firstKey);
+                }
             }
         }
 
