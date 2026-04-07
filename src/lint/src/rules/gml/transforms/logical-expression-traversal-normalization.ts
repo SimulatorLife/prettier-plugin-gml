@@ -1,6 +1,6 @@
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 
-const { isObjectLike, isNode } = Core;
+const { isObjectLike } = Core;
 
 /**
  * Apply logical expression simplifications using AST traversal.
@@ -46,9 +46,13 @@ function traverseAndSimplify(node: any): boolean {
         if (Array.isArray(child)) {
             const childSnapshot = [...child];
             for (const element of childSnapshot) {
-                changed ||= traverseAndSimplify(element);
+                if (isObjectLike(element)) {
+                    (element as { parent?: unknown }).parent = node;
+                    changed ||= traverseAndSimplify(element);
+                }
             }
-        } else if (isNode(child)) {
+        } else if (isObjectLike(child)) {
+            (child as { parent?: unknown }).parent = node;
             changed ||= traverseAndSimplify(child);
         }
     }
@@ -232,6 +236,10 @@ function simplifyIfStatement(node: any): boolean {
 
     // 3. if (cond) x = A; else x = B; -> x = cond ? A : B;
     if (alternate) {
+        if (isElseIfAlternateChainNode(node)) {
+            return false;
+        }
+
         const consExp = getAssignmentExpressionFromStatementLikeNode(consequent);
         const altExp = getAssignmentExpressionFromStatementLikeNode(alternate);
 
@@ -289,6 +297,36 @@ function simplifyIfStatement(node: any): boolean {
             replaceNode(node, statement);
             return true;
         }
+    }
+
+    return false;
+}
+
+function isElseIfAlternateChainNode(node: any): boolean {
+    let current = node;
+    let parent = node?.parent;
+
+    while (parent && typeof parent === "object") {
+        if (parent.type === "IfStatement" && parent.alternate) {
+            const currentStart = Core.getNodeStartIndex(current);
+            const currentEnd = Core.getNodeEndIndex(current);
+            const alternateStart = Core.getNodeStartIndex(parent.alternate);
+            const alternateEnd = Core.getNodeEndIndex(parent.alternate);
+
+            if (
+                typeof currentStart === "number" &&
+                typeof currentEnd === "number" &&
+                typeof alternateStart === "number" &&
+                typeof alternateEnd === "number" &&
+                currentStart >= alternateStart &&
+                currentEnd <= alternateEnd
+            ) {
+                return true;
+            }
+        }
+
+        current = parent;
+        parent = parent.parent;
     }
 
     return false;

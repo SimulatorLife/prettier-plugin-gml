@@ -47,6 +47,25 @@ function containsUnsafeCommentSyntax(sourceText: string): boolean {
     return false;
 }
 
+function isElsePrefixedIfAtIndex(fullSourceText: string, ifKeywordStartIndex: number): boolean {
+    let cursor = ifKeywordStartIndex - 1;
+    while (cursor >= 0 && /\s/u.test(fullSourceText[cursor])) {
+        cursor -= 1;
+    }
+
+    const elseStart = cursor - 3;
+    if (elseStart < 0) {
+        return false;
+    }
+
+    if (fullSourceText.slice(elseStart, cursor + 1).toLowerCase() !== "else") {
+        return false;
+    }
+
+    const beforeElse = elseStart > 0 ? fullSourceText[elseStart - 1] : "";
+    return beforeElse === "" || Core.isIdentifierBoundaryCharacter(beforeElse);
+}
+
 type AstRecord = Record<string, unknown> & Readonly<{ type?: string }>;
 
 function asAstRecord(value: unknown): AstRecord | null {
@@ -228,6 +247,33 @@ function canIfStatementBenefitFromNormalization(node: unknown): boolean {
     return isUndefinedCheckAgainstTarget(ifNode.test, consequentExpression.left);
 }
 
+function isIfNodeInElseIfChain(node: unknown): boolean {
+    const ifNode = asAstRecord(node);
+    if (!ifNode || ifNode.type !== "IfStatement") {
+        return false;
+    }
+
+    const parent = asAstRecord(ifNode.parent);
+    if (!parent) {
+        return false;
+    }
+
+    if (parent.type === "IfStatement" && parent.alternate === ifNode) {
+        return true;
+    }
+
+    if (
+        parent.type === "BlockStatement" &&
+        Array.isArray(parent.body) &&
+        parent.body.length === 1 &&
+        parent.body[0] === ifNode
+    ) {
+        const grandParent = asAstRecord(parent.parent);
+        return Boolean(grandParent && grandParent.type === "IfStatement" && grandParent.alternate === parent);
+    }
+    return false;
+}
+
 function canBooleanLiteralComparisonBenefitFromNormalization(node: unknown): boolean {
     const comparisonNode = unwrapParenthesizedNode(node);
     if (
@@ -364,6 +410,14 @@ export function createOptimizeLogicalFlowRule(definition: GmlRuleDefinition): Ru
                     const fullSourceText = context.sourceCode.text;
                     const sourceText = fullSourceText.slice(nodeRange.start, nodeRange.end);
                     if (Core.hasComment(originalNode) || containsUnsafeCommentSyntax(sourceText)) {
+                        return;
+                    }
+
+                    if (
+                        originalNode.type === "IfStatement" &&
+                        (isIfNodeInElseIfChain(originalNode) ||
+                            isElsePrefixedIfAtIndex(fullSourceText, nodeRange.start))
+                    ) {
                         return;
                     }
 
