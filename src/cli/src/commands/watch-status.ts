@@ -10,6 +10,7 @@ import { Core } from "@gmloop/core";
 import { Command, Option } from "commander";
 
 import { createPortValidator } from "../cli-core/command-parsing.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 
 const { getErrorMessage } = Core;
 
@@ -225,6 +226,8 @@ export async function runWatchStatusCommand(options: WatchStatusCommandOptions =
  */
 export function createWatchStatusCommand(): Command {
     const command = new Command("watch-status");
+
+    applyStandardCommandOptions(command);
 
     command
         .description("Query the running watch command's status server for metrics and diagnostics")
