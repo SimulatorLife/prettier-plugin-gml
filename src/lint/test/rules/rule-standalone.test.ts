@@ -1670,6 +1670,28 @@ void test("optimize-logical-flow rewrites both undefined guard forms to ??=", ()
     assertEquals(result.output, expected);
 });
 
+void test("optimize-logical-flow simplifies boolean literal comparisons in if conditions", () => {
+    const input = [
+        "if (xinput == true) { return move_horizontal(); }",
+        "if (xinput != false) { return move_horizontal(); }",
+        "if (yinput == false) { return move_vertical(); }",
+        "if (yinput != true) { return move_vertical(); }",
+        ""
+    ].join("\n");
+
+    const expected = [
+        "if (xinput) { return move_horizontal(); }",
+        "if (xinput) { return move_horizontal(); }",
+        "if (!yinput) { return move_vertical(); }",
+        "if (!yinput) { return move_vertical(); }",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+    assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
+    assertEquals(result.output, expected);
+});
+
 void test("optimize-logical-flow does not rewrite unchanged struct accessor conditions", () => {
     const input = ["if (!_player_verb_struct[$ _verb_array[_i]].held) {", "    return;", "}", ""].join("\n");
 
