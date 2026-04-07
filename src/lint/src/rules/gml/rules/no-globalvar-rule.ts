@@ -35,7 +35,7 @@ function collectGlobalVarStatementStartOffsets(programNode: unknown): ReadonlyAr
 
 export function createNoGlobalvarRule(definition: GmlRuleDefinition): Rule.RuleModule {
     return Object.freeze({
-        meta: createMeta(definition, { fixable: null }),
+        meta: createMeta(definition, { includeFixableDefault: false }),
         create(context) {
             const listener: Rule.RuleListener = {
                 Program(programNode) {

@@ -99,6 +99,7 @@ export function cloneAstNodeWithoutTraversalLinks<T>(node: T): T {
 type RuleMetaOverrides = Readonly<{
     fixable?: "code" | "whitespace" | null;
     messageText?: string;
+    includeFixableDefault?: boolean;
 }>;
 
 const DEFAULT_EMPTY_GML_RULE_SCHEMA: ReadonlyArray<unknown> = Object.freeze([
@@ -124,7 +125,12 @@ export function createMeta(definition: GmlRuleDefinition, overrides: RuleMetaOve
         messages: Object.freeze(messages)
     };
 
+    const includeFixableDefault = overrides.includeFixableDefault ?? true;
+
     if (overrides.fixable === undefined) {
+        if (!includeFixableDefault) {
+            return Object.freeze(meta);
+        }
         meta.fixable = "code";
     } else if (overrides.fixable !== null) {
         meta.fixable = overrides.fixable;
