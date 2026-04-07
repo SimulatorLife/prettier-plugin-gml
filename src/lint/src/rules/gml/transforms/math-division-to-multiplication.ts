@@ -104,6 +104,23 @@ function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): num
     return null;
 }
 
+function formatMultiplierLiteral(multiplier: number): string | null {
+    if (!Number.isFinite(multiplier)) {
+        return null;
+    }
+
+    if (Object.is(multiplier, -0)) {
+        return "0";
+    }
+
+    const literal = String(multiplier);
+    if (literal.includes("e") || literal.includes("E")) {
+        return null;
+    }
+
+    return literal;
+}
+
 function flattenMultiplicativeOperand(node: MutableGameMakerAstNode) {
     const leftOperand = node.left as ParenthesizedExpressionNode | null;
     if (!leftOperand || leftOperand.type !== PARENTHESIZED_EXPRESSION) {
@@ -166,13 +183,17 @@ function attemptConvertDivisionToMultiplication(node: MutableGameMakerAstNode): 
     if (multiplier === null) {
         return false;
     }
+    const formattedMultiplier = formatMultiplierLiteral(multiplier);
+    if (formattedMultiplier === null) {
+        return false;
+    }
 
     // Mutate the node
     node.operator = "*";
     const replacementLiteral = {
         type: LITERAL,
-        value: String(multiplier),
-        raw: String(multiplier)
+        value: formattedMultiplier,
+        raw: formattedMultiplier
     } as MutableGameMakerAstNode;
     Core.assignClonedLocation(replacementLiteral, right);
     node.right = replacementLiteral;
