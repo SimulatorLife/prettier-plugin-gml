@@ -53,6 +53,19 @@ function resolveDefaultAction() {
     return process.env.PRETTIER_PLUGIN_GML_DEFAULT_ACTION === FORMAT_ACTION ? FORMAT_ACTION : HELP_ACTION;
 }
 
+function isNodeTestRunnerProcess(execArguments: ReadonlyArray<string> = process.execArgv): boolean {
+    return execArguments.some(
+        (argument) => argument === "--test" || argument.startsWith("--test=") || argument.startsWith("--test-")
+    );
+}
+
+function shouldAutoRunCliProcess(
+    env: NodeJS.ProcessEnv | null | undefined = process.env,
+    execArguments: ReadonlyArray<string> = process.execArgv
+): boolean {
+    return !isCliRunSkipped(env) && !isNodeTestRunnerProcess(execArguments);
+}
+
 function normalizeCommandLineArguments(argv) {
     const normalizedArgs = normalizeArgumentList(argv);
     const withoutSeparator = stripPnpmArgumentSeparators(normalizedArgs);
@@ -345,7 +358,9 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
 
 export const __test__ = Object.freeze({
     ...__formatTest__,
-    normalizeCommandLineArguments
+    isNodeTestRunnerProcess,
+    normalizeCommandLineArguments,
+    shouldAutoRunCliProcess
 });
 
 const formatCommand = createFormatCommand({ name: FORMAT_ACTION });
@@ -480,7 +495,7 @@ cliCommandRegistry.registerCommand({
         })
 });
 
-if (!isCliRunSkipped()) {
+if (shouldAutoRunCliProcess()) {
     const normalizedArguments = normalizeCommandLineArguments(process.argv.slice(2));
 
     try {
