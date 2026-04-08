@@ -2367,26 +2367,24 @@ void describe("GmlSemanticBridge tests", () => {
             );
 
             assert.ok(resetTarget);
-            assert.deepEqual(
-                resetTarget?.occurrences.map((occurrence) => ({
-                    kind: occurrence.kind,
-                    path: occurrence.path
-                })),
-                [
-                    {
-                        kind: Refactor.OccurrenceKind.DEFINITION,
-                        path: "scripts/generator_state/generator_state.gml"
-                    },
-                    {
-                        kind: Refactor.OccurrenceKind.REFERENCE,
-                        path: "scripts/generator_state/generator_state.gml"
-                    },
-                    {
-                        kind: Refactor.OccurrenceKind.REFERENCE,
-                        path: "scripts/initialize/initialize.gml"
-                    }
-                ]
-            );
+            // Sort by kind then path to ensure stable comparison regardless of traversal order.
+            const sortedOccurrences = resetTarget.occurrences
+                .map((occurrence) => ({ kind: occurrence.kind, path: occurrence.path }))
+                .sort((a, b) => `${a.kind}\0${a.path}`.localeCompare(`${b.kind}\0${b.path}`));
+            assert.deepEqual(sortedOccurrences, [
+                {
+                    kind: Refactor.OccurrenceKind.DEFINITION,
+                    path: "scripts/generator_state/generator_state.gml"
+                },
+                {
+                    kind: Refactor.OccurrenceKind.REFERENCE,
+                    path: "scripts/generator_state/generator_state.gml"
+                },
+                {
+                    kind: Refactor.OccurrenceKind.REFERENCE,
+                    path: "scripts/initialize/initialize.gml"
+                }
+            ]);
         } finally {
             fs.rmSync(tmpRoot, { recursive: true, force: true });
         }
