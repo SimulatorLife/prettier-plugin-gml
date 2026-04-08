@@ -223,10 +223,9 @@ void test("evaluateNamingConvention replaces underscore resource prefixes for sh
     assert.equal(evaluation.suggestedName, "shd_cm_debug");
 });
 
-void test("evaluateNamingConvention preserves camelCase prefix-word when it matches only the first character of the target prefix", () => {
-    // "oCamera" has a camelCase prefix-word "o" that happens to match the first character
-    // of the target prefix "obj". The "o" must NOT be stripped—it is part of the word
-    // structure and should be kept, producing "obj_o_camera" (not "obj_camera").
+void test("evaluateNamingConvention replaces legacy single-letter resource prefixes when target prefix extends them", () => {
+    // Legacy resource prefixes such as "o" and "s" should be replaced (not duplicated)
+    // when the configured target prefix extends them (for example "obj_" or "spr_").
     const policy = Refactor.normalizeNamingConventionPolicy({
         rules: {
             resource: {
@@ -234,6 +233,9 @@ void test("evaluateNamingConvention preserves camelCase prefix-word when it matc
             },
             objectResourceName: {
                 prefix: "obj_"
+            },
+            spriteResourceName: {
+                prefix: "spr_"
             }
         }
     });
@@ -241,11 +243,15 @@ void test("evaluateNamingConvention preserves camelCase prefix-word when it matc
 
     const camera = Refactor.evaluateNamingConvention("oCamera", "objectResourceName", policy, resolved);
     assert.equal(camera.compliant, false);
-    assert.equal(camera.suggestedName, "obj_o_camera");
+    assert.equal(camera.suggestedName, "obj_camera");
 
     const compound = Refactor.evaluateNamingConvention("oColmesh2DemoCylinder", "objectResourceName", policy, resolved);
     assert.equal(compound.compliant, false);
-    assert.equal(compound.suggestedName, "obj_o_colmesh2demo_cylinder");
+    assert.equal(compound.suggestedName, "obj_colmesh2demo_cylinder");
+
+    const sprite = Refactor.evaluateNamingConvention("sSpiderHead", "spriteResourceName", policy, resolved);
+    assert.equal(sprite.compliant, false);
+    assert.equal(sprite.suggestedName, "spr_spider_head");
 
     // Underscore-separated prefix "o_" IS stripped (that's a real prefix, not a word).
     const underscorePrefixed = Refactor.evaluateNamingConvention("o_camera", "objectResourceName", policy, resolved);

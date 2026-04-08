@@ -240,23 +240,23 @@ void test("refactor codemod --fix renames sibling object metadata inside a folde
         const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--fix"], cwd: projectRoot });
 
         assert.equal(result.exitCode, 0);
-        await access(path.join(projectRoot, "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh2demo_cylinder.yy"));
-        await access(path.join(projectRoot, "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh_demo2sphere.yy"));
+        await access(path.join(projectRoot, "objects/obj_colmesh2demo_cylinder/obj_colmesh2demo_cylinder.yy"));
+        await access(path.join(projectRoot, "objects/obj_colmesh2demo_cylinder/obj_colmesh_demo2sphere.yy"));
         await assert.rejects(access(path.join(projectRoot, "objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy")));
 
         const siblingMetadata = await readFile(
-            path.join(projectRoot, "objects/obj_o_colmesh2demo_cylinder/obj_o_colmesh_demo2sphere.yy"),
+            path.join(projectRoot, "objects/obj_colmesh2demo_cylinder/obj_colmesh_demo2sphere.yy"),
             "utf8"
         );
         const projectManifest = await readFile(path.join(projectRoot, "MyGame.yyp"), "utf8");
 
-        assert.match(siblingMetadata, /"name"\s*:\s*"obj_o_colmesh_demo2sphere"/);
+        assert.match(siblingMetadata, /"name"\s*:\s*"obj_colmesh_demo2sphere"/);
         assert.match(
             siblingMetadata,
-            /"resourcePath"\s*:\s*"objects\/obj_o_colmesh2demo_cylinder\/obj_o_colmesh_demo2sphere\.yy"/
+            /"resourcePath"\s*:\s*"objects\/obj_colmesh2demo_cylinder\/obj_colmesh_demo2sphere\.yy"/
         );
-        assert.match(projectManifest, /"name"\s*:\s*"obj_o_colmesh2demo_cylinder"/);
-        assert.match(projectManifest, /"name"\s*:\s*"obj_o_colmesh_demo2sphere"/);
+        assert.match(projectManifest, /"name"\s*:\s*"obj_colmesh2demo_cylinder"/);
+        assert.match(projectManifest, /"name"\s*:\s*"obj_colmesh_demo2sphere"/);
         assert.match(result.stdout, /\[namingConvention\] changed/);
     } finally {
         await rm(projectRoot, { recursive: true, force: true });
@@ -586,23 +586,23 @@ void test("refactor codemod --fix does not overlap object-resource renames with 
         assert.equal(result.exitCode, 0);
         assert.doesNotMatch(result.stderr, /Overlapping edits detected/);
 
-        await assert.doesNotReject(access(path.join(projectRoot, "objects/obj_o_camera/obj_o_camera.yy")));
+        await assert.doesNotReject(access(path.join(projectRoot, "objects/obj_camera/obj_camera.yy")));
         await assert.rejects(access(path.join(projectRoot, "objects/oCamera/oCamera.yy")));
 
-        const cameraSource = await readFile(path.join(projectRoot, "objects/obj_o_camera/Create_0.gml"), "utf8");
-        const playerCreateSource = await readFile(path.join(projectRoot, "objects/obj_o_player/Create_0.gml"), "utf8");
-        const playerDrawSource = await readFile(path.join(projectRoot, "objects/obj_o_player/Draw_73.gml"), "utf8");
-        const systemSource = await readFile(path.join(projectRoot, "objects/obj_o_system/Other_2.gml"), "utf8");
+        const cameraSource = await readFile(path.join(projectRoot, "objects/obj_camera/Create_0.gml"), "utf8");
+        const playerCreateSource = await readFile(path.join(projectRoot, "objects/obj_player/Create_0.gml"), "utf8");
+        const playerDrawSource = await readFile(path.join(projectRoot, "objects/obj_player/Draw_73.gml"), "utf8");
+        const systemSource = await readFile(path.join(projectRoot, "objects/obj_system/Other_2.gml"), "utf8");
 
         assert.match(cameraSource, /cam_mat = matrix_build_identity\(\);/);
         assert.match(cameraSource, /cam_xfrom = x;/);
-        assert.match(playerCreateSource, /if \(instance_exists\(obj_o_camera\)\) \{/);
-        assert.match(playerCreateSource, /with \(obj_o_camera\) \{/);
+        assert.match(playerCreateSource, /if \(instance_exists\(obj_camera\)\) \{/);
+        assert.match(playerCreateSource, /with \(obj_camera\) \{/);
         assert.match(playerCreateSource, /show_debug_message\(cam_mat\[0\]\);/);
-        assert.match(playerCreateSource, /camera_horizontal_x = pos\.x - obj_o_camera\.cam_xfrom;/);
-        assert.match(playerCreateSource, /camera_horizontal_y = pos\.y - obj_o_camera\.cam_mat\[1\];/);
-        assert.match(playerDrawSource, /draw_text\(0, 0, string\(obj_o_camera\.cam_xfrom\)\);/);
-        assert.match(systemSource, /instance_create_depth\(0, 0, 0, obj_o_camera\);/);
+        assert.match(playerCreateSource, /camera_horizontal_x = pos\.x - obj_camera\.cam_xfrom;/);
+        assert.match(playerCreateSource, /camera_horizontal_y = pos\.y - obj_camera\.cam_mat\[1\];/);
+        assert.match(playerDrawSource, /draw_text\(0, 0, string\(obj_camera\.cam_xfrom\)\);/);
+        assert.match(systemSource, /instance_create_depth\(0, 0, 0, obj_camera\);/);
         assert.doesNotMatch(playerCreateSource, /\boCamera\b/);
         assert.doesNotMatch(playerDrawSource, /\boCamera\b/);
         assert.doesNotMatch(systemSource, /\boCamera\b/);
