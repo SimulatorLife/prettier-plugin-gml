@@ -648,14 +648,16 @@ function stripOneAffixDirection(
             const prefixWord = match[1];
             const separator = match[2];
             const remainder = match[3];
-            const isCamelCaseTransition = /[A-Z]/u.test(separator);
+            const separatorIsUpperCase = /[A-Z]/u.test(separator);
 
             if (
                 prefixWord === coreTargetPrefix ||
                 // When a target resource prefix extends a legacy short prefix word
                 // (for example "oSpider" -> "obj_spider" or "sSpiderHead" -> "spr_spider_head"),
-                // replace that old prefix instead of duplicating it in the result.
-                (prefixWord === coreTargetPrefix[0] && (separator === "_" || isCamelCaseTransition)) ||
+                // replace that old prefix instead of duplicating it in the result. This
+                // single-letter branch is intentionally constrained to legacy prefixes
+                // that match the first character of the configured target prefix.
+                (prefixWord === coreTargetPrefix[0] && (separator === "_" || separatorIsUpperCase)) ||
                 (prefixWord.length > 1 && coreTargetPrefix.startsWith(prefixWord))
             ) {
                 return separator === "_" ? remainder : separator + remainder;
