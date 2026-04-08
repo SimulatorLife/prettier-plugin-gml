@@ -35,10 +35,12 @@ type ParseCommandSettings = {
     verbose: boolean;
 };
 
+type ParsedGmlAst = Record<string, unknown>;
+
 type ParsedFileAst = {
     sourcePath: string;
     displayPath: string;
-    ast: ReturnType<typeof ParserWorkspace.Parser.GMLParser.parse>;
+    ast: ParsedGmlAst;
 };
 
 type DryRunDirectoryEntry = {
@@ -47,7 +49,7 @@ type DryRunDirectoryEntry = {
 };
 
 type DryRunPayload =
-    | ParsedFileAst["ast"]
+    | ParsedGmlAst
     | {
           files: Array<DryRunDirectoryEntry>;
       };

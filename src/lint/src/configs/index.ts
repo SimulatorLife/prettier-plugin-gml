@@ -55,10 +55,10 @@ export function createLintConfigsWithPlugins(plugins: LintConfigPluginSet): Lint
             files: GML_LINT_FILES_GLOB,
             plugins: Object.freeze({ gml: plugins.gmlPlugin }),
             language: "gml/gml",
-            // Keep AST-based lint passes in strict mode by default so malformed
-            // code follows the two-tier strategy: tolerant/token-safe fixes first,
-            // then AST rules only after a successful parse.
-            languageOptions: Object.freeze({ recovery: "none" }),
+            // Run the recommended GML config in limited recovery mode so malformed
+            // files still flow through the tolerant/token-safe phase before AST
+            // rules consume the recovered tree (target-state.md §3.1).
+            languageOptions: Object.freeze({ recovery: "limited" }),
             rules: RECOMMENDED_GML_RULE_LEVELS
         }),
         Object.freeze({
