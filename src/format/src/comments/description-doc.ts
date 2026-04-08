@@ -1,20 +1,6 @@
 import { Core, type MutableDocCommentLines } from "@gmloop/core";
 import { type Doc } from "prettier";
 
-function resolveCommentBoundaryIndex(comment: Record<string, unknown>, boundary: "start" | "end"): number | null {
-    const boundaryValue = comment[boundary];
-    if (typeof boundaryValue === "number") {
-        return boundaryValue;
-    }
-    if (Core.isObjectLike(boundaryValue)) {
-        const boundaryRecord = boundaryValue as { index?: unknown };
-        if (typeof boundaryRecord.index === "number") {
-            return boundaryRecord.index;
-        }
-    }
-    return null;
-}
-
 function getRawLineCommentText(commentEntry: Record<string, unknown>, originalText: string | null): string {
     return Core.getLineCommentRawText(commentEntry, {
         originalText: originalText ?? undefined
@@ -23,8 +9,8 @@ function getRawLineCommentText(commentEntry: Record<string, unknown>, originalTe
 
 function getRawBlockCommentText(commentEntry: Record<string, unknown>, originalText: string | null): string {
     if (typeof originalText === "string") {
-        const startIndex = resolveCommentBoundaryIndex(commentEntry, "start");
-        const endIndex = resolveCommentBoundaryIndex(commentEntry, "end");
+        const startIndex = Core.getCommentBoundaryIndex(commentEntry, "start");
+        const endIndex = Core.getCommentBoundaryIndex(commentEntry, "end");
         if (typeof startIndex === "number" && typeof endIndex === "number" && endIndex >= startIndex) {
             return originalText.slice(startIndex, endIndex + 1);
         }

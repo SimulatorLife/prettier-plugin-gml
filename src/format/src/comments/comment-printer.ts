@@ -657,9 +657,6 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
         return false;
     }
 
-    // Keep raw-comment ownership layout-only; avoid extending token ranges into
-    // adjacent slash suffixes so each parsed token prints independently.
-
     const followingNode = comment.followingNode ?? findFollowingNodeForComment(ast, comment);
     if (!followingNode) {
         return false;
