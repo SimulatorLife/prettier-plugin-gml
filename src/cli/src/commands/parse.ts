@@ -2,7 +2,7 @@ import { lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Core } from "@gmloop/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 import * as ParserWorkspace from "@gmloop/parser";
 import { Command } from "commander";
 
@@ -148,7 +148,7 @@ async function parseFileToAst(filePath: string): Promise<ParsedFileAst> {
     return {
         sourcePath: filePath,
         displayPath: formatPathForDisplay(filePath),
-        ast: ParserWorkspace.Parser.GMLParser.parse(source)
+        ast: ParserWorkspace.Parser.GMLParser.parse(source) as ParsedAst
     };
 }
 

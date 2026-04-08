@@ -99,7 +99,7 @@ function getLocalDeclarationKey(target: { category: NamingCategory; name: string
 
 type ScopeDataCollectionResult = {
     localScopeNames: Map<string, Map<string, number>>;
-    scopedDeclarationCounts: Map<string, number>;
+    duplicateScopedDeclarationKeys: Set<string>;
 };
 
 /**
@@ -116,8 +116,8 @@ type ScopeDataCollectionResult = {
  * scopes.  For the common case — where every scope contains exactly one declaration key — the
  * conditional block is skipped entirely, halving the number of full target iterations.
  *
- * Uses {@link incrementScopedCount} instead of `Core.incrementMapValue` to avoid the
- * validation and type-coercion overhead of the generic helper in this hot path.
+ * The common first-pass path tracks a single declaration key per scope and only
+ * promotes to a `Set` when a scope actually has multiple declarations.
  *
  * @param selectedTargets - Candidate naming targets returned by semantic.
  * @returns Collected scope data used by the codemod planner.
@@ -125,12 +125,14 @@ type ScopeDataCollectionResult = {
 function collectScopeDataFromTargets(
     selectedTargets: ReadonlyArray<LocalNamingConventionTarget>
 ): ScopeDataCollectionResult {
-    const firstDeclarationByScope = new Map<string, string>();
+    const declarationsByScope = new Map<string, string | Set<string>>();
     const scopeKeysRequiringNameConflictChecks = new Set<string>();
-    const scopedDeclarationCounts = new Map<string, number>();
+    const duplicateScopedDeclarationKeys = new Set<string>();
 
-    // Single first pass: compute all scope keys, declaration keys, and scopedDeclarationCounts
-    // simultaneously, while also identifying which scopes have more than one unique declaration.
+    // Single first pass: compute scope keys and declaration keys while identifying
+    // both duplicate declaration rows and scopes that host multiple unique declarations.
+    // The common case has one declaration per scope, so this avoids building a
+    // scoped-declaration identity string and counter entry for every target.
     for (const target of selectedTargets) {
         if (target.symbolId !== null) {
             continue;
@@ -138,18 +140,29 @@ function collectScopeDataFromTargets(
 
         const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
         const declarationKey = getLocalDeclarationKey(target);
-        const scopedDeclarationKey = `${scopeKey}:${declarationKey}`;
-
-        // Count how many times this exact (scope, declaration) pair appears.
-        // Use inline increment to avoid Core.incrementMapValue validation overhead.
-        incrementScopedCount(scopedDeclarationCounts, scopedDeclarationKey);
 
         // Determine whether this scope hosts multiple distinct declaration keys.
-        const firstDeclarationKey = firstDeclarationByScope.get(scopeKey);
-        if (firstDeclarationKey === undefined) {
-            firstDeclarationByScope.set(scopeKey, declarationKey);
-        } else if (firstDeclarationKey !== declarationKey) {
+        const declarations = declarationsByScope.get(scopeKey);
+        if (declarations === undefined) {
+            declarationsByScope.set(scopeKey, declarationKey);
+            continue;
+        }
+
+        if (typeof declarations === "string") {
+            if (declarations === declarationKey) {
+                duplicateScopedDeclarationKeys.add(`${scopeKey}:${declarationKey}`);
+                continue;
+            }
+
+            declarationsByScope.set(scopeKey, new Set([declarations, declarationKey]));
             scopeKeysRequiringNameConflictChecks.add(scopeKey);
+            continue;
+        }
+
+        if (declarations.has(declarationKey)) {
+            duplicateScopedDeclarationKeys.add(`${scopeKey}:${declarationKey}`);
+        } else {
+            declarations.add(declarationKey);
         }
     }
 
@@ -186,7 +199,7 @@ function collectScopeDataFromTargets(
 
     return {
         localScopeNames,
-        scopedDeclarationCounts
+        duplicateScopedDeclarationKeys
     };
 }
 
@@ -213,9 +226,10 @@ function processLocalNamingConventionRename(parameters: {
     hasDuplicateScopedDeclarations: boolean;
 }): number {
     const { target, suggestedName } = parameters;
-    const scopeKey = `${target.path}:${target.scopeId ?? "root"}`;
+    const needsScopeKey = parameters.hasDuplicateScopedDeclarations || parameters.localScopeNames.size > 0;
+    const scopeKey = needsScopeKey ? `${target.path}:${target.scopeId ?? "root"}` : null;
     const declarationKey = parameters.hasDuplicateScopedDeclarations ? getLocalDeclarationKey(target) : null;
-    const scopedDeclarationKey = declarationKey === null ? null : `${scopeKey}:${declarationKey}`;
+    const scopedDeclarationKey = scopeKey !== null && declarationKey !== null ? `${scopeKey}:${declarationKey}` : null;
     if (scopedDeclarationKey !== null && parameters.duplicateScopedDeclarationKeys.has(scopedDeclarationKey)) {
         const plannedDecision = parameters.localDeclarationRenameDecisions.get(scopedDeclarationKey);
         if (plannedDecision) {
@@ -235,11 +249,13 @@ function processLocalNamingConventionRename(parameters: {
         }
     }
 
-    const normalizedSuggestedName = suggestedName.toLowerCase();
-    const normalizedIdentifierName = target.name.toLowerCase();
-    const existingNames = parameters.localScopeNames.get(scopeKey);
+    let normalizedSuggestedName: string | null = null;
+    let normalizedIdentifierName: string | null = null;
+    const existingNames = scopeKey === null ? undefined : parameters.localScopeNames.get(scopeKey);
 
     if (existingNames !== undefined) {
+        normalizedSuggestedName = suggestedName.toLowerCase();
+        normalizedIdentifierName = target.name.toLowerCase();
         const existingSuggestedNameCount = existingNames.get(normalizedSuggestedName) ?? 0;
         const isCaseOnlyRename = normalizedSuggestedName === normalizedIdentifierName;
         const hasSameScopeNameConflict = isCaseOnlyRename
@@ -262,7 +278,7 @@ function processLocalNamingConventionRename(parameters: {
 
     if (
         RESERVED_LOCAL_RENAME_CATEGORIES.has(target.category) &&
-        getReservedLocalIdentifierNames().has(normalizedSuggestedName)
+        getReservedLocalIdentifierNames().has(normalizedSuggestedName ?? suggestedName.toLowerCase())
     ) {
         parameters.warnings.push(
             `Skipping local rename '${target.name}' -> '${suggestedName}' in ${target.path} because '${suggestedName}' is a reserved GameMaker identifier.`
@@ -279,7 +295,11 @@ function processLocalNamingConventionRename(parameters: {
     const dependentMacroNames =
         parameters.macroDependencyNamesByFile === null
             ? []
-            : findDependentMacroNames(parameters.macroDependencyNamesByFile, target.path, normalizedIdentifierName);
+            : findDependentMacroNames(
+                  parameters.macroDependencyNamesByFile,
+                  target.path,
+                  normalizedIdentifierName ?? target.name.toLowerCase()
+              );
     if (dependentMacroNames.length > 0) {
         parameters.warnings.push(
             `Skipping local rename '${target.name}' -> '${suggestedName}' in ${target.path} because macro expansion${dependentMacroNames.length === 1 ? "" : "s"} ${dependentMacroNames.map((macroName) => `'${macroName}'`).join(", ")} ${dependentMacroNames.length === 1 ? "depends" : "depend"} on '${target.name}'.`
@@ -304,6 +324,8 @@ function processLocalNamingConventionRename(parameters: {
         });
     }
     if (existingNames !== undefined) {
+        normalizedSuggestedName ??= suggestedName.toLowerCase();
+        normalizedIdentifierName ??= target.name.toLowerCase();
         decrementScopedNameCount(existingNames, normalizedIdentifierName);
         incrementScopedCount(existingNames, normalizedSuggestedName);
         parameters.localScopeNames.set(scopeKey, existingNames);
@@ -662,16 +684,7 @@ export async function planNamingConventionCodemod(
     // `collectScopeDataFromTargets` merges what were previously two separate full
     // iterations into a single first pass (plus an optional targeted second pass only
     // for scopes that actually have multiple declarations — usually none).
-    const { localScopeNames, scopedDeclarationCounts } = collectScopeDataFromTargets(selectedTargets);
-    // Build the duplicate-declaration key set without array spread to avoid
-    // allocating an intermediate array for the common case where most entries
-    // have count = 1 (no duplicates).
-    const duplicateScopedDeclarationKeys = new Set<string>();
-    for (const [scopedDeclarationKey, count] of scopedDeclarationCounts.entries()) {
-        if (count > 1) {
-            duplicateScopedDeclarationKeys.add(scopedDeclarationKey);
-        }
-    }
+    const { localScopeNames, duplicateScopedDeclarationKeys } = collectScopeDataFromTargets(selectedTargets);
     const hasDuplicateScopedDeclarations = duplicateScopedDeclarationKeys.size > 0;
 
     for (const target of selectedTargets) {

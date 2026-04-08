@@ -103,7 +103,6 @@ void test("normalize-doc-comments removes placeholder description equal to funct
         ""
     ].join("\n");
     const expected = [
-        "/// @description __ChatterboxClassSource",
         "/// @param filename",
         "/// @param buffer",
         "/// @param compile",

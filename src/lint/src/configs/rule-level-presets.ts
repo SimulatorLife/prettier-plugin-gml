@@ -24,6 +24,7 @@ const RECOMMENDED_RULES: Readonly<Record<string, LintRuleLevel>> = Object.freeze
     "gml/normalize-banner-comments": "warn",
     "gml/normalize-directives": "warn",
     "gml/require-control-flow-braces": "warn",
+    "gml/require-region-pairs": "error",
     "gml/no-assignment-in-condition": "warn",
     "gml/prefer-is-undefined-check": "warn",
     "gml/prefer-epsilon-comparisons": "warn",

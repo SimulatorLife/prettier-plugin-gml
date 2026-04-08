@@ -139,6 +139,11 @@ const expectedRules = Object.freeze([
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
     },
     {
+        shortName: "require-region-pairs",
+        messageId: "requireRegionPairs",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
         shortName: "no-assignment-in-condition",
         messageId: "noAssignmentInCondition",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]

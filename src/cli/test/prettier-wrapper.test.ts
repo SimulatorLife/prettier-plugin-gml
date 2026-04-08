@@ -777,6 +777,30 @@ void describe("Prettier wrapper CLI", () => {
         }
     });
 
+    void it("resolves nested project ignore boundaries across canonical path aliases", async () => {
+        const realWorkspaceDirectory = await createTemporaryDirectory();
+        const aliasWorkspaceDirectory = `${realWorkspaceDirectory}-alias`;
+        const nestedProjectDirectory = path.join(aliasWorkspaceDirectory, "vendor", "3DSpider");
+        const originalWorkingDirectory = process.cwd();
+
+        try {
+            await fs.symlink(realWorkspaceDirectory, aliasWorkspaceDirectory, "dir");
+            await fs.mkdir(path.join(realWorkspaceDirectory, "vendor", "3DSpider"), { recursive: true });
+            await fs.writeFile(path.join(realWorkspaceDirectory, ".prettierignore"), "vendor/\n", "utf8");
+            await fs.writeFile(path.join(realWorkspaceDirectory, "vendor", "3DSpider", "gmloop.json"), "{}\n", "utf8");
+
+            process.chdir(realWorkspaceDirectory);
+            const { __test__ } = await import("../src/cli.js");
+            const ignorePaths = await __test__.resolveProjectIgnorePathsForTests(nestedProjectDirectory);
+
+            assert.deepStrictEqual(ignorePaths, []);
+        } finally {
+            process.chdir(originalWorkingDirectory);
+            await fs.rm(aliasWorkspaceDirectory, { recursive: true, force: true });
+            await fs.rm(realWorkspaceDirectory, { recursive: true, force: true });
+        }
+    });
+
     void it("does not rewrite files when formatting produces no changes", async () => {
         const tempDirectory = await createTemporaryDirectory();
 

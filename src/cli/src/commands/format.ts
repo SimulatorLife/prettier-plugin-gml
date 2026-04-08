@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { lstat, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -1095,10 +1095,20 @@ async function findFirstDirectoryContainingProjectBoundaryMarker(candidateDirect
     return matches[0] ?? null;
 }
 
+async function resolveCanonicalDirectoryPath(directory: string): Promise<string> {
+    try {
+        return path.resolve(await realpath(directory));
+    } catch {
+        return path.resolve(directory);
+    }
+}
+
 async function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
     const resolvedWorkingDirectory = process.cwd();
-    const shouldLimitToWorkingDirectory = isPathInside(resolvedDirectory, resolvedWorkingDirectory);
+    const canonicalDirectory = await resolveCanonicalDirectoryPath(resolvedDirectory);
+    const canonicalWorkingDirectory = await resolveCanonicalDirectoryPath(resolvedWorkingDirectory);
+    const shouldLimitToWorkingDirectory = isPathInside(canonicalDirectory, canonicalWorkingDirectory);
 
     if (!shouldLimitToWorkingDirectory) {
         return {
@@ -1107,16 +1117,18 @@ async function resolveIgnoreSearchBounds(directory) {
         };
     }
 
-    const candidateDirectories = [];
-    for (const candidateDirectory of walkAncestorDirectories(resolvedDirectory)) {
-        candidateDirectories.push(candidateDirectory);
-        if (candidateDirectory === resolvedWorkingDirectory) {
-            break;
-        }
-    }
+    const candidateDirectories = [...walkAncestorDirectories(resolvedDirectory)];
+    const canonicalCandidateDirectories = await Promise.all(
+        candidateDirectories.map((candidateDirectory) => resolveCanonicalDirectoryPath(candidateDirectory))
+    );
+    const workingDirectoryCandidateIndex = canonicalCandidateDirectories.indexOf(canonicalWorkingDirectory);
+    const boundedCandidateDirectories =
+        workingDirectoryCandidateIndex === -1
+            ? candidateDirectories
+            : candidateDirectories.slice(0, workingDirectoryCandidateIndex + 1);
 
     const discoveredProjectBoundaryDirectory =
-        await findFirstDirectoryContainingProjectBoundaryMarker(candidateDirectories);
+        await findFirstDirectoryContainingProjectBoundaryMarker(boundedCandidateDirectories);
 
     if (discoveredProjectBoundaryDirectory !== null) {
         return {
@@ -2027,6 +2039,7 @@ export const __formatTest__ = Object.freeze({
     getPrettierOptionsForTests: () => options,
     validateTargetPathInputForTests: validateTargetPathInput,
     resolveTargetPathFromInputForTests: resolveTargetPathFromInput,
+    resolveProjectIgnorePathsForTests: resolveProjectIgnorePaths,
     clearFormattingCacheForTests: clearFormattingCache,
     getFormattingCacheStatsForTests: getFormattingCacheStats,
     setFormattingCacheEntryForTests: (cacheKey: string, formatted: string) =>

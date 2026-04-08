@@ -94,6 +94,8 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         ])
     },
     {
+        // Read-only rule with NO auto-fix
+        // globalvar replacement cannot be done safely on a per-file bases
         mapKey: "GmlNoGlobalvar",
         shortName: "no-globalvar",
         fullId: "gml/no-globalvar",
@@ -153,6 +155,12 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "require-control-flow-braces",
         fullId: "gml/require-control-flow-braces",
         messageId: "requireControlFlowBraces"
+    },
+    {
+        mapKey: "GmlRequireRegionPairs",
+        shortName: "require-region-pairs",
+        fullId: "gml/require-region-pairs",
+        messageId: "requireRegionPairs"
     },
     {
         mapKey: "GmlNoAssignmentInCondition",
