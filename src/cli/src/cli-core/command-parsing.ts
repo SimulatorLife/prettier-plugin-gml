@@ -18,20 +18,16 @@ export interface ParseCommandLineResult {
 }
 
 /**
- * Create an argParser for Commander.js options that validates port numbers.
- * Ports must be integers in the range 1-65535.
- *
- * @returns {(value: string) => number} An argParser function for Commander.js
+ * An argParser for Commander.js options that validates port numbers.
+ * Ports must be integers in the range 1–65535.
  */
-export function createPortValidator() {
-    return wrapInvalidArgumentResolver((value: string) => {
-        const parsed = Number.parseInt(value);
-        if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
-            throw new Error("Port must be between 1 and 65535");
-        }
-        return parsed;
-    });
-}
+export const portValidator = wrapInvalidArgumentResolver((value: string) => {
+    const parsed = Number.parseInt(value);
+    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
+        throw new Error("Port must be between 1 and 65535");
+    }
+    return parsed;
+});
 
 /**
  * Create an argParser for Commander.js options that validates integers against
