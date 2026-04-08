@@ -178,10 +178,16 @@ void test("fix --path accepts a single .gml target and scopes workflow stages to
         assert.equal(result.exitCode, 0);
         assert.match(result.stdout, /Target path:/);
 
-        const selectedSource = await readFile(
-            path.join(projectRoot, "scripts/selectedScript/selectedScript.gml"),
-            "utf8"
+        const selectedCamelPath = path.join(projectRoot, "scripts/selectedScript/selectedScript.gml");
+        const selectedSnakePath = path.join(projectRoot, "scripts/selected_script/selected_script.gml");
+        const selectedSourcePath = await access(selectedCamelPath).then(
+            () => selectedCamelPath,
+            async () => {
+                await access(selectedSnakePath);
+                return selectedSnakePath;
+            }
         );
+        const selectedSource = await readFile(selectedSourcePath, "utf8");
         const otherSource = await readFile(path.join(projectRoot, "scripts/other_script/other_script.gml"), "utf8");
 
         assert.match(selectedSource, /return 1000;/);
