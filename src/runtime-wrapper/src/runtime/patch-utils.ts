@@ -452,19 +452,13 @@ export interface DependencyValidationResult {
     missingDependencies: Array<string>;
 }
 
-type DependencyLookup = ReadonlySet<string>;
-
-function createDependencyLookup(registry: RuntimeRegistry): DependencyLookup {
-    return new Set([
-        ...Object.keys(registry.scripts),
-        ...Object.keys(registry.events),
-        ...Object.keys(registry.closures)
-    ]);
+function hasRegistryDependency(registry: RuntimeRegistry, dependencyId: string): boolean {
+    return dependencyId in registry.scripts || dependencyId in registry.events || dependencyId in registry.closures;
 }
 
 function collectMissingDependencies(
     dependencies: ReadonlyArray<unknown>,
-    dependencyLookup: DependencyLookup
+    hasDependency: (dependencyId: string) => boolean
 ): Array<string> {
     const missingDependencies: Array<string> = [];
     const checkedDependencies = new Set<string>();
@@ -479,7 +473,7 @@ function collectMissingDependencies(
         }
         checkedDependencies.add(dependencyCandidate);
 
-        if (!dependencyLookup.has(dependencyCandidate)) {
+        if (!hasDependency(dependencyCandidate)) {
             missingDependencies.push(dependencyCandidate);
         }
     }
@@ -494,8 +488,9 @@ export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistr
         return { satisfied: true, missingDependencies: [] };
     }
 
-    const dependencyLookup = createDependencyLookup(registry);
-    const missingDependencies = collectMissingDependencies(dependencies, dependencyLookup);
+    const missingDependencies = collectMissingDependencies(dependencies, (dependencyId) =>
+        hasRegistryDependency(registry, dependencyId)
+    );
 
     return {
         satisfied: missingDependencies.length === 0,
@@ -521,12 +516,16 @@ export function validateBatchPatchDependencies(
     patches: ReadonlyArray<Patch>,
     registry: RuntimeRegistry
 ): BatchDependencyValidationResult {
-    const dependencyLookup = new Set(createDependencyLookup(registry));
+    const newlySatisfiedDependencies = new Set<string>();
 
     for (const [index, patch] of patches.entries()) {
         const dependencies = patch.metadata?.dependencies;
         if (dependencies && Array.isArray(dependencies) && dependencies.length > 0) {
-            const missingDependencies = collectMissingDependencies(dependencies, dependencyLookup);
+            const missingDependencies = collectMissingDependencies(
+                dependencies,
+                (dependencyId) =>
+                    newlySatisfiedDependencies.has(dependencyId) || hasRegistryDependency(registry, dependencyId)
+            );
             if (missingDependencies.length > 0) {
                 return {
                     satisfied: false,
@@ -536,7 +535,7 @@ export function validateBatchPatchDependencies(
             }
         }
 
-        dependencyLookup.add(patch.id);
+        newlySatisfiedDependencies.add(patch.id);
     }
 
     return { satisfied: true };
