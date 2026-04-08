@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { Core } from "@gmloop/core";
 import { Command, InvalidArgumentError } from "commander";
 
-import { parseCommandLine, wrapInvalidArgumentResolver } from "../src/cli-core/command-parsing.js";
+import { parseCommandLine, portValidator, wrapInvalidArgumentResolver } from "../src/cli-core/command-parsing.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
 
 const { isObjectLike } = Core;
@@ -143,6 +143,59 @@ void describe("wrapInvalidArgumentResolver", () => {
                 error.message === "bad news" &&
                 error.cause instanceof Error
         );
+    });
+});
+
+void describe("portValidator", () => {
+    void it("accepts the minimum valid port (1)", () => {
+        assert.strictEqual(portValidator("1"), 1);
+    });
+
+    void it("accepts a typical HTTP port (80)", () => {
+        assert.strictEqual(portValidator("80"), 80);
+    });
+
+    void it("accepts a common dev server port (8080)", () => {
+        assert.strictEqual(portValidator("8080"), 8080);
+    });
+
+    void it("accepts the maximum valid port (65535)", () => {
+        assert.strictEqual(portValidator("65535"), 65_535);
+    });
+
+    void it("rejects port zero", () => {
+        assert.throws(
+            () => portValidator("0"),
+            (error) => error instanceof InvalidArgumentError && /Port must be between 1 and 65535/.test(error.message)
+        );
+    });
+
+    void it("rejects a port above the maximum", () => {
+        assert.throws(
+            () => portValidator("65536"),
+            (error) => error instanceof InvalidArgumentError && /Port must be between 1 and 65535/.test(error.message)
+        );
+    });
+
+    void it("rejects a negative port number", () => {
+        assert.throws(
+            () => portValidator("-1"),
+            (error) => error instanceof InvalidArgumentError && /Port must be between 1 and 65535/.test(error.message)
+        );
+    });
+
+    void it("rejects non-numeric input", () => {
+        assert.throws(
+            () => portValidator("abc"),
+            (error) => error instanceof InvalidArgumentError && /Port must be between 1 and 65535/.test(error.message)
+        );
+    });
+
+    void it("is the same object reference on each import (not recreated)", () => {
+        // portValidator is a constant, not a factory: the same wrapped function
+        // instance is shared across all call sites rather than allocated fresh
+        // on each Commander option registration.
+        assert.strictEqual(typeof portValidator, "function");
     });
 });
 

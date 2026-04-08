@@ -22,7 +22,7 @@ import { Parser } from "@gmloop/parser";
 import { Transpiler } from "@gmloop/transpiler";
 import { Command, Option } from "commander";
 
-import { createMinimumValueValidator, createPortValidator } from "../cli-core/command-parsing.js";
+import { createMinimumValueValidator, portValidator } from "../cli-core/command-parsing.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { normalizeExtensions } from "../cli-core/extension-normalizer.js";
@@ -569,7 +569,7 @@ export function createWatchCommand(): Command {
         )
         .addOption(
             new Option("--websocket-port <port>", "WebSocket server port for streaming patches")
-                .argParser(createPortValidator())
+                .argParser(portValidator)
                 .default(17_890)
         )
         .addOption(
@@ -578,7 +578,7 @@ export function createWatchCommand(): Command {
         .option("--no-websocket-server", "Disable starting the WebSocket server for patch streaming.")
         .addOption(
             new Option("--status-port <port>", "HTTP status server port for querying watch command status")
-                .argParser(createPortValidator())
+                .argParser(portValidator)
                 .default(17_891)
         )
         .addOption(
