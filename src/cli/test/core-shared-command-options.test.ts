@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-    APPLY_FIXES_OPTION_DESCRIPTION,
-    APPLY_FIXES_OPTION_FLAGS,
-    createApplyFixesOption,
     createListOption,
     createPathOption,
     createVerboseOption,
+    createWriteOption,
     LIST_OPTION_FLAGS,
     PATH_OPTION_DESCRIPTION,
     PATH_OPTION_FLAGS,
-    VERBOSE_OPTION_FLAGS
+    VERBOSE_OPTION_FLAGS,
+    WRITE_OPTION_DESCRIPTION,
+    WRITE_OPTION_FLAGS
 } from "../src/cli-core/shared-command-options.js";
 
 void test("shared path option uses aligned name and description", () => {
@@ -23,11 +23,11 @@ void test("shared path option uses aligned name and description", () => {
 });
 
 void test("shared apply-fixes option uses aligned name and default", () => {
-    const option = createApplyFixesOption();
+    const option = createWriteOption();
 
-    assert.equal(APPLY_FIXES_OPTION_FLAGS, "--fix");
-    assert.equal(option.flags, APPLY_FIXES_OPTION_FLAGS);
-    assert.equal(option.description, APPLY_FIXES_OPTION_DESCRIPTION);
+    assert.equal(WRITE_OPTION_FLAGS, "--write");
+    assert.equal(option.flags, WRITE_OPTION_FLAGS);
+    assert.equal(option.description, WRITE_OPTION_DESCRIPTION);
     assert.equal(option.defaultValue, false);
 });
 

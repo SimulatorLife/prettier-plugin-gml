@@ -76,7 +76,7 @@ void test("refactor codemod --only filters configured codemods during listing", 
     }
 });
 
-void test("refactor codemod --fix applies configured namingConvention renames across project resources", async () => {
+void test("refactor codemod --write applies configured namingConvention renames across project resources", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -100,7 +100,7 @@ void test("refactor codemod --fix applies configured namingConvention renames ac
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "scripts/demo_script", "--fix"],
+            argv: ["refactor", "codemod", "scripts/demo_script", "--write"],
             cwd: projectRoot
         });
 
@@ -123,7 +123,7 @@ void test("refactor codemod --fix applies configured namingConvention renames ac
     }
 });
 
-void test("refactor codemod --fix preserves allowed leading underscores while applying safe snake-case renames", async () => {
+void test("refactor codemod --write preserves allowed leading underscores while applying safe snake-case renames", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -154,7 +154,7 @@ void test("refactor codemod --fix preserves allowed leading underscores while ap
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -187,7 +187,7 @@ void test("refactor codemod --fix preserves allowed leading underscores while ap
     }
 });
 
-void test("refactor codemod --fix renames sibling object metadata inside a folder renamed earlier in the same batch", async () => {
+void test("refactor codemod --write renames sibling object metadata inside a folder renamed earlier in the same batch", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -237,7 +237,7 @@ void test("refactor codemod --fix renames sibling object metadata inside a folde
             "objects/oColmesh2DemoCylinder/oColmeshDemo2Sphere.yy"
         );
 
-        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--fix"], cwd: projectRoot });
+        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--write"], cwd: projectRoot });
 
         assert.equal(result.exitCode, 0);
         await access(path.join(projectRoot, "objects/obj_colmesh2demo_cylinder/obj_colmesh2demo_cylinder.yy"));
@@ -263,7 +263,7 @@ void test("refactor codemod --fix renames sibling object metadata inside a folde
     }
 });
 
-void test("refactor codemod --fix normalizes existing script metadata resourceType/resourcePath order", async () => {
+void test("refactor codemod --write normalizes existing script metadata resourceType/resourcePath order", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -300,7 +300,7 @@ void test("refactor codemod --fix normalizes existing script metadata resourceTy
             "function __InputError() { return 1; }\n"
         );
 
-        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--fix"], cwd: projectRoot });
+        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--write"], cwd: projectRoot });
         assert.equal(result.exitCode, 0);
 
         const metadata = await readFile(path.join(projectRoot, "scripts", "__input_error", "__input_error.yy"), "utf8");
@@ -315,7 +315,7 @@ void test("refactor codemod --fix normalizes existing script metadata resourceTy
     }
 });
 
-void test("refactor codemod --fix does not add resourcePath to scripts that did not have one", async () => {
+void test("refactor codemod --write does not add resourcePath to scripts that did not have one", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -348,7 +348,7 @@ void test("refactor codemod --fix does not add resourcePath to scripts that did 
             "function __InputError() { return 1; }\n"
         );
 
-        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--fix"], cwd: projectRoot });
+        const result = await runCliTestCommand({ argv: ["refactor", "codemod", "--write"], cwd: projectRoot });
         assert.equal(result.exitCode, 0);
 
         const metadata = await readFile(path.join(projectRoot, "scripts", "__input_error", "__input_error.yy"), "utf8");
@@ -360,7 +360,7 @@ void test("refactor codemod --fix does not add resourcePath to scripts that did 
     }
 });
 
-void test("refactor codemod --fix renames implicit instance variables across object event files", async () => {
+void test("refactor codemod --write renames implicit instance variables across object event files", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -382,7 +382,7 @@ void test("refactor codemod --fix renames implicit instance variables across obj
         });
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -400,7 +400,7 @@ void test("refactor codemod --fix renames implicit instance variables across obj
     }
 });
 
-void test("refactor codemod --fix renames implicit instance variables across inherited child objects and dotted object references", async () => {
+void test("refactor codemod --write renames implicit instance variables across inherited child objects and dotted object references", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -497,7 +497,7 @@ void test("refactor codemod --fix renames implicit instance variables across inh
         await registerProjectResource(projectRoot, "oCamera", "objects/oCamera/oCamera.yy");
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -531,7 +531,7 @@ void test("refactor codemod --fix renames implicit instance variables across inh
     }
 });
 
-void test("refactor codemod --fix does not overlap object-resource renames with implicit instance-variable renames", async () => {
+void test("refactor codemod --write does not overlap object-resource renames with implicit instance-variable renames", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -579,7 +579,7 @@ void test("refactor codemod --fix does not overlap object-resource renames with 
         });
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -613,7 +613,7 @@ void test("refactor codemod --fix does not overlap object-resource renames with 
     }
 });
 
-void test("refactor codemod --fix preserves valid enum member accesses when locals share the same name", async () => {
+void test("refactor codemod --write preserves valid enum member accesses when locals share the same name", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -659,7 +659,7 @@ void test("refactor codemod --fix preserves valid enum member accesses when loca
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -686,7 +686,7 @@ void test("refactor codemod --fix preserves valid enum member accesses when loca
     }
 });
 
-void test("refactor codemod --fix renames cross-file enum references and reparses the rewritten project", async () => {
+void test("refactor codemod --write renames cross-file enum references and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -717,7 +717,7 @@ void test("refactor codemod --fix renames cross-file enum references and reparse
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -736,7 +736,7 @@ void test("refactor codemod --fix renames cross-file enum references and reparse
     }
 });
 
-void test("refactor codemod --fix preserves enum members when same-name implicit instance-variable renames are applied", async () => {
+void test("refactor codemod --write preserves enum members when same-name implicit instance-variable renames are applied", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -772,7 +772,7 @@ void test("refactor codemod --fix preserves enum members when same-name implicit
         });
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -792,7 +792,7 @@ void test("refactor codemod --fix preserves enum members when same-name implicit
     }
 });
 
-void test("refactor codemod --fix renames object resources together with object event references", async () => {
+void test("refactor codemod --write renames object resources together with object event references", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -816,7 +816,7 @@ void test("refactor codemod --fix renames object resources together with object 
         });
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -851,7 +851,7 @@ void test("refactor codemod --fix renames object resources together with object 
     }
 });
 
-void test("refactor codemod --fix renames cross-file enum member references without splitting digit tokens", async () => {
+void test("refactor codemod --write renames cross-file enum member references without splitting digit tokens", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -888,7 +888,7 @@ void test("refactor codemod --fix renames cross-file enum member references with
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -912,7 +912,7 @@ void test("refactor codemod --fix renames cross-file enum member references with
     }
 });
 
-void test("refactor codemod --fix renames enum references embedded in macro declaration bodies", async () => {
+void test("refactor codemod --write renames enum references embedded in macro declaration bodies", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -975,7 +975,7 @@ void test("refactor codemod --fix renames enum references embedded in macro decl
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -996,7 +996,7 @@ void test("refactor codemod --fix renames enum references embedded in macro decl
     }
 });
 
-void test("refactor codemod --fix keeps same-name macros intact when renaming the owning script resource", async () => {
+void test("refactor codemod --write keeps same-name macros intact when renaming the owning script resource", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1029,7 +1029,7 @@ void test("refactor codemod --fix keeps same-name macros intact when renaming th
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1052,7 +1052,7 @@ void test("refactor codemod --fix keeps same-name macros intact when renaming th
     }
 });
 
-void test("refactor codemod --fix keeps project manifest entries aligned for batched case-only script resource renames", async () => {
+void test("refactor codemod --write keeps project manifest entries aligned for batched case-only script resource renames", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1079,7 +1079,7 @@ void test("refactor codemod --fix keeps project manifest entries aligned for bat
         await writeScriptResource(projectRoot, "Object", "// resource-only script fixture\n");
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1101,7 +1101,7 @@ void test("refactor codemod --fix keeps project manifest entries aligned for bat
     }
 });
 
-void test("refactor codemod --fix keeps reserved built-in local names intact and reparses the rewritten project", async () => {
+void test("refactor codemod --write keeps reserved built-in local names intact and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1150,7 +1150,7 @@ void test("refactor codemod --fix keeps reserved built-in local names intact and
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1173,7 +1173,7 @@ void test("refactor codemod --fix keeps reserved built-in local names intact and
     }
 });
 
-void test("refactor codemod --fix skips local renames required by referenced macro expansions and reparses the rewritten project", async () => {
+void test("refactor codemod --write skips local renames required by referenced macro expansions and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1211,7 +1211,7 @@ void test("refactor codemod --fix skips local renames required by referenced mac
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1229,7 +1229,7 @@ void test("refactor codemod --fix skips local renames required by referenced mac
     }
 });
 
-void test("refactor codemod --fix skips argument renames that would collide with reachable locals and reparses the rewritten project", async () => {
+void test("refactor codemod --write skips argument renames that would collide with reachable locals and reparses the rewritten project", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1273,7 +1273,7 @@ void test("refactor codemod --fix skips argument renames that would collide with
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1297,7 +1297,7 @@ void test("refactor codemod --fix skips argument renames that would collide with
     }
 });
 
-void test("refactor codemod --fix updates constructor inheritance references when renaming struct declarations", async () => {
+void test("refactor codemod --write updates constructor inheritance references when renaming struct declarations", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1324,7 +1324,7 @@ void test("refactor codemod --fix updates constructor inheritance references whe
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1340,7 +1340,7 @@ void test("refactor codemod --fix updates constructor inheritance references whe
     }
 });
 
-void test("refactor codemod --fix updates constructor runtime type checks for coupled single-callable scripts", async () => {
+void test("refactor codemod --write updates constructor runtime type checks for coupled single-callable scripts", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1382,7 +1382,7 @@ void test("refactor codemod --fix updates constructor runtime type checks for co
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1413,7 +1413,7 @@ void test("refactor codemod --fix updates constructor runtime type checks for co
     }
 });
 
-void test("refactor codemod --fix does not rename plain functions in mixed multi-callable scripts when only struct declarations are configured", async () => {
+void test("refactor codemod --write does not rename plain functions in mixed multi-callable scripts when only struct declarations are configured", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1451,7 +1451,7 @@ void test("refactor codemod --fix does not rename plain functions in mixed multi
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1473,7 +1473,7 @@ void test("refactor codemod --fix does not rename plain functions in mixed multi
     }
 });
 
-void test("refactor codemod --fix renames unique constructor static member calls across files", async () => {
+void test("refactor codemod --write renames unique constructor static member calls across files", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1511,7 +1511,7 @@ void test("refactor codemod --fix renames unique constructor static member calls
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1529,7 +1529,7 @@ void test("refactor codemod --fix renames unique constructor static member calls
     }
 });
 
-void test("refactor codemod --fix renames unique constructor static member bare calls inside constructors and with blocks", async () => {
+void test("refactor codemod --write renames unique constructor static member bare calls inside constructors and with blocks", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1579,7 +1579,7 @@ void test("refactor codemod --fix renames unique constructor static member bare 
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1602,7 +1602,7 @@ void test("refactor codemod --fix renames unique constructor static member bare 
     }
 });
 
-void test("refactor codemod --fix lets multi-function scripts rename the resource and same-name callable independently", async () => {
+void test("refactor codemod --write lets multi-function scripts rename the resource and same-name callable independently", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1642,7 +1642,7 @@ void test("refactor codemod --fix lets multi-function scripts rename the resourc
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1670,7 +1670,7 @@ void test("refactor codemod --fix lets multi-function scripts rename the resourc
     }
 });
 
-void test("refactor codemod --fix applies configured loop-length hoisting changes", async () => {
+void test("refactor codemod --write applies configured loop-length hoisting changes", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1687,7 +1687,7 @@ void test("refactor codemod --fix applies configured loop-length hoisting change
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix"],
+            argv: ["refactor", "codemod", "--write"],
             cwd: projectRoot
         });
 
@@ -1700,7 +1700,7 @@ void test("refactor codemod --fix applies configured loop-length hoisting change
     }
 });
 
-void test("refactor codemod --fix only rebuilds the project index between changed codemods", async () => {
+void test("refactor codemod --write only rebuilds the project index between changed codemods", async () => {
     const projectRoot = await createSyntheticProject({
         refactor: {
             codemods: {
@@ -1733,7 +1733,7 @@ void test("refactor codemod --fix only rebuilds the project index between change
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--fix", "--verbose"],
+            argv: ["refactor", "codemod", "--write", "--verbose"],
             cwd: projectRoot
         });
 
@@ -1762,7 +1762,7 @@ void test("refactor infers codemod mode from project config when no rename targe
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "--path", projectRoot, "--fix"]
+            argv: ["refactor", "--path", projectRoot, "--write"]
         });
 
         assert.equal(result.exitCode, 0);
@@ -1796,7 +1796,7 @@ void test("refactor codemod target paths restrict which gml files are rewritten"
         );
 
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "scripts/selected_script", "--fix"],
+            argv: ["refactor", "codemod", "scripts/selected_script", "--write"],
             cwd: projectRoot
         });
 

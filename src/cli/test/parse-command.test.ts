@@ -23,7 +23,7 @@ void test("createParseCommand exposes shared parse options without positional ta
     assert.equal(command.name(), "parse");
     assert.equal(command.registeredArguments.length, 0);
     assert.ok(command.options.some((option) => option.long === "--path"));
-    assert.ok(command.options.some((option) => option.long === "--fix"));
+    assert.ok(command.options.some((option) => option.long === "--write"));
     assert.ok(command.options.some((option) => option.long === "--list"));
     assert.ok(command.options.some((option) => option.long === "--verbose"));
 });
@@ -35,9 +35,9 @@ void test("parse --help output documents command examples and shared options", a
     assert.equal(stderr, "");
     assert.match(stdout, /Examples:/);
     assert.match(stdout, /prettier-plugin-gml parse --path path\/to\/script\.gml/);
-    assert.match(stdout, /prettier-plugin-gml parse --fix --path path\/to\/project/);
+    assert.match(stdout, /prettier-plugin-gml parse --write --path path\/to\/project/);
     assert.match(stdout, /--path <path>/);
-    assert.match(stdout, /--fix/);
+    assert.match(stdout, /--write/);
     assert.match(stdout, /--list/);
     assert.match(stdout, /--verbose/);
 });
@@ -105,14 +105,14 @@ void test("parse prints directory AST payloads to stdout in dry-run mode", async
     });
 });
 
-void test("parse --fix writes AST JSON artifacts for directory targets", async () => {
+void test("parse --write writes AST JSON artifacts for directory targets", async () => {
     await withTemporaryDirectory(async (temporaryDirectory) => {
         await writeFile(path.join(temporaryDirectory, "first.gml"), "var first = 1;\n", "utf8");
         await mkdir(path.join(temporaryDirectory, "nested"));
         await writeFile(path.join(temporaryDirectory, "nested", "second.gml"), "var second = 2;\n", "utf8");
 
         const result = await runCliTestCommand({
-            argv: ["parse", "--path", ".", "--fix"],
+            argv: ["parse", "--path", ".", "--write"],
             cwd: temporaryDirectory
         });
 

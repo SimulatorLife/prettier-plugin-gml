@@ -28,7 +28,7 @@ pnpm run cli -- path/to/project --help
 
 - `--path <path>` - Target file or directory path (defaults to current working directory)
 - `--config <path>` - Path to `gmloop.json` used for formatter-owned options
-- `--fix` - Apply formatting changes (without this flag, format runs in dry-run mode)
+- `--write` - Apply formatting changes (without this flag, format runs in dry-run mode)
 - `--log-level <level>` - Set Prettier log level (debug, info, warn, error, silent)
 - `--verbose` - Emit per-file timing and total run duration diagnostics
 - `--on-parse-error <action>` - How to handle parse errors (skip, revert, abort)
@@ -42,18 +42,18 @@ pnpm run cli -- path/to/project --help
 
 ### `parse` - Parse GML Files to AST JSON
 
-Runs `@gmloop/parser` over a `.gml` file or directory target. Dry-run mode writes AST JSON to stdout. With `--fix`, the command writes sibling `*.ast.json` files next to each parsed `.gml` file.
+Runs `@gmloop/parser` over a `.gml` file or directory target. Dry-run mode writes AST JSON to stdout. With `--write`, the command writes sibling `*.ast.json` files next to each parsed `.gml` file.
 
 ```bash
 pnpm run cli -- parse --path path/to/script.gml
 pnpm run cli -- parse --path path/to/project > ast.json
-pnpm run cli -- parse --fix --path path/to/project
+pnpm run cli -- parse --write --path path/to/project
 ```
 
 **Options:**
 
 - `--path <path>` - Target `.gml` file or directory path (defaults to current working directory)
-- `--fix` - Write AST JSON files (without this flag, parse prints AST JSON to stdout)
+- `--write` - Write AST JSON files (without this flag, parse prints AST JSON to stdout)
 - `--list` - Print effective command settings and exit
 - `--verbose` - Emit per-file parse diagnostics to stderr
 
@@ -63,12 +63,12 @@ Runs `@gmloop/lint` over one or more paths, with optional ESLint autofix support
 
 ```bash
 pnpm run cli -- lint path/to/project
-pnpm run cli -- lint --fix path/to/project
+pnpm run cli -- lint --write path/to/project
 ```
 
 **Options:**
 
-- `--fix` - Apply automatic fixes
+- `--write` - Apply automatic fixes
 - `--warn-ignored` - Include ignored-file warnings from ESLint (disabled by default to reduce noisy output)
 - `--formatter <name>` - Formatter output (`stylish|json|checkstyle`)
 - `--max-warnings <count>` - Fail when warning count exceeds limit
@@ -79,7 +79,7 @@ pnpm run cli -- lint --fix path/to/project
 - `--quiet` - Suppress fallback/config discovery warnings
 - `--verbose` - Emit per-file lint/format timing and total run duration diagnostics
 
-`lint` processes targets file-by-file in sequence. With `--fix`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
+`lint` processes targets file-by-file in sequence. With `--write`, each processed file path is emitted immediately to `stderr` as progress output while fixes are written incrementally.
 
 Post-lint config inspections (overlay wiring and processor policy enforcement) also run sequentially per file to bound peak memory usage on very large project scans.
 
@@ -100,8 +100,8 @@ an example invocation.
 
 Runs the project-wide write workflow in one command:
 
-1. `refactor codemod --fix`
-2. `lint --fix`
+1. `refactor codemod --write`
+2. `lint --write`
 3. `format`
 
 ```bash
@@ -113,7 +113,7 @@ pnpm run cli -- fix --only namingConvention
 
 - `--path <path>` - Explicit GameMaker project root directory or `.yyp` path
 - `--config <path>` - Path to a custom/override `gmloop.json`
-- `--fix` - Apply writes for the full workflow (without this flag, workflow runs dry-run)
+- `--write` - Apply writes for the full workflow (without this flag, workflow runs dry-run)
 - `--only <ids>` - Comma-separated list of configured refactor codemod ids to run
 - `--verbose` - Enable verbose diagnostics for all three stages
 
@@ -609,10 +609,10 @@ pnpm run cli -- refactor --path path/to/project
 pnpm run cli -- refactor codemod
 
 # Apply configured codemods to selected paths only
-pnpm run cli -- refactor codemod scripts/player --fix
+pnpm run cli -- refactor codemod scripts/player --write
 
 # Apply only one configured codemod
-pnpm run cli -- refactor codemod --only namingConvention --fix
+pnpm run cli -- refactor codemod --only namingConvention --write
 ```
 
 **Options:**
@@ -621,14 +621,14 @@ pnpm run cli -- refactor codemod --only namingConvention --fix
 - `--old-name <name>` - Current name of the symbol to rename
 - `--new-name <name>` - New name for the symbol (required)
 - `--path <path>` - Root directory of the GameMaker project (default: current directory)
-- `--fix` - Apply the rename/codemod changes (default behavior without `--fix` is dry-run preview)
+- `--write` - Apply the rename/codemod changes (default behavior without `--write` is dry-run preview)
 - `--verbose` - Enable verbose output with detailed diagnostics
 - `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
 
 **Codemod options (`refactor codemod`):**
 
 - `--config <path>` - Explicit path to `gmloop.json`
-- `--fix` - Apply configured codemods (default is dry-run)
+- `--write` - Apply configured codemods (default is dry-run)
 - `--only <ids>` - Comma-separated list of configured codemod ids to run
 - `--list` - Print discovered codemods and their effective normalized config
 
@@ -663,14 +663,14 @@ When no rename target is provided, `refactor` will automatically run configured 
 
 **Ownership note:** `refactor` is a separate domain from lint.
 
-- Use `lint --fix` for lint-owned diagnostics/content rewrites.
+- Use `lint --write` for lint-owned diagnostics/content rewrites.
 - Use `refactor` for explicit symbol rename/refactor transactions with cross-file edit planning.
 - Refactor operations are not lint rule fixes and are not executed through formatter runtime adapters.
 
 **Use Cases:**
 
 - **Safe Renaming**: Rename variables, scripts, or other symbols project-wide without breaking scope
-- **Refactoring Preparation**: Preview changes by default, then apply with `--fix` when ready
+- **Refactoring Preparation**: Preview changes by default, then apply with `--write` when ready
 - **Hot Reload Validation**: Ensure refactored code remains compatible with live updates using `--check-hot-reload`
 - **Development Workflow Integration**: Coordinate with watch mode for real-time refactoring feedback
 

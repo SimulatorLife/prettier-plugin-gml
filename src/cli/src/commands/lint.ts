@@ -11,13 +11,13 @@ import { ESLint } from "eslint";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import {
-    APPLY_FIXES_OPTION_DESCRIPTION,
-    APPLY_FIXES_OPTION_FLAGS,
     createConfigOption,
     createListOption,
     createPathOption,
     createVerboseOption,
-    PATH_OPTION_FLAGS
+    PATH_OPTION_FLAGS,
+    WRITE_OPTION_DESCRIPTION,
+    WRITE_OPTION_FLAGS
 } from "../cli-core/shared-command-options.js";
 import {
     discoverProjectRoot,
@@ -38,13 +38,13 @@ const GML_FILE_EXTENSION = ".gml";
 const LINT_RUNTIME_ERROR_RULE_ID = "gml/internal-runtime-error";
 
 const LINT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml lint path/to/project";
-const LINT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml lint ${APPLY_FIXES_OPTION_FLAGS} path/to/project`;
+const LINT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml lint ${WRITE_OPTION_FLAGS} path/to/project`;
 const LINT_COMMAND_CI_EXAMPLE = `pnpm dlx prettier-plugin-gml lint --max-warnings 0 path/to/script${GML_FILE_EXTENSION}`;
 
 const LINT_NAMESPACE = LintWorkspace.Lint;
 
 type LintCommandOptions = {
-    fix?: boolean;
+    write?: boolean;
     warnIgnored?: boolean;
     formatter?: string;
     maxWarnings?: number;
@@ -653,7 +653,7 @@ function resolveCommandOptions(command: CommanderCommandLike): Required<Omit<Lin
     const options = (command.opts() ?? {}) as LintCommandOptions;
 
     return {
-        fix: options.fix === true,
+        write: options.write === true,
         warnIgnored: options.warnIgnored === true,
         formatter: normalizeFormatterName(options.formatter),
         maxWarnings: normalizeMaxWarnings(options.maxWarnings),
@@ -676,7 +676,7 @@ function printLintCommandSettings(
     console.log(`Targets: ${targetSummary}`);
     console.log(`Path override: ${options.path ?? "(auto-discover from cwd/targets)"}`);
     console.log(`Project strict mode: ${options.projectStrict ? "enabled" : "disabled"}`);
-    console.log(`Fix mode: ${options.fix ? "enabled (--fix)" : "disabled (preview/default)"}`);
+    console.log(`Fix mode: ${options.write ? "enabled (--write)" : "disabled (preview/default)"}`);
     console.log(`Formatter: ${options.formatter}`);
     console.log(`Max warnings: ${String(options.maxWarnings)}`);
     console.log(`Config path: ${options.config ?? "(auto-discover or bundled default)"}`);
@@ -1115,12 +1115,12 @@ async function loadRequestedFormatter(
 
 function createEslintConstructorOptions(
     cwd: string,
-    fix: boolean,
+    write: boolean,
     warnIgnored: boolean
 ): ConstructorParameters<typeof ESLint>[0] {
     return {
         cwd,
-        fix,
+        fix: write,
         warnIgnored
     };
 }
@@ -1271,7 +1271,7 @@ export function createLintCommand(): Command {
         new Command("lint")
             .description("Lint GameMaker Language files using @gmloop/lint")
             .argument("[paths...]", "File or directory paths to lint")
-            .option(APPLY_FIXES_OPTION_FLAGS, APPLY_FIXES_OPTION_DESCRIPTION, false)
+            .option(WRITE_OPTION_FLAGS, WRITE_OPTION_DESCRIPTION, false)
             .option("--warn-ignored", "Report ignored-file warnings from ESLint output", false)
             .option("--formatter <name>", "Formatter output (stylish|json|checkstyle)", "stylish")
             .option("--max-warnings <count>", "Maximum warning count before exit code 1", "-1")
@@ -1306,7 +1306,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
 
     const commandCwd = process.cwd();
     const eslintCwd = resolveEslintCwd({ cwd: commandCwd, targets });
-    const eslintConstructorOptions = createEslintConstructorOptions(eslintCwd, options.fix, options.warnIgnored);
+    const eslintConstructorOptions = createEslintConstructorOptions(eslintCwd, options.write, options.warnIgnored);
 
     if (!isSupportedFormatter(options.formatter)) {
         console.error(
@@ -1372,7 +1372,7 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
                     });
                 }
 
-                if (!options.fix) {
+                if (!options.write) {
                     return;
                 }
 

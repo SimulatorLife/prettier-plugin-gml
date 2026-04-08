@@ -10,20 +10,20 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { CliUsageError } from "../cli-core/errors.js";
 import {
-    createApplyFixesOption,
     createListOption,
     createPathOption,
-    createVerboseOption
+    createVerboseOption,
+    createWriteOption
 } from "../cli-core/shared-command-options.js";
 import { resolveExplicitWorkflowTargetPath } from "../workflow/project-root.js";
 
 const GML_FILE_EXTENSION = ".gml";
 const AST_JSON_EXTENSION = ".ast.json";
 const PARSE_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml parse --path path/to/script.gml";
-const PARSE_COMMAND_FIX_EXAMPLE = "pnpm dlx prettier-plugin-gml parse --fix --path path/to/project";
+const PARSE_COMMAND_FIX_EXAMPLE = "pnpm dlx prettier-plugin-gml parse --write --path path/to/project";
 
 type ParseCommandOptions = {
-    fix?: boolean;
+    write?: boolean;
     list?: boolean;
     path?: string;
     verbose?: boolean;
@@ -82,7 +82,7 @@ function resolveParseCommandSettings(command: CommanderCommandLike): ParseComman
 
     return {
         targetPath,
-        writeMode: Boolean(options.fix),
+        writeMode: Boolean(options.write),
         list: Boolean(options.list),
         verbose: Boolean(options.verbose)
     };
@@ -90,7 +90,9 @@ function resolveParseCommandSettings(command: CommanderCommandLike): ParseComman
 
 function printParseCommandSettings(settings: ParseCommandSettings): void {
     console.log(`Target path: ${formatPathForDisplay(settings.targetPath)}`);
-    console.log(`Execution mode: ${settings.writeMode ? "write AST JSON files (--fix)" : "dry-run (stdout AST JSON)"}`);
+    console.log(
+        `Execution mode: ${settings.writeMode ? "write AST JSON files (--write)" : "dry-run (stdout AST JSON)"}`
+    );
     console.log(`Verbose mode: ${settings.verbose ? "enabled" : "disabled"}`);
     console.log(`Output: ${settings.writeMode ? `sibling *${AST_JSON_EXTENSION} files` : "stdout"}`);
 }
@@ -247,7 +249,7 @@ export function createParseCommand(): Command {
             .usage("[options]")
             .description("Parse GameMaker Language files to AST JSON using @gmloop/parser.")
             .addOption(createPathOption())
-            .addOption(createApplyFixesOption())
+            .addOption(createWriteOption())
             .addOption(createListOption())
             .addOption(createVerboseOption())
             .addHelpText("after", () =>

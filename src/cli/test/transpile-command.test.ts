@@ -12,7 +12,7 @@ void test("createTranspileCommand exposes shared options", () => {
 
     assert.equal(command.name(), "transpile");
     assert.ok(command.options.some((option) => option.long === "--path"));
-    assert.ok(command.options.some((option) => option.long === "--fix"));
+    assert.ok(command.options.some((option) => option.long === "--write"));
     assert.ok(command.options.some((option) => option.long === "--list"));
     assert.ok(command.options.some((option) => option.long === "--verbose"));
     assert.equal(command.registeredArguments.length, 0);
@@ -27,7 +27,7 @@ void test("transpile --help output documents examples and shared options", async
     assert.match(result.stdout, /Examples:/);
     assert.match(result.stdout, /prettier-plugin-gml transpile --path path\/to\/script\.gml/);
     assert.match(result.stdout, /--path <path>/);
-    assert.match(result.stdout, /--fix/);
+    assert.match(result.stdout, /--write/);
     assert.match(result.stdout, /--list/);
     assert.match(result.stdout, /--verbose/);
 });
@@ -72,7 +72,7 @@ void test("transpile dry-run emits JavaScript to stdout without writing files", 
     }
 });
 
-void test("transpile --fix writes JavaScript output files", async () => {
+void test("transpile --write writes JavaScript output files", async () => {
     const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-transpile-fix-"));
     const sourcePath = path.join(temporaryDirectory, "compute_total.gml");
     const outputPath = path.join(temporaryDirectory, "compute_total.js");
@@ -81,7 +81,7 @@ void test("transpile --fix writes JavaScript output files", async () => {
         await writeFile(sourcePath, "function compute_total(value) { return value * 2; }\n", "utf8");
 
         const result = await runCliTestCommand({
-            argv: ["transpile", "--fix", "--path", sourcePath]
+            argv: ["transpile", "--write", "--path", sourcePath]
         });
 
         assert.equal(result.exitCode, 0);

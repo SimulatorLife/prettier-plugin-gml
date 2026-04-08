@@ -95,10 +95,10 @@ void test("collectFormatCommandOptions ignores positional targets", () => {
     assert.strictEqual(result.targetPathProvided, false);
 });
 
-void test("collectFormatCommandOptions sets apply mode when --fix is provided", () => {
+void test("collectFormatCommandOptions sets apply mode when --write is provided", () => {
     const command = createStubCommand({
         opts: () => ({
-            fix: true
+            write: true
         })
     });
 

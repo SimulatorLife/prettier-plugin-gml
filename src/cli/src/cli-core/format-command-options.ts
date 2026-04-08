@@ -64,7 +64,7 @@ function resolvePrettierConfiguration(
     return {
         prettierLogLevel: verbose ? "debug" : ((source.logLevel as string) ?? defaultPrettierLogLevel),
         onParseError: (source.onParseError as string) ?? defaultParseErrorAction,
-        dryRunMode: source.fix !== true,
+        dryRunMode: source.write !== true,
         verbose,
         list: Boolean(source.list)
     };
@@ -101,6 +101,7 @@ export function collectFormatCommandOptions(
     { defaultParseErrorAction, defaultPrettierLogLevel }: CollectFormatCommandOptionsParameters = {}
 ): FormatCommandOptionsResult {
     const options = (command?.opts?.() ?? {}) as CommandOptionsRecord;
+    console.log("Format options:", options);
     const { targetPathInput, targetPathProvided, rawTargetPathInput } = resolveTargetPathInput(options);
 
     const { skippedDirectorySampleLimit, ignoredFileSampleLimit, unsupportedExtensionSampleLimit } =

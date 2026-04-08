@@ -2,7 +2,7 @@
 
 `@gmloop/lint` is the ESLint language plugin and rule bundle for GameMaker Language (`.gml`) in this monorepo.
 
-It owns lint diagnostics and semantic/content rewrites (via lint rules and `--fix`), while formatter-only layout behavior stays in `@gmloop/format`.
+It owns lint diagnostics and semantic/content rewrites (via lint rules and `--write`), while formatter-only layout behavior stays in `@gmloop/format`.
 
 - Owns:
     - ESLint language wiring for GML (`language: "gml/gml"`)

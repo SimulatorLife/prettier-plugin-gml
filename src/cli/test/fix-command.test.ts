@@ -77,7 +77,7 @@ void test("createFixCommand exposes the project fix workflow", () => {
         "Should not expose legacy --project-root option"
     );
     assert.ok(command.options.some((option) => option.long === "--config"));
-    assert.ok(command.options.some((option) => option.long === "--fix"));
+    assert.ok(command.options.some((option) => option.long === "--write"));
     assert.ok(command.options.some((option) => option.long === "--only"));
     assert.ok(command.options.some((option) => option.long === "--list"));
     assert.ok(command.options.some((option) => option.long === "--verbose"));
@@ -89,6 +89,7 @@ void test("fix --help documents the combined workflow", async () => {
         argv: ["fix", "--help"]
     });
 
+    if (result.exitCode !== 0) console.log("STDERR DUMP:", result.stderr);
     assert.equal(result.exitCode, 0);
     assert.match(result.stdout, /Run project codemods, lint fixes, and formatting in sequence/);
     assert.match(result.stdout, /pnpm dlx prettier-plugin-gml fix --path path\/to\/project/);
@@ -103,6 +104,7 @@ void test("fix --list prints command settings and exits", async () => {
             cwd: projectRoot
         });
 
+        if (result.exitCode !== 0) console.log("STDERR DUMP:", result.stderr);
         assert.equal(result.exitCode, 0);
         assert.match(result.stdout, /Project root:/);
         assert.match(result.stdout, /Config path:/);
@@ -128,10 +130,11 @@ void test("fix runs codemods, lint fixes, and formatting in sequence for a proje
         );
 
         const result = await runCliTestCommand({
-            argv: ["fix", "--fix"],
+            argv: ["fix", "--write"],
             cwd: projectRoot
         });
 
+        if (result.exitCode !== 0) console.log("STDERR DUMP:", result.stderr);
         assert.equal(result.exitCode, 0);
         assert.match(result.stdout, /\[1\/3 Refactor Codemods\]/);
         assert.match(result.stdout, /\[2\/3 Lint Fixes\]/);

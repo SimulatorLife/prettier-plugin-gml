@@ -50,7 +50,7 @@ The refactor workspace keeps naming-convention codemod stress tests in the regul
 
 - [`src/refactor/test/naming-convention-performance.test.ts`](./test/naming-convention-performance.test.ts) exercises high-volume local rename planning and edit application.
 - [`src/cli/test/refactor-codemod-performance.test.ts`](../cli/test/refactor-codemod-performance.test.ts) exercises the indexed CLI bridge path for large top-level rename batches.
-- [`src/cli/test/refactor-codemod-command-performance.test.ts`](../cli/test/refactor-codemod-command-performance.test.ts) exercises end-to-end `refactor codemod --fix` execution on a larger synthetic GameMaker project so CLI indexing, planning, and write-back stay bounded.
+- [`src/cli/test/refactor-codemod-command-performance.test.ts`](../cli/test/refactor-codemod-command-performance.test.ts) exercises end-to-end `refactor codemod --write` execution on a larger synthetic GameMaker project so CLI indexing, planning, and write-back stay bounded.
 - [`src/cli/test/refactor-naming-target-discovery-performance.test.ts`](../cli/test/refactor-naming-target-discovery-performance.test.ts) exercises naming-target discovery on mixed declaration/reference workloads so reference-only files do not rebuild local-reference indexes unnecessarily.
 - [`src/cli/test/refactor-local-naming-performance.test.ts`](../cli/test/refactor-local-naming-performance.test.ts) exercises disk-backed local-variable codemods so CI catches regressions in source-text loading, local-occurrence indexing, and member-access filtering on real files.
 - [`src/cli/test/refactor-script-resource-naming-performance.test.ts`](../cli/test/refactor-script-resource-naming-performance.test.ts) exercises script-backed function naming on large resource sets so repeated script-resource scans stay bounded.
@@ -443,7 +443,7 @@ pnpm run cli -- refactor codemod --list
 pnpm run cli -- refactor codemod
 
 # Apply only namingConvention to a subset of paths
-pnpm run cli -- refactor codemod scripts/player --only namingConvention --fix
+pnpm run cli -- refactor codemod scripts/player --only namingConvention --write
 ```
 
 Selected-path namingConvention runs now resolve naming targets with one

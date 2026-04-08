@@ -38,7 +38,7 @@ function demo() {
 }
 ```
 
-Lint (`lint --fix`) does single-file-scoped semantic/content rewrites (rule-owned).
+Lint (`lint --write`) does single-file-scoped semantic/content rewrites (rule-owned).
 
 ## Quick start
 
@@ -80,7 +80,7 @@ unnecessary ambiguity.
 pnpm run cli -- lint /absolute/path/to/MyGame
 
 # diagnostics + autofix
-pnpm run cli -- lint /absolute/path/to/MyGame --fix
+pnpm run cli -- lint /absolute/path/to/MyGame --write
 ```
 
 ### Parse from a local clone
@@ -90,7 +90,7 @@ pnpm run cli -- lint /absolute/path/to/MyGame --fix
 pnpm run cli -- parse --path /absolute/path/to/MyGame/scripts/demo.gml
 
 # write sibling *.ast.json files
-pnpm run cli -- parse --fix --path /absolute/path/to/MyGame
+pnpm run cli -- parse --write --path /absolute/path/to/MyGame
 ```
 
 ### Refactor from a local clone
@@ -98,11 +98,11 @@ pnpm run cli -- parse --fix --path /absolute/path/to/MyGame
 The refactor workspace implements a GML-native Collection API (similar to `jscodeshift`) for atomic cross-file transactions and metadata edits.
 
 ```bash
-# preview rename (dry-run is the default; no files are written without --fix)
+# preview rename (dry-run is the default; no files are written without --write)
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 
 # apply rename
-pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --fix
+pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --write
 ```
 
 ### Transpile from a local clone
@@ -112,7 +112,7 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --fix
 pnpm run cli -- transpile --path /absolute/path/to/MyGame/scripts/scr_demo/scr_demo.gml
 
 # write .js outputs for all discovered .gml files under the target path
-pnpm run cli -- transpile --fix --path /absolute/path/to/MyGame
+pnpm run cli -- transpile --write --path /absolute/path/to/MyGame
 ```
 
 ## Architecture overview
@@ -148,16 +148,16 @@ pnpm run format:gml -- /path/to/project
 
 # parser AST inspection
 pnpm run cli -- parse --path /path/to/project/scripts/demo.gml
-pnpm run cli -- parse --fix --path /path/to/project
+pnpm run cli -- parse --write --path /path/to/project
 
 # lint
-pnpm run cli -- lint /path/to/project --fix
+pnpm run cli -- lint /path/to/project --write
 
 # refactor
 pnpm run cli -- refactor --old-name old_name --new-name newName
 
 # transpile
-pnpm run cli -- transpile --fix --path /path/to/project
+pnpm run cli -- transpile --write --path /path/to/project
 
 # hot-reload watch pipeline
 pnpm run cli -- watch /path/to/project --verbose

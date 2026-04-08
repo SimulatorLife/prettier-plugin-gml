@@ -94,7 +94,7 @@ void describe("CLI Verbose Logging", () => {
                 "--verbose",
                 "--path",
                 tempDirectory,
-                "--fix"
+                "--write"
             ]);
 
             assert.equal(exitCode, 0);

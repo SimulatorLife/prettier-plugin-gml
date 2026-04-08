@@ -10,19 +10,19 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { CliUsageError } from "../cli-core/errors.js";
 import {
-    createApplyFixesOption,
     createListOption,
     createPathOption,
-    createVerboseOption
+    createVerboseOption,
+    createWriteOption
 } from "../cli-core/shared-command-options.js";
 import { type TranspilationContext, transpileFile } from "../modules/transpilation/index.js";
 
 const TRANSPILE_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml transpile --path path/to/script.gml";
-const TRANSPILE_COMMAND_FIX_EXAMPLE = "pnpm dlx prettier-plugin-gml transpile --fix --path path/to/project";
+const TRANSPILE_COMMAND_FIX_EXAMPLE = "pnpm dlx prettier-plugin-gml transpile --write --path path/to/project";
 
 type TranspileCommandOptions = {
     path?: string;
-    fix?: boolean;
+    write?: boolean;
     verbose?: boolean;
     list?: boolean;
 };
@@ -119,7 +119,7 @@ function resolveRunSettings(command: CommanderCommandLike, target: ResolvedTrans
 
     return {
         target,
-        dryRun: options.fix !== true,
+        dryRun: options.write !== true,
         verbose: options.verbose === true,
         list: options.list === true
     };
@@ -170,7 +170,7 @@ function printTranspileSettings(settings: TranspileRunSettings): void {
     console.log(`Target ${targetLabel}: ${displayPath(settings.target.targetPath)}`);
     console.log(`GML files discovered: ${settings.target.gmlFiles.length}`);
     console.log(`Verbose mode: ${settings.verbose ? "enabled" : "disabled"}`);
-    console.log(`Execution mode: ${settings.dryRun ? "dry-run (default, no writes)" : "apply changes (--fix)"}`);
+    console.log(`Execution mode: ${settings.dryRun ? "dry-run (default, no writes)" : "apply changes (--write)"}`);
 }
 
 function emitDryRunOutput(parameters: { outputs: Array<{ sourcePath: string; jsBody: string }> }): void {
@@ -196,7 +196,7 @@ export function createTranspileCommand(): Command {
         new Command("transpile")
             .description("Transpile GameMaker Language files to JavaScript using @gmloop/transpiler")
             .addOption(createPathOption())
-            .addOption(createApplyFixesOption())
+            .addOption(createWriteOption())
             .addOption(createListOption())
             .addOption(createVerboseOption())
             .addHelpText("after", () =>
@@ -253,7 +253,7 @@ export async function runTranspileCommand(command: CommanderCommandLike): Promis
     if (settings.dryRun) {
         emitDryRunOutput({ outputs });
         console.log(
-            `Transpiled ${fileCount} ${pluralize(fileCount, "file", "files")} to JavaScript (dry-run). Re-run with --fix to write .js files.`
+            `Transpiled ${fileCount} ${pluralize(fileCount, "file", "files")} to JavaScript (dry-run). Re-run with --write to write .js files.`
         );
         return;
     }

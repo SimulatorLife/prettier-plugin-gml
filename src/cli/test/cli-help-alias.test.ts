@@ -76,9 +76,9 @@ void describe("cli help command normalization", () => {
 
     void it("strips pnpm argument separators between command and command options", async () => {
         const { normalizeCommandLineArguments } = await loadCliTestUtilities();
-        const normalized = normalizeCommandLineArguments(["format", "--", "--fix"]);
+        const normalized = normalizeCommandLineArguments(["format", "--", "--write"]);
 
-        assert.deepEqual(normalized, ["format", "--fix"]);
+        assert.deepEqual(normalized, ["format", "--write"]);
     });
 
     void it("treats implicit format targets with --help as format help requests", async () => {

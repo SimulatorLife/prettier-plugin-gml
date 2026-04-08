@@ -22,11 +22,11 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { CliUsageError, formatCliError } from "../cli-core/errors.js";
 import { collectFormatCommandOptions } from "../cli-core/format-command-options.js";
 import {
-    createApplyFixesOption,
     createConfigOption,
     createListOption,
     createPathOption,
-    createVerboseOption
+    createVerboseOption,
+    createWriteOption
 } from "../cli-core/shared-command-options.js";
 import {
     hasRegisteredIgnorePath,
@@ -108,7 +108,7 @@ const logLevelOption = createEnumeratedOptionHelpers(VALID_PRETTIER_LOG_LEVELS, 
 
 const FORMAT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml format path/to/project";
 const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "pnpm run format:gml -- path/to/project";
-const FORMAT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml format --fix --path path/to/script${GML_EXTENSION}`;
+const FORMAT_COMMAND_FIX_EXAMPLE = `pnpm dlx prettier-plugin-gml format --write --path path/to/script${GML_EXTENSION}`;
 
 const PRETTIER_MODULE_ID = process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 const TARGET_EXTENSIONS = Object.freeze([GML_EXTENSION]);
@@ -400,7 +400,7 @@ export function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     )
         .addOption(createPathOption())
         .addOption(createConfigOption())
-        .addOption(createApplyFixesOption())
+        .addOption(createWriteOption())
         .addOption(createListOption())
         .addOption(skippedDirectorySampleLimitOption)
         .addOption(skippedDirectorySamplesAliasOption)
@@ -1633,7 +1633,7 @@ function printFormatCommandSettings(commandOptions: ReturnType<typeof collectFor
         `Target path: ${typeof commandOptions.targetPathInput === "string" ? commandOptions.targetPathInput : "(cwd)"}`
     );
     console.log(
-        `Execution mode: ${commandOptions.dryRunMode ? "dry-run (default, no writes)" : "apply changes (--fix)"}`
+        `Execution mode: ${commandOptions.dryRunMode ? "dry-run (default, no writes)" : "apply changes (--write)"}`
     );
     console.log(`Verbose mode: ${commandOptions.verbose ? "enabled" : "disabled"}`);
     console.log(`Config path: ${commandOptions.configPath ?? "(auto-discover gmloop.json in project root)"}`);
@@ -1799,7 +1799,7 @@ function logDryRunModeSummary() {
     }
 
     const label = pendingFormatCount === 1 ? "file requires" : "files require";
-    console.log(`${pendingFormatCount} ${label} formatting. Re-run with --fix to write changes.`);
+    console.log(`${pendingFormatCount} ${label} formatting. Re-run with --write to write changes.`);
 }
 
 function logWriteModeSummary({

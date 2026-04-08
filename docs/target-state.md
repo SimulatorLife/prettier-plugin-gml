@@ -6,7 +6,7 @@ This document synthesizes the target state for the GameMaker Language parser pro
 
 1. **Strict Separation of Concerns**: Split responsibilities into a Prettier-plugin formatter-only workspace (`/format`), an ESLint v9 language+rules workspace (`/lint`), a refactor/codemod workspace (`/refactor`), and shared core utilities (`/core`).
 2. **Deterministic Formatting**: Keep the formatter deterministic and non-semantic. A Prettier plugin must not change formatting based on semantic meaning or program behavior. The formatter may render or reflow comments but must not interpret comment text to infer documentation structure or upgrade plain comments into documentation comments.
-3. **Linter with Auto-Fixes**: Any non-layout, single-file-scoped rewrites should be handled by the linter's (`/lint`) rules with explicit diagnostics and optional `--fix`. Lexical canonicalization (for example, operator aliases and numeric literal formatting) is permitted in the formatter, but syntactic or semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
+3. **Linter with Auto-Fixes**: Any non-layout, single-file-scoped rewrites should be handled by the linter's (`/lint`) rules with explicit diagnostics and optional `--write`. Lexical canonicalization (for example, operator aliases and numeric literal formatting) is permitted in the formatter, but syntactic or semantic rewriting is not. Any structural or semantic fixes must live in the `lint` workspace.
 4. **Robust Semantic Analysis**: Implement a semantic layer that annotates the parse tree to power linting, refactoring, and transpilation, using the Sourcegraph Code Intelligence Protocol (SCIP) as the canonical symbol model.
 5. **Bounded-Memory Refactors**: Run large-project semantic indexing and codemod pipelines without retaining monolithic project-wide aggregates in memory. The target architecture uses bounded-memory streaming with spill-to-disk backends and whole-plan validation only where correctness requires it.
 6. **Live Hot-Reloading**: Enable true hot-loading of GML code, assets, and shaders without restarting the game by transpiling GML to JavaScript on demand and injecting it via a runtime wrapper.
@@ -47,7 +47,7 @@ _Migration rule_: Do not add new doc-comment content mutation logic in formatter
 - **Purpose**: Project-wide, sometimes project-aware rewrites that are neither formatting nor small local lint fixes.
 - **Scope**: Multi-file changes, API migrations, mechanical refactors, structural rewrites, workspace-wide rename or update operations, and project-aware edit planning.
 - **Behavior**: Explicit and opt-in, typically run as a one-off or scripted step; may use project index and symbol information; may be destructive by design but must remain controlled and deterministic at the output level.
-- **Order in pipeline**: Project-wide write workflows run codemod, then lint `--fix`, then formatter, followed by typecheck and tests as separate validation steps.
+- **Order in pipeline**: Project-wide write workflows run codemod, then lint `--write`, then formatter, followed by typecheck and tests as separate validation steps.
 
 ### 2.5 Non-Goals
 
@@ -214,7 +214,7 @@ Primary seam:
 
 Observed pattern:
 
-- End-to-end `refactor codemod --fix` latency includes the semantic project-index build, so forcing `buildProjectIndex` down to `concurrency: { gml: 1 }` turns large codemod runs into an avoidable serial bottleneck before refactor planning even begins.
+- End-to-end `refactor codemod --write` latency includes the semantic project-index build, so forcing `buildProjectIndex` down to `concurrency: { gml: 1 }` turns large codemod runs into an avoidable serial bottleneck before refactor planning even begins.
 
 ### 5.4 Option Set and Trade-Offs
 

@@ -9,11 +9,11 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { CliUsageError } from "../cli-core/errors.js";
 import {
-    createApplyFixesOption,
     createConfigOption,
     createListOption,
     createPathOption,
-    createVerboseOption
+    createVerboseOption,
+    createWriteOption
 } from "../cli-core/shared-command-options.js";
 import { SKIP_CLI_RUN_ENV_VAR } from "../shared/skip-cli-run.js";
 import {
@@ -27,7 +27,7 @@ import { executeRefactorCommand } from "./refactor.js";
 type FixCommandOptions = {
     path?: string;
     config?: string;
-    fix?: boolean;
+    write?: boolean;
     only?: string;
     verbose?: boolean;
     list?: boolean;
@@ -139,7 +139,7 @@ async function validateFixCommandOptions(command: CommanderCommandLike): Promise
         projectRoot,
         targetPath: explicitTargetPath ?? projectRoot,
         configPath: await resolveExistingGmloopConfigPath(projectRoot, options.config),
-        dryRun: options.fix !== true,
+        dryRun: options.write !== true,
         only: options.only,
         verbose: options.verbose === true,
         list: options.list === true
@@ -190,7 +190,7 @@ async function runWorkflowStage(parameters: {
     const stageExitCode = typeof process.exitCode === "number" ? process.exitCode : 0;
     process.exitCode = 0;
     if (stageExitCode !== 0) {
-        throw new Error(parameters.failureMessage);
+        throw new Error(`${parameters.failureMessage} Code: ${stageExitCode}`);
     }
 }
 
@@ -200,7 +200,7 @@ function createRefactorStageCommand(options: ValidatedFixCommandOptions): Comman
         options: {
             path: options.projectRoot,
             config: options.configPath,
-            fix: !options.dryRun,
+            write: !options.dryRun,
             only: options.only,
             list: false,
             verbose: options.verbose
@@ -213,7 +213,7 @@ function createRefactorCodemodArgs(options: ValidatedFixCommandOptions): Array<s
     const args = ["refactor", "codemod", "--path", options.projectRoot, "--config", options.configPath];
 
     if (!options.dryRun) {
-        args.push("--fix");
+        args.push("--write");
     }
 
     if (options.only) {
@@ -277,14 +277,14 @@ function printFixCommandSettings(options: ValidatedFixCommandOptions): void {
     console.log(`Config path: ${options.configPath}`);
     console.log(`Selected codemods: ${selectedCodemods}`);
     console.log(`Verbose mode: ${options.verbose ? "enabled" : "disabled"}`);
-    console.log(`Execution mode: ${options.dryRun ? "dry-run (default)" : "apply changes (--fix)"}`);
+    console.log(`Execution mode: ${options.dryRun ? "dry-run (default)" : "apply changes (--write)"}`);
 }
 
 function createLintStageCommand(options: ValidatedFixCommandOptions): CommanderCommandLike {
     return createStubCommand({
         args: [options.targetPath],
         options: {
-            fix: !options.dryRun,
+            write: !options.dryRun,
             formatter: "stylish",
             verbose: options.verbose,
             path: options.projectRoot,
@@ -302,7 +302,7 @@ function createFormatStageCommand(options: ValidatedFixCommandOptions): Commande
         args: [],
         options: {
             path: options.targetPath,
-            fix: !options.dryRun,
+            write: !options.dryRun,
             onParseError: "skip",
             verbose: options.verbose
         },
@@ -355,7 +355,7 @@ export function createFixCommand(): Command {
             .description("Run project codemods, lint fixes, and formatting in sequence")
             .addOption(createPathOption())
             .addOption(createConfigOption())
-            .addOption(createApplyFixesOption())
+            .addOption(createWriteOption())
             .addOption(new Option("--only <ids>", "Comma-separated list of configured codemod ids to run"))
             .addOption(createListOption())
             .addOption(createVerboseOption())
@@ -364,7 +364,7 @@ export function createFixCommand(): Command {
                     "",
                     "Examples:",
                     "  pnpm dlx prettier-plugin-gml fix --path path/to/project",
-                    "  pnpm dlx prettier-plugin-gml fix --fix --path path/to/project",
+                    "  pnpm dlx prettier-plugin-gml fix --write --path path/to/project",
                     "  pnpm dlx prettier-plugin-gml fix --only namingConvention",
                     ""
                 ].join("\n")
@@ -375,7 +375,7 @@ export function createFixCommand(): Command {
 /**
  * Run the project-wide fix workflow:
  * 1. configured refactor codemods
- * 2. lint with `--fix`
+ * 2. lint with `--write`
  * 3. formatting
  */
 export async function runFixCommand(command: CommanderCommandLike): Promise<void> {
