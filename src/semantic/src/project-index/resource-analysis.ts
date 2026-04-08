@@ -193,7 +193,7 @@ async function loadResourceDocument(
     try {
         rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
     } catch (error) {
-        if (Core.isFsErrorCode(error, "ENOENT")) {
+        if (Core.isErrorWithCode(error, "ENOENT")) {
             return null;
         }
         throw error;
