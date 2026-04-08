@@ -2,7 +2,7 @@ import { lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
+import { Core } from "@gmloop/core";
 import * as ParserWorkspace from "@gmloop/parser";
 import { Command } from "commander";
 

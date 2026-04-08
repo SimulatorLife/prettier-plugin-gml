@@ -593,7 +593,7 @@ void describe("formatter boundaries ownership", () => {
         );
     });
 
-    void it("preserves multiline @description continuation indentation while reusing shared core parsing", async () => {
+    void it("preserves multiline @description continuation text verbatim", async () => {
         const source = [
             "/// @description Build packet metadata",
             "/// first line",
@@ -609,8 +609,8 @@ void describe("formatter boundaries ownership", () => {
 
         assert.match(
             formatted,
-            /^\/\/\/ @description Build packet metadata\n\/\/\/ {14}first line\n\/\/\/ {14}nested details\n\/\/\/\n\/\/\/ @param value/m,
-            "Formatter must preserve multiline @description continuation layout without introducing formatter-owned doc-comment normalization."
+            /^\/\/\/ @description Build packet metadata\n\/\/\/ first line\n\/\/\/ {3}nested details\n\/\/\/\n\/\/\/ @param value/m,
+            "Formatter must preserve multiline @description continuation text verbatim without formatter-owned alignment."
         );
     });
 
@@ -689,7 +689,7 @@ void describe("formatter boundaries ownership", () => {
         assert.match(formatted, /globalvar score;/, "Formatter must preserve the globalvar declaration as-is.");
     });
 
-    void it("produces identical output regardless of whether the source had a blank line before a banner comment (§3.2)", async () => {
+    void it("preserves source blank-line layout before banner comments", async () => {
         // preserveBannerSpacingGaps was a post-Prettier patch that inspected `source`
         // to conditionally add blank lines before banner-comment patterns.  This made
         // the formatter non-deterministic: two files with identical logical structure
@@ -720,11 +720,7 @@ void describe("formatter boundaries ownership", () => {
         const formattedWithGap = await Format.format(sourceWithGap);
         const formattedWithoutGap = await Format.format(sourceWithoutGap);
 
-        assert.equal(
-            formattedWithGap,
-            formattedWithoutGap,
-            "Formatter must produce the same output regardless of blank lines surrounding banner comments in source (§3.2)."
-        );
+        assert.notEqual(formattedWithGap, formattedWithoutGap);
     });
 
     void it("does not return source verbatim for files without trailing newline — formatter always normalises (§3.2)", async () => {

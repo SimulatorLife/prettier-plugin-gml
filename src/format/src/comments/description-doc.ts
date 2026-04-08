@@ -1,30 +1,71 @@
 import { Core, type MutableDocCommentLines } from "@gmloop/core";
 import { type Doc } from "prettier";
 
-import { align, concat, group, hardline, join } from "../printer/prettier-doc-builders.js";
+function resolveCommentBoundaryIndex(comment: Record<string, unknown>, boundary: "start" | "end"): number | null {
+    const boundaryValue = comment[boundary];
+    if (typeof boundaryValue === "number") {
+        return boundaryValue;
+    }
+    if (Core.isObjectLike(boundaryValue)) {
+        const boundaryRecord = boundaryValue as { index?: unknown };
+        if (typeof boundaryRecord.index === "number") {
+            return boundaryRecord.index;
+        }
+    }
+    return null;
+}
 
-const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
+function getRawLineCommentText(commentEntry: Record<string, unknown>, originalText: string | null): string {
+    return Core.getLineCommentRawText(commentEntry, {
+        originalText: originalText ?? undefined
+    });
+}
 
-function buildDescriptionDoc(lineText: string, continuations: string[]): Doc {
-    const trimmedLine = lineText.trim();
-    const descriptionText = trimmedLine.replace(DESCRIPTION_TAG_PATTERN, "").trim();
+function getRawBlockCommentText(commentEntry: Record<string, unknown>, originalText: string | null): string {
+    if (typeof originalText === "string") {
+        const startIndex = resolveCommentBoundaryIndex(commentEntry, "start");
+        const endIndex = resolveCommentBoundaryIndex(commentEntry, "end");
+        if (typeof startIndex === "number" && typeof endIndex === "number" && endIndex >= startIndex) {
+            return originalText.slice(startIndex, endIndex + 1);
+        }
+    }
 
-    const { prefix } = Core.resolveDescriptionIndentation(lineText);
-    const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
+    if (typeof commentEntry.raw === "string") {
+        return commentEntry.raw;
+    }
 
-    const lines = [descriptionText, ...continuations];
+    const commentValue = typeof commentEntry.value === "string" ? commentEntry.value : "";
+    return `/*${commentValue}*/`;
+}
 
-    return group(concat([prefix, align(continuationPrefix, join(hardline, lines))]));
+function coerceDocCommentEntryToRawText(entry: unknown, originalText: string | null): string | null {
+    if (typeof entry === "string") {
+        return entry;
+    }
+
+    if (!Core.isObjectLike(entry)) {
+        return null;
+    }
+    const commentEntry = entry as Record<string, unknown>;
+
+    if (commentEntry.type === "CommentLine") {
+        return getRawLineCommentText(commentEntry, originalText);
+    }
+
+    if (commentEntry.type === "CommentBlock") {
+        return getRawBlockCommentText(commentEntry, originalText);
+    }
+
+    if (typeof commentEntry.raw === "string") {
+        return commentEntry.raw;
+    }
+
+    return null;
 }
 
 function coerceDocCommentEntriesToRawLines(docCommentDocs: MutableDocCommentLines, originalText: string | null): void {
     for (let index = 0; index < docCommentDocs.length; index += 1) {
-        const entry = docCommentDocs[index];
-        if (typeof entry === "string") {
-            continue;
-        }
-
-        const rawText = Core.getLineCommentRawText(entry, { originalText: originalText ?? undefined });
+        const rawText = coerceDocCommentEntryToRawText(docCommentDocs[index], originalText);
         if (rawText !== null) {
             docCommentDocs[index] = rawText;
         }
@@ -32,7 +73,7 @@ function coerceDocCommentEntriesToRawLines(docCommentDocs: MutableDocCommentLine
 }
 
 /**
- * Convert doc comment lines into Prettier {@link Doc} nodes.
+ * Convert doc-comment entries to printable raw-text docs without content normalization.
  */
 export function buildPrintableDocCommentLines(
     docCommentDocs: MutableDocCommentLines,
@@ -41,39 +82,10 @@ export function buildPrintableDocCommentLines(
     coerceDocCommentEntriesToRawLines(docCommentDocs, originalText);
 
     const result: Doc[] = [];
-    let index = 0;
-
-    while (index < docCommentDocs.length) {
-        const entry = docCommentDocs[index];
-        if (typeof entry !== "string") {
-            // Convert AST comment nodes to their raw text representation before processing.
-            // Leaving them as objects causes Prettier's printer to crash.
-            const rawText = Core.getLineCommentRawText(entry, { originalText: originalText ?? undefined });
-            if (rawText !== null) {
-                docCommentDocs[index] = rawText;
-                continue;
-            }
-            index += 1;
-            continue;
+    for (const entry of docCommentDocs) {
+        if (typeof entry === "string") {
+            result.push(entry);
         }
-
-        const trimmed = entry.trim();
-        if (!DESCRIPTION_TAG_PATTERN.test(trimmed)) {
-            result.push(trimmed);
-            index += 1;
-            continue;
-        }
-
-        const { prefix } = Core.resolveDescriptionIndentation(entry);
-        const baseIndentSpaces = Math.max(prefix.length - 3, 0);
-        const { continuations, linesConsumed } = Core.collectDescriptionContinuationText(
-            docCommentDocs,
-            index,
-            baseIndentSpaces
-        );
-
-        result.push(buildDescriptionDoc(entry, continuations));
-        index += linesConsumed;
     }
 
     return result;
