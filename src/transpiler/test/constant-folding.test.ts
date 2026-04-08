@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "../src/emitter/constant-folding.js";
+import {
+    tryFoldConstantExpression,
+    tryFoldConstantTernaryExpression,
+    tryFoldConstantUnaryExpression
+} from "../src/emitter/constant-folding.js";
 
 // Unit tests for the constant folding function itself
 // These tests create AST nodes directly to test the folding logic
@@ -592,4 +596,37 @@ void test("unary constant folding: returns null for type mismatch (number with l
     };
     const result = tryFoldConstantUnaryExpression(ast);
     assert.strictEqual(result, null, "Should not fold when operator doesn't match operand type");
+});
+
+void test("ternary constant folding: selects consequent for true literal condition", () => {
+    const ast = {
+        type: "TernaryExpression" as const,
+        test: { type: "Literal" as const, value: true },
+        consequent: { type: "Literal" as const, value: 1 },
+        alternate: { type: "Literal" as const, value: 2 }
+    };
+    const result = tryFoldConstantTernaryExpression(ast);
+    assert.deepStrictEqual(result, ast.consequent);
+});
+
+void test("ternary constant folding: selects alternate for false string literal condition", () => {
+    const ast = {
+        type: "TernaryExpression" as const,
+        test: { type: "Literal" as const, value: "false" },
+        consequent: { type: "Literal" as const, value: 1 },
+        alternate: { type: "Literal" as const, value: 2 }
+    };
+    const result = tryFoldConstantTernaryExpression(ast);
+    assert.deepStrictEqual(result, ast.alternate);
+});
+
+void test("ternary constant folding: does not fold non-boolean literal conditions", () => {
+    const ast = {
+        type: "TernaryExpression" as const,
+        test: { type: "Literal" as const, value: 1 },
+        consequent: { type: "Literal" as const, value: 1 },
+        alternate: { type: "Literal" as const, value: 2 }
+    };
+    const result = tryFoldConstantTernaryExpression(ast);
+    assert.strictEqual(result, null);
 });

@@ -212,7 +212,9 @@ export class GmlTranspiler {
 
     private createTranspileError(contextLabel: string, error: unknown): Error {
         const cause = Core.isErrorLike(error) ? error : undefined;
-        const message = cause?.message ?? (Core.isNonEmptyString(error) ? error : "Unknown transpilation error");
+        const causeMessage =
+            cause && "message" in cause && typeof cause.message === "string" ? cause.message : undefined;
+        const message = causeMessage ?? (Core.isNonEmptyString(error) ? error : "Unknown transpilation error");
         return new Error(`Failed to transpile ${contextLabel}: ${message}`, {
             cause
         });

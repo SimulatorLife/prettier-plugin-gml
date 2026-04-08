@@ -53,7 +53,11 @@ import type {
 } from "./ast.js";
 import { emitBuiltinFunction, isBuiltinFunction } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
-import { tryFoldConstantExpression, tryFoldConstantUnaryExpression } from "./constant-folding.js";
+import {
+    tryFoldConstantExpression,
+    tryFoldConstantTernaryExpression,
+    tryFoldConstantUnaryExpression
+} from "./constant-folding.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
 import { escapeTemplateText, stringifyStructKey } from "./js-string-utils.js";
 import { normalizeGmlNumericLiteral } from "./literal-normalization.js";
@@ -680,6 +684,11 @@ export class GmlToJsEmitter {
     }
 
     private visitTernaryExpression(ast: TernaryExpressionNode): string {
+        const foldedBranch = tryFoldConstantTernaryExpression(ast);
+        if (foldedBranch !== null) {
+            return this.visit(foldedBranch);
+        }
+
         const test = wrapConditional(ast.test, this.visitNode, true);
         const consequent = this.visit(ast.consequent);
         const alternate = this.visit(ast.alternate);
