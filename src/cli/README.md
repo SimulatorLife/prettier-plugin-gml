@@ -5,6 +5,7 @@ Command-line interface for the GMLoop toolchain. Provides utilities for formatti
 ## Formatter/Linter/Refactor contract
 
 - Run `refactor` to execute global transactions (Codemods), atomic cross-file edits (e.g. rename transactions), and metadata updates via a native Collection API through `@gmloop/refactor`.
+- Run `parse` to inspect `.gml` parser AST output through `@gmloop/parser`.
 - Run `lint` for and syntax repairs/rewrites (applies local single-file ESLint diagnostics/fixes through `@gmloop/lint`).
 - Run `format` for layout-only formatting (formatter-only AST normalization + printing through `@gmloop/format`).
 - Run `fix` to execute all three in one pass: project codemods, lint autofixes, and formatting.
@@ -38,6 +39,23 @@ pnpm run cli -- path/to/project --help
 
 - `PRETTIER_PLUGIN_GML_LOG_LEVEL` - Default log level
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` - Default parse error strategy
+
+### `parse` - Parse GML Files to AST JSON
+
+Runs `@gmloop/parser` over a `.gml` file or directory target. Dry-run mode writes AST JSON to stdout. With `--fix`, the command writes sibling `*.ast.json` files next to each parsed `.gml` file.
+
+```bash
+pnpm run cli -- parse --path path/to/script.gml
+pnpm run cli -- parse --path path/to/project > ast.json
+pnpm run cli -- parse --fix --path path/to/project
+```
+
+**Options:**
+
+- `--path <path>` - Target `.gml` file or directory path (defaults to current working directory)
+- `--fix` - Write AST JSON files (without this flag, parse prints AST JSON to stdout)
+- `--list` - Print effective command settings and exit
+- `--verbose` - Emit per-file parse diagnostics to stderr
 
 ### `lint` - Lint and Auto-Fix GML Files
 

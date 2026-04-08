@@ -83,6 +83,16 @@ pnpm run cli -- lint /absolute/path/to/MyGame
 pnpm run cli -- lint /absolute/path/to/MyGame --fix
 ```
 
+### Parse from a local clone
+
+```bash
+# write AST JSON to stdout
+pnpm run cli -- parse --path /absolute/path/to/MyGame/scripts/demo.gml
+
+# write sibling *.ast.json files
+pnpm run cli -- parse --fix --path /absolute/path/to/MyGame
+```
+
 ### Refactor from a local clone
 
 The refactor workspace implements a GML-native Collection API (similar to `jscodeshift`) for atomic cross-file transactions and metadata edits.
@@ -93,6 +103,16 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 
 # apply rename
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --fix
+```
+
+### Transpile from a local clone
+
+```bash
+# dry-run transpile (prints JavaScript to stdout)
+pnpm run cli -- transpile --path /absolute/path/to/MyGame/scripts/scr_demo/scr_demo.gml
+
+# write .js outputs for all discovered .gml files under the target path
+pnpm run cli -- transpile --fix --path /absolute/path/to/MyGame
 ```
 
 ## Architecture overview
@@ -126,11 +146,18 @@ pnpm run test:cli
 # formatter
 pnpm run format:gml -- /path/to/project
 
+# parser AST inspection
+pnpm run cli -- parse --path /path/to/project/scripts/demo.gml
+pnpm run cli -- parse --fix --path /path/to/project
+
 # lint
 pnpm run cli -- lint /path/to/project --fix
 
 # refactor
 pnpm run cli -- refactor --old-name old_name --new-name newName
+
+# transpile
+pnpm run cli -- transpile --fix --path /path/to/project
 
 # hot-reload watch pipeline
 pnpm run cli -- watch /path/to/project --verbose

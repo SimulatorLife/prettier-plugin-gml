@@ -4,6 +4,7 @@
  * Commands provided include:
  * - A wrapper around the GML-Prettier plugin to provide a convenient
  *   way to format GameMaker Language files.
+ * - Direct GML -> JavaScript transpilation utilities for file/directory targets.
  * - Watch mode for monitoring GML source files and coordinating the
  *   hot-reload pipeline (transpiler, semantic analysis, patch streaming).
  * - Regression testing utilities.
@@ -30,8 +31,10 @@ import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./comm
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createLintCommand, runLintCommand } from "./commands/lint.js";
+import { createParseCommand, runParseCommand } from "./commands/parse.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
+import { createTranspileCommand, runTranspileCommand } from "./commands/transpile.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { createWatchStatusCommand, runWatchStatusCommand } from "./commands/watch-status.js";
 import { CLI_COMMAND_NAMES } from "./shared/command-names.js";
@@ -368,6 +371,16 @@ cliCommandRegistry.registerCommand({
 });
 
 cliCommandRegistry.registerCommand({
+    command: createParseCommand(),
+    run: ({ command }) => runParseCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Parse command failed.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
     command: createFixCommand(),
     run: ({ command }) => runFixCommand(command),
     onError: (error) =>
@@ -433,6 +446,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to perform refactor operation.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createTranspileCommand(),
+    run: ({ command }) => runTranspileCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Transpile command failed.",
             exitCode: 1
         })
 });
