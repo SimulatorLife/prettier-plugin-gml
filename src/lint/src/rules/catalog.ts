@@ -157,6 +157,12 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         messageId: "requireControlFlowBraces"
     },
     {
+        mapKey: "GmlRequireRegionPairs",
+        shortName: "require-region-pairs",
+        fullId: "gml/require-region-pairs",
+        messageId: "requireRegionPairs"
+    },
+    {
         mapKey: "GmlNoAssignmentInCondition",
         shortName: "no-assignment-in-condition",
         fullId: "gml/no-assignment-in-condition",

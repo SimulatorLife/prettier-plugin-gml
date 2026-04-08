@@ -28,6 +28,7 @@ import { createPreferStructLiteralAssignmentsRule } from "./rules/prefer-struct-
 import { createRemoveDefaultCommentsRule } from "./rules/remove-default-comments-rule.js";
 import { createRequireArgumentSeparatorsRule } from "./rules/require-argument-separators-rule.js";
 import { createRequireControlFlowBracesRule } from "./rules/require-control-flow-braces-rule.js";
+import { createRequireRegionPairsRule } from "./rules/require-region-pairs-rule.js";
 import { createRequireTrailingOptionalDefaultsRule } from "./rules/require-trailing-optional-defaults-rule.js";
 import { createSimplifyRealCallsRule } from "./rules/simplify-real-calls-rule.js";
 
@@ -89,6 +90,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "require-control-flow-braces": {
             return createRequireControlFlowBracesRule(definition);
+        }
+        case "require-region-pairs": {
+            return createRequireRegionPairsRule(definition);
         }
         case "no-assignment-in-condition": {
             return createNoAssignmentInConditionRule(definition);

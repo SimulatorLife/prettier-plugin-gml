@@ -77,6 +77,7 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
     assertEquals(recommendedGml.rules["gml/prefer-loop-invariant-expressions"], "warn");
     assertEquals(recommendedGml.rules["gml/remove-default-comments"], "warn");
     assertEquals(recommendedGml.rules["gml/normalize-data-structure-accessors"], "warn");
+    assertEquals(recommendedGml.rules["gml/require-region-pairs"], "error");
     assertEquals(recommendedGml.rules["gml/require-trailing-optional-defaults"], "warn");
 
     assertEquals(recommendedFeather.plugins?.feather, Lint.featherPlugin);
