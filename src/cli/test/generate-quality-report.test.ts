@@ -894,6 +894,114 @@ void test("quality report falls back to PR head gate semantics when merge artifa
     assert.match(markdown, /❌ Test regressions detected \(Base → PR \(Head\)\)\./u);
 });
 
+void test("quality report can compare when base only has a synthetic build failure", () => {
+    const baseDir = path.join(workspace, "base/reports");
+    const headDir = path.join(workspace, "head/reports");
+    const mergeDir = path.join(workspace, "merge/reports");
+    const reportFile = path.join(workspace, "reports/summary-report.md");
+    fs.mkdirSync(path.dirname(reportFile), { recursive: true });
+
+    writeXml(
+        baseDir,
+        "build",
+        `<testsuites>
+      <testsuite name="build">
+        <testcase name="pnpm run build:ts" classname="quality.build">
+          <failure message="TypeScript workspace build failed" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "build",
+        `<testsuites>
+      <testsuite name="build">
+        <testcase name="pnpm run build:ts" classname="quality.build" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        mergeDir,
+        "build",
+        `<testsuites>
+      <testsuite name="build">
+        <testcase name="pnpm run build:ts" classname="quality.build" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const exitCode = runGenerateQualityReport({
+        command: createMockCommand({
+            base: baseDir,
+            head: headDir,
+            merge: mergeDir,
+            reportFile
+        })
+    });
+
+    assert.strictEqual(exitCode, 0);
+    const markdown = fs.readFileSync(reportFile, "utf8");
+    assert.match(markdown, /\| Base \| 1 \| 0 \| 1 \| 0 \| 0 \| 0 \| 0 \|/u);
+    assert.match(markdown, /✅ No test regressions detected \(Base → Merged\)\./u);
+});
+
+void test("quality report detects a target synthetic build failure as a regression", () => {
+    const baseDir = path.join(workspace, "base/reports");
+    const headDir = path.join(workspace, "head/reports");
+    const mergeDir = path.join(workspace, "merge/reports");
+    const reportFile = path.join(workspace, "reports/summary-report.md");
+    fs.mkdirSync(path.dirname(reportFile), { recursive: true });
+
+    writeXml(
+        baseDir,
+        "build",
+        `<testsuites>
+      <testsuite name="build">
+        <testcase name="pnpm run build:ts" classname="quality.build" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "build",
+        `<testsuites>
+      <testsuite name="build">
+        <testcase name="pnpm run build:ts" classname="quality.build" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        mergeDir,
+        "build",
+        `<testsuites>
+      <testsuite name="build">
+        <testcase name="pnpm run build:ts" classname="quality.build">
+          <failure message="TypeScript workspace build failed" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const exitCode = runGenerateQualityReport({
+        command: createMockCommand({
+            base: baseDir,
+            head: headDir,
+            merge: mergeDir,
+            reportFile
+        })
+    });
+
+    assert.strictEqual(exitCode, 10);
+    const markdown = fs.readFileSync(reportFile, "utf8");
+    assert.match(markdown, /❌ Test regressions detected \(Base → Merged\)\./u);
+    assert.match(markdown, /build :: pnpm run build:ts/u);
+});
+
 void test("command accepts options without positional arguments", async () => {
     const command = createGenerateQualityReportCommand();
 
