@@ -651,11 +651,10 @@ function stripOneAffixDirection(
 
             if (
                 prefixWord === coreTargetPrefix ||
-                // Only strip a single-char prefix-word when it is underscore-separated
-                // (e.g. "o_camera" → strip "o_" → "camera"). For camelCase names like
-                // "oCamera" the leading "o" is part of the word structure and must not
-                // be stripped—it will be kept and converted as a normal word.
-                (prefixWord === coreTargetPrefix[0] && separator === "_") ||
+                // When a target resource prefix extends a legacy short prefix word
+                // (for example "oSpider" -> "obj_spider" or "sSpiderHead" -> "spr_spider_head"),
+                // replace that old prefix instead of duplicating it in the result.
+                (prefixWord === coreTargetPrefix[0] && (separator === "_" || separator.toUpperCase() === separator)) ||
                 (prefixWord.length > 1 && coreTargetPrefix.startsWith(prefixWord))
             ) {
                 return separator === "_" ? remainder : separator + remainder;

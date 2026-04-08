@@ -2231,26 +2231,26 @@ void test("executeConfiguredCodemods handles duplicate case-only local variable 
             {
                 name: "IK",
                 category: "localVariable",
-                path: "objects/obj_o_spider/Draw_0.gml",
+                path: "objects/obj_spider/Draw_0.gml",
                 scopeId: "scope:function:draw",
                 symbolId: null,
                 occurrences: [
                     {
-                        path: "objects/obj_o_spider/Draw_0.gml",
+                        path: "objects/obj_spider/Draw_0.gml",
                         start: firstDefinitionStart,
                         end: firstDefinitionStart + 2,
                         kind: Refactor.OccurrenceKind.DEFINITION,
                         scopeId: "scope:function:draw"
                     },
                     {
-                        path: "objects/obj_o_spider/Draw_0.gml",
+                        path: "objects/obj_spider/Draw_0.gml",
                         start: firstReferenceStart,
                         end: firstReferenceStart + 2,
                         kind: Refactor.OccurrenceKind.REFERENCE,
                         scopeId: "scope:function:draw"
                     },
                     {
-                        path: "objects/obj_o_spider/Draw_0.gml",
+                        path: "objects/obj_spider/Draw_0.gml",
                         start: firstReferenceSecondTokenStart,
                         end: firstReferenceSecondTokenStart + 2,
                         kind: Refactor.OccurrenceKind.REFERENCE,
@@ -2261,26 +2261,26 @@ void test("executeConfiguredCodemods handles duplicate case-only local variable 
             {
                 name: "IK",
                 category: "localVariable",
-                path: "objects/obj_o_spider/Draw_0.gml",
+                path: "objects/obj_spider/Draw_0.gml",
                 scopeId: "scope:function:draw",
                 symbolId: null,
                 occurrences: [
                     {
-                        path: "objects/obj_o_spider/Draw_0.gml",
+                        path: "objects/obj_spider/Draw_0.gml",
                         start: secondDefinitionStart,
                         end: secondDefinitionStart + 2,
                         kind: Refactor.OccurrenceKind.DEFINITION,
                         scopeId: "scope:function:draw"
                     },
                     {
-                        path: "objects/obj_o_spider/Draw_0.gml",
+                        path: "objects/obj_spider/Draw_0.gml",
                         start: secondReferenceStart,
                         end: secondReferenceStart + 2,
                         kind: Refactor.OccurrenceKind.REFERENCE,
                         scopeId: "scope:function:draw"
                     },
                     {
-                        path: "objects/obj_o_spider/Draw_0.gml",
+                        path: "objects/obj_spider/Draw_0.gml",
                         start: secondReferenceSecondTokenStart,
                         end: secondReferenceSecondTokenStart + 2,
                         kind: Refactor.OccurrenceKind.REFERENCE,
@@ -2292,12 +2292,12 @@ void test("executeConfiguredCodemods handles duplicate case-only local variable 
     };
 
     const engine = new Refactor.RefactorEngine({ semantic });
-    const fileContents = new Map<string, string>([["objects/obj_o_spider/Draw_0.gml", sourceText]]);
+    const fileContents = new Map<string, string>([["objects/obj_spider/Draw_0.gml", sourceText]]);
 
     const result = await engine.executeConfiguredCodemods({
         projectRoot: "/project",
         targetPaths: ["/project"],
-        gmlFilePaths: ["objects/obj_o_spider/Draw_0.gml"],
+        gmlFilePaths: ["objects/obj_spider/Draw_0.gml"],
         config: {
             codemods: {
                 namingConvention: {
@@ -2323,7 +2323,7 @@ void test("executeConfiguredCodemods handles duplicate case-only local variable 
         false
     );
 
-    const finalText = fileContents.get("objects/obj_o_spider/Draw_0.gml");
+    const finalText = fileContents.get("objects/obj_spider/Draw_0.gml");
     assert.match(finalText ?? "", /var ik = twojointik\(i\);/);
     assert.match(finalText ?? "", /draw_sprite\(ik\[0\], ik\[1\]\);/);
     assert.match(finalText ?? "", /var ik = twojointik\(i \+ 1\);/);
