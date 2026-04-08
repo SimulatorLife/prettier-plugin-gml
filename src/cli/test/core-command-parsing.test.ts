@@ -190,13 +190,6 @@ void describe("portValidator", () => {
             (error) => error instanceof InvalidArgumentError && /Port must be between 1 and 65535/.test(error.message)
         );
     });
-
-    void it("is the same object reference on each import (not recreated)", () => {
-        // portValidator is a constant, not a factory: the same wrapped function
-        // instance is shared across all call sites rather than allocated fresh
-        // on each Commander option registration.
-        assert.strictEqual(typeof portValidator, "function");
-    });
 });
 
 void describe("integer coercion helpers: import from Core, not command-parsing", () => {
