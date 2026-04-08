@@ -1281,6 +1281,10 @@ function attachDocCommentToFollowingNode(comment, options, ast) {
     if (!isDocCommentCandidate(comment, followingNode)) {
         return false;
     }
+    if (hasMixedCommentSyntaxBetweenCommentAndTarget(comment, followingNode, options?.originalText)) {
+        return false;
+    }
+
     const lineCommentOptions = Core.resolveLineCommentOptions(options);
     const formatted = formatDocLikeLineComment(comment, lineCommentOptions, options?.originalText);
     const rawText = Core.getLineCommentRawText(comment, {
@@ -1302,6 +1306,25 @@ function attachDocCommentToFollowingNode(comment, options, ast) {
     comment._gmlAttachedDocComment = true;
     comment.printed = true;
     return true;
+}
+
+function hasMixedCommentSyntaxBetweenCommentAndTarget(comment, followingNode, originalText) {
+    if (typeof originalText !== "string") {
+        return false;
+    }
+
+    const commentEndIndex = getCommentEndIndex(comment);
+    const followingNodeStartIndex = Core.getNodeStartIndex(followingNode);
+    if (
+        commentEndIndex === null ||
+        typeof followingNodeStartIndex !== "number" ||
+        commentEndIndex >= followingNodeStartIndex
+    ) {
+        return false;
+    }
+
+    const textBetweenCommentAndTarget = originalText.slice(commentEndIndex + 1, followingNodeStartIndex);
+    return /(^|\r?\n)[ \t]*\/\/(?!\/)|\/\*/u.test(textBetweenCommentAndTarget);
 }
 
 function shouldAttachDocTripleSlashContinuation(comment, rawText, options) {

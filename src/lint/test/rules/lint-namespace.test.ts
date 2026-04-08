@@ -63,7 +63,7 @@ void test("config arrays are readonly FlatConfig[] values and share the pinned f
 
     const [recommendedGml, recommendedFeather] = Lint.configs.recommended;
     assertEquals(recommendedGml.language, "gml/gml");
-    assert.deepEqual(recommendedGml.languageOptions, { recovery: "none" });
+    assert.deepEqual(recommendedGml.languageOptions, { recovery: "limited" });
     assertEquals(Object.isFrozen(recommendedGml.languageOptions), true);
     assertEquals(recommendedGml.plugins?.gml, Lint.plugin);
     assertEquals(recommendedGml.rules["gml/require-argument-separators"], "error");

@@ -899,13 +899,20 @@ export class RefactorEngine {
 
         // Organize edits by file so we can process each file independently. This
         // allows us to load, edit, and save one file at a time, reducing memory
-        // usage and enabling incremental progress reporting.
+        // usage and preserving existing sequential read/write semantics.
         const grouped = workspace.groupByFile();
         const results = new Map<string, string>();
 
         // Process each file by loading its current content, applying all edits for
         // that file, and optionally writing the modified content back to disk.
-        await Core.runSequentially(grouped.entries(), async ([filePath, edits]) => {
+        const textEditIterator = grouped.entries();
+        const applyNextTextEditGroup = async (): Promise<void> => {
+            const nextTextEditGroup = textEditIterator.next();
+            if (nextTextEditGroup.done === true) {
+                return;
+            }
+
+            const [filePath, edits] = nextTextEditGroup.value;
             const originalContent = await readFile(filePath);
             const newContent = applyGroupedTextEditsToContent(originalContent, edits);
 
@@ -913,19 +920,30 @@ export class RefactorEngine {
 
             // Write the modified content to disk unless we're in dry-run mode, which
             // lets callers preview changes before committing them.
-            if (!dryRun) {
+            if (!dryRun && writeFile !== undefined) {
                 await writeFile(filePath, newContent);
             }
-        });
+
+            await applyNextTextEditGroup();
+        };
+        await applyNextTextEditGroup();
 
         const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
-        await Core.runSequentially(metadataEdits, async (metadataEdit) => {
+        const applyNextMetadataEdit = async (metadataEditIndex: number): Promise<void> => {
+            const metadataEdit = metadataEdits[metadataEditIndex];
+            if (metadataEdit === undefined) {
+                return;
+            }
+
             results.set(metadataEdit.path, includeResultContent ? metadataEdit.content : "");
 
-            if (!dryRun) {
+            if (!dryRun && writeFile !== undefined) {
                 await writeFile(metadataEdit.path, metadataEdit.content);
             }
-        });
+
+            await applyNextMetadataEdit(metadataEditIndex + 1);
+        };
+        await applyNextMetadataEdit(0);
 
         // Process file renames last to ensure we don't move files before we're done
         // with their text edits. This stabilizes path references during the build phase.
@@ -935,11 +953,17 @@ export class RefactorEngine {
                 throw new TypeError("applyWorkspaceEdit requires a renameFile implementation to process file renames");
             }
 
-            await Core.runSequentially(fileRenames, async (rename) => {
-                await renameFile(rename.oldPath, rename.newPath);
-            });
-        }
+            const applyNextFileRename = async (fileRenameIndex: number): Promise<void> => {
+                const fileRename = fileRenames[fileRenameIndex];
+                if (fileRename === undefined) {
+                    return;
+                }
 
+                await renameFile(fileRename.oldPath, fileRename.newPath);
+                await applyNextFileRename(fileRenameIndex + 1);
+            };
+            await applyNextFileRename(0);
+        }
         return results;
     }
 

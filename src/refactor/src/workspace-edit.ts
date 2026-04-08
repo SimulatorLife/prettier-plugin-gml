@@ -75,15 +75,10 @@ type WorkspaceEditMutableState = {
 const workspaceEditExactKeyState = new WeakMap<WorkspaceEdit, Set<string>>();
 const workspaceEditMutableState = new WeakMap<WorkspaceEdit, WorkspaceEditMutableState>();
 const TEXT_EDIT_IDENTITY_DELIMITER = "\u0000";
-const GROUPED_TEXT_EDIT_IDENTITY_DELIMITER = "\u0001";
 const DUPLICATE_EDIT_CHECK_MAX_SET_SIZE = 1024;
 
 function createTextEditIdentityKey(path: string, start: number, end: number, newText: string): string {
     return [path, String(start), String(end), newText].join(TEXT_EDIT_IDENTITY_DELIMITER);
-}
-
-function createGroupedTextEditIdentityKey(start: number, end: number, newText: string): string {
-    return [String(start), String(end), newText].join(GROUPED_TEXT_EDIT_IDENTITY_DELIMITER);
 }
 
 function getExactEditKeys(workspace: WorkspaceEdit): Set<string> {
@@ -122,6 +117,48 @@ function markWorkspaceEditChanged(workspace: WorkspaceEdit): void {
     mutableState.groupedEditsRevision = -1;
 }
 
+function compareEditText(left: string, right: string): number {
+    if (left === right) {
+        return 0;
+    }
+
+    const sharedLength = Math.min(left.length, right.length);
+    for (let index = 0; index < sharedLength; index += 1) {
+        const leftCode = left.charCodeAt(index);
+        const rightCode = right.charCodeAt(index);
+        if (leftCode !== rightCode) {
+            return leftCode - rightCode;
+        }
+    }
+
+    return left.length - right.length;
+}
+
+function deduplicateSortedTextEdits(
+    sortedEdits: Array<Pick<TextEdit, "start" | "end" | "newText">>
+): Array<Pick<TextEdit, "start" | "end" | "newText">> {
+    if (sortedEdits.length <= 1) {
+        return sortedEdits;
+    }
+
+    let writeIndex = 1;
+    let previous = sortedEdits[0];
+
+    for (let readIndex = 1; readIndex < sortedEdits.length; readIndex += 1) {
+        const current = sortedEdits[readIndex];
+        if (previous.start === current.start && previous.end === current.end && previous.newText === current.newText) {
+            continue;
+        }
+
+        sortedEdits[writeIndex] = current;
+        writeIndex += 1;
+        previous = current;
+    }
+
+    sortedEdits.length = writeIndex;
+    return sortedEdits;
+}
+
 export class WorkspaceEdit {
     readonly edits: Array<TextEdit>;
     readonly fileRenames: Array<FileRename> = [];
@@ -153,7 +190,9 @@ export class WorkspaceEdit {
         }
 
         this.edits.push({ path, start, end, newText });
-        markWorkspaceEditChanged(this);
+        mutableState.revision += 1;
+        mutableState.groupedEditsCache = null;
+        mutableState.groupedEditsRevision = -1;
     }
 
     addFileRename(oldPath: string, newPath: string): void {
@@ -176,7 +215,6 @@ export class WorkspaceEdit {
         }
 
         const grouped: GroupedTextEdits = new Map();
-        const groupedEditKeysByPath = new Map<string, Set<string>>();
 
         for (const edit of this.edits) {
             let fileEdits = grouped.get(edit.path);
@@ -184,18 +222,6 @@ export class WorkspaceEdit {
                 fileEdits = [];
                 grouped.set(edit.path, fileEdits);
             }
-
-            let groupedEditKeys = groupedEditKeysByPath.get(edit.path);
-            if (!groupedEditKeys) {
-                groupedEditKeys = new Set<string>();
-                groupedEditKeysByPath.set(edit.path, groupedEditKeys);
-            }
-
-            const groupedEditIdentity = createGroupedTextEditIdentityKey(edit.start, edit.end, edit.newText);
-            if (groupedEditKeys.has(groupedEditIdentity)) {
-                continue;
-            }
-            groupedEditKeys.add(groupedEditIdentity);
 
             fileEdits.push({
                 start: edit.start,
@@ -205,10 +231,8 @@ export class WorkspaceEdit {
         }
 
         for (const [path, fileEdits] of grouped.entries()) {
-            grouped.set(
-                path,
-                fileEdits.toSorted((a, b) => b.start - a.start)
-            );
+            fileEdits.sort((a, b) => b.start - a.start || b.end - a.end || compareEditText(a.newText, b.newText));
+            grouped.set(path, deduplicateSortedTextEdits(fileEdits));
         }
 
         mutableState.groupedEditsCache = grouped;
