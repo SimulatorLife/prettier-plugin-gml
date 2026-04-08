@@ -136,9 +136,32 @@ jobs:
 
       - name: Build typescript (${{ matrix.target }})
         run: |
-          if ! pnpm run build:ts; then
+          mkdir -p reports
+          build_status=0
+          if pnpm run build:ts; then
+            build_status=0
+          else
+            build_status=$?
             echo "::warning::TypeScript workspace build failed for target '${{ matrix.target }}'; continuing workflow."
           fi
+
+          failures=0
+          if [ "$build_status" -ne 0 ]; then
+            failures=1
+          fi
+
+          {
+            echo '<?xml version="1.0" encoding="utf-8"?>'
+            echo '<testsuites>'
+            echo "  <testsuite name=\"build\" tests=\"1\" failures=\"$failures\" errors=\"0\" skipped=\"0\">"
+            echo '    <testcase name="pnpm run build:ts" classname="quality.build">'
+            if [ "$build_status" -ne 0 ]; then
+              echo "      <failure message=\"TypeScript workspace build failed\">pnpm run build:ts exited with status $build_status for ${{ matrix.target }}.</failure>"
+            fi
+            echo '    </testcase>'
+            echo '  </testsuite>'
+            echo '</testsuites>'
+          } > reports/build.xml
 
       # Runs tests once, generating both JUnit XML and LCOV coverage
       - name: Run tests & coverage (${{ matrix.target }})
