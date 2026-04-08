@@ -35,12 +35,12 @@ type ParseCommandSettings = {
     verbose: boolean;
 };
 
-type ParsedAst = MutableGameMakerAstNode;
+type ParsedGmlAst = Record<string, unknown>;
 
 type ParsedFileAst = {
     sourcePath: string;
     displayPath: string;
-    ast: ParsedAst;
+    ast: ParsedGmlAst;
 };
 
 type DryRunDirectoryEntry = {
@@ -49,7 +49,7 @@ type DryRunDirectoryEntry = {
 };
 
 type DryRunPayload =
-    | ParsedAst
+    | ParsedGmlAst
     | {
           files: Array<DryRunDirectoryEntry>;
       };
@@ -148,7 +148,7 @@ async function parseFileToAst(filePath: string): Promise<ParsedFileAst> {
     return {
         sourcePath: filePath,
         displayPath: formatPathForDisplay(filePath),
-        ast: ParserWorkspace.Parser.GMLParser.parse(source) as ParsedAst
+        ast: ParserWorkspace.Parser.GMLParser.parse(source) as ParsedGmlAst
     };
 }
 
