@@ -342,19 +342,26 @@ async function selectExecutableTopLevelRenames(
     const warnings: Array<string> = [];
     const individuallySafeRenames: Array<RenameRequest> = [];
     const renameValidations = new Map<string, ValidationSummary>();
+    const renameValidationResults = await Core.runInParallelWithLimit(
+        renames,
+        async (rename) => ({
+            rename,
+            validation: await engine.validateRenameRequest(rename)
+        }),
+        8
+    );
 
-    await Core.runSequentially(renames, async (rename) => {
-        const validation = await engine.validateRenameRequest(rename);
+    for (const { rename, validation } of renameValidationResults) {
         renameValidations.set(rename.symbolId, validation);
         warnings.push(...validation.warnings.map((warning) => `${rename.symbolId}: ${warning}`));
 
         if (!validation.valid) {
             warnings.push(formatTopLevelRenameSkipWarning(rename, validation.errors.join("; ")));
-            return;
+            continue;
         }
 
         individuallySafeRenames.push(rename);
-    });
+    }
 
     const blockedSymbolIds = new Set<string>();
     for (const duplicateTarget of detectDuplicateTargetNames(individuallySafeRenames)) {

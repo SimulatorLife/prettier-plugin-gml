@@ -614,6 +614,7 @@ const NAMING_CATEGORY_PARENTS: Record<NamingCategory, NamingCategory | null> = {
 - `lower_snake` and `upper_snake` are both supported to enforce snake-case in either casing.
 - `exclusivePrefixes` and `exclusiveSuffixes` are global reservations that apply even when a category has no required prefix/suffix.
 - If exclusive affixes overlap, use longest-match precedence to avoid ambiguous ownership.
+- Resource naming-prefix enforcement replaces detectable legacy short prefixes when possible instead of duplicating them (for example `oSpider` -> `obj_spider`, `sSpiderHead` -> `spr_spider_head`).
 - `minChars` and `maxChars` are checked against the core name after removing required prefix/suffix.
 - Cache resolved rules by category key so validation and rename previews stay fast.
 - This policy remains centralized so IDE/CLI integrations enforce the same naming behavior.

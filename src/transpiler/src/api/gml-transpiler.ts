@@ -219,6 +219,27 @@ export class GmlTranspiler {
     }
 
     /**
+     * Build patch metadata from optional source path and an emitter's collected
+     * script-reference set.
+     *
+     * `dependencies` is omitted from the metadata when the emitter encountered
+     * no script calls, keeping the patch object lean for simple event bodies
+     * and library utilities that never invoke other scripts.
+     */
+    private buildPatchMetadata(
+        sourcePath: string | undefined,
+        emitter: GmlToJsEmitter,
+        timestamp: number
+    ): PatchMetadata {
+        const deps = emitter.getDependencies();
+        return {
+            ...(sourcePath ? { sourcePath } : {}),
+            ...(deps.size > 0 ? { dependencies: [...deps] } : {}),
+            timestamp
+        };
+    }
+
+    /**
      * Returns the single `FunctionDeclaration` node from a program if the program
      * contains exactly one statement of that type, otherwise returns `null`.
      *
@@ -283,10 +304,7 @@ export class GmlTranspiler {
                 js_body: jsBody,
                 sourceText,
                 version: timestamp,
-                metadata: {
-                    ...(sourcePath ? { sourcePath } : {}),
-                    timestamp
-                }
+                metadata: this.buildPatchMetadata(sourcePath, emitter, timestamp)
             };
             return patch;
         } catch (error) {
@@ -368,10 +386,7 @@ export class GmlTranspiler {
                 sourceText,
                 version: timestamp,
                 this_name: request.thisName ?? "self",
-                metadata: {
-                    ...(sourcePath ? { sourcePath } : {}),
-                    timestamp
-                }
+                metadata: this.buildPatchMetadata(sourcePath, emitter, timestamp)
             };
             return patch;
         } catch (error) {
@@ -443,10 +458,7 @@ export class GmlTranspiler {
                 js_body: jsBody,
                 sourceText,
                 version: timestamp,
-                metadata: {
-                    ...(sourcePath ? { sourcePath } : {}),
-                    timestamp
-                }
+                metadata: this.buildPatchMetadata(sourcePath, emitter, timestamp)
             };
             return patch;
         } catch (error) {
