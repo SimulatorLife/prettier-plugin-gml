@@ -23,6 +23,7 @@ export const CLI_COMMAND_NAMES = Object.freeze(
         "generate-feather-metadata",
         "prepare-hot-reload",
         "refactor",
+        "transpile",
         "watch",
         "watch-status",
         "help"
