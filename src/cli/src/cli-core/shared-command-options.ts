@@ -1,7 +1,7 @@
 import { Option } from "commander";
 
 export const PATH_OPTION_FLAGS = "--path <path>";
-export const PATH_OPTION_DESCRIPTION = "GameMaker project root directory or .yyp path";
+export const PATH_OPTION_DESCRIPTION = "Target .gml file, GameMaker project directory, or .yyp path";
 
 export const APPLY_FIXES_OPTION_FLAGS = "--fix";
 export const APPLY_FIXES_OPTION_DESCRIPTION = "Apply changes to files";

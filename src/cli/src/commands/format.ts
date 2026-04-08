@@ -1493,16 +1493,38 @@ async function prepareFormattingRun({
  * @returns {Promise<{ targetIsDirectory: boolean, projectRoot: string }>}
  */
 async function resolveTargetContext(targetPath, usage, originalInput) {
-    const targetStats = await resolveTargetStats(targetPath, { usage, originalInput });
+    const normalizedTargetPath = await resolveFormatTargetPath(targetPath, usage, originalInput);
+    const targetStats = await resolveTargetStats(normalizedTargetPath, { usage, originalInput });
     const targetIsDirectory = targetStats.isDirectory();
 
     if (!targetIsDirectory && !targetStats.isFile()) {
-        throw new CliUsageError(`${targetPath} is not a file or directory that can be formatted`, { usage });
+        throw new CliUsageError(`${normalizedTargetPath} is not a file or directory that can be formatted`, { usage });
     }
 
-    const projectRoot = targetIsDirectory ? targetPath : path.dirname(targetPath);
+    const projectRoot = targetIsDirectory ? normalizedTargetPath : path.dirname(normalizedTargetPath);
 
-    return { targetIsDirectory, projectRoot };
+    return { targetIsDirectory, projectRoot, targetPath: normalizedTargetPath };
+}
+
+/**
+ * Normalize format targets so `.yyp` files behave like project-directory inputs.
+ *
+ * @param {string} targetPath
+ * @param {string} usage
+ * @param {string} [originalInput]
+ * @returns {Promise<string>}
+ */
+async function resolveFormatTargetPath(targetPath, usage, originalInput) {
+    if (!targetPath.toLowerCase().endsWith(".yyp")) {
+        return targetPath;
+    }
+
+    const targetStats = await resolveTargetStats(targetPath, { usage, originalInput });
+    if (!targetStats.isFile()) {
+        throw new CliUsageError(`${targetPath} is not a .yyp file that can be formatted`, { usage });
+    }
+
+    return path.dirname(targetPath);
 }
 
 /**
@@ -1587,16 +1609,20 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
  * @param {{ targetPath: string, usage: string, originalInput?: string }} params
  */
 async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, originalInput }) {
-    const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage, originalInput);
+    const {
+        targetPath: resolvedTargetPath,
+        targetIsDirectory,
+        projectRoot
+    } = await resolveTargetContext(targetPath, usage, originalInput);
 
     await formatResolvedTarget({
-        targetPath,
+        targetPath: resolvedTargetPath,
         targetIsDirectory,
         projectRoot
     });
 
     finalizeFormattingRun({
-        targetPath,
+        targetPath: resolvedTargetPath,
         targetIsDirectory,
         targetPathProvided
     });
