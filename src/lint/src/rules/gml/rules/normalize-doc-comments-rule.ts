@@ -583,12 +583,59 @@ function isFunctionLikeNodeType(nodeType: string): boolean {
     );
 }
 
+function hasInstanceFunctionAssignment(functionNode: AstNodeWithType): boolean {
+    const bodyNode = Reflect.get(functionNode, "body");
+    const stack: unknown[] = [];
+    if (bodyNode && typeof bodyNode === "object") {
+        stack.push(bodyNode);
+    }
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (Array.isArray(current)) {
+            for (const child of current) {
+                stack.push(child);
+            }
+            continue;
+        }
+
+        const currentType = Reflect.get(current, "type");
+        if (currentType === "AssignmentExpression" && isFunctionInitializerNode(Reflect.get(current, "right"))) {
+            return true;
+        }
+
+        if (typeof currentType === "string" && isFunctionLikeNodeType(currentType)) {
+            continue;
+        }
+
+        for (const [key, value] of Object.entries(current)) {
+            if (key === "parent") {
+                continue;
+            }
+
+            if (value && typeof value === "object") {
+                stack.push(value);
+            }
+        }
+    }
+
+    return false;
+}
+
 function shouldSuppressSyntheticReturnsForFunctionNode(functionNode: AstNodeWithType): boolean {
     if (functionNode.type === "StructFunctionDeclaration") {
         return true;
     }
 
-    return functionNode.type === "ConstructorDeclaration";
+    if (functionNode.type !== "ConstructorDeclaration") {
+        return false;
+    }
+
+    return !hasInstanceFunctionAssignment(functionNode);
 }
 
 function isUndefinedReturnArgument(argument: unknown): boolean {
@@ -638,24 +685,39 @@ function hasFunctionValuedStructProperty(expression: unknown): boolean {
         return false;
     }
 
-    const properties = Reflect.get(expression, "properties");
-    if (!Array.isArray(properties)) {
-        return false;
+    const stack: unknown[] = [expression];
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (current !== expression) {
+            const currentType = Reflect.get(current, "type");
+            if (typeof currentType === "string" && isFunctionLikeNodeType(currentType)) {
+                return true;
+            }
+        }
+
+        for (const [key, value] of Object.entries(current)) {
+            if (key === "parent") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                for (const child of value) {
+                    stack.push(child);
+                }
+                continue;
+            }
+
+            if (value && typeof value === "object") {
+                stack.push(value);
+            }
+        }
     }
 
-    return properties.some((property) => {
-        if (!property || typeof property !== "object") {
-            return false;
-        }
-
-        const value = Reflect.get(property, "value");
-        if (!value || typeof value !== "object") {
-            return false;
-        }
-
-        const valueType = Reflect.get(value, "type");
-        return typeof valueType === "string" && isFunctionLikeNodeType(valueType);
-    });
+    return false;
 }
 
 function recordStructValuedIdentifierFromDeclarator(node: object, structValuedIdentifiers: Set<string>): void {
@@ -1079,6 +1141,10 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
     }
 
     const emptyDescriptionPattern = /^(\s*)\/\/\/\s*@description\s*$/u;
+    const hasOverrideTag = blockLines
+        .map((line) => normalizeDocCommentPrefixLine(line))
+        .map((line) => applyJsDocTagAliasLine(line))
+        .some((line) => /^\s*\/\/\/\s*@override\b/u.test(line));
     const normalizedBlock = blockLines
         .filter((line) => !emptyDescriptionPattern.test(line))
         .map((line) => normalizeDocCommentPrefixLine(line))
@@ -1086,7 +1152,7 @@ function processDocBlock(blockLines: Array<string>): Array<string> {
         // remove legacy @function markers entirely. this ensures downstream
         // logic can assume only the canonical forms remain.
         .map((line) => applyJsDocTagAliasLine(line))
-        .map((line) => normalizeReturnDocLineType(line))
+        .map((line) => (hasOverrideTag ? line : normalizeReturnDocLineType(line)))
         .map((line) => normalizeDocParamLineParameterName(line))
         .map((line) => normalizeUndefinedOptionalDefaultParamDocLine(line))
         .map((line) => normalizeParamDescriptionSeparatorHyphen(line))
@@ -1652,7 +1718,7 @@ function determineIfShouldSynthesizeReturnLine({
         propertyStyle && !hadInputDocLines && functionParameterNamesInOrder.length === 0;
     const suppressUndocumentedFunctionPropertyStructReturn =
         !assignmentStyle &&
-        !hadInputDocLines &&
+        !hasExistingReturnLine &&
         returnInference.hasStructReturnWithFunctionProperties &&
         normalizeReturnTypeForComparison(inferredReturnType) === "struct";
 
