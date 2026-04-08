@@ -415,9 +415,9 @@ void test("keeps mixed doc-comment prefixes attached without normalizing content
     assert.equal(
         formatted,
         [
+            "/// @function scr_create_fx",
             "// @param sprite_index",
             "/* @description Create an effect */",
-            "/// @function scr_create_fx",
             "/// @returns {Id.Instance} instance",
             "function scr_create_fx() {}",
             ""

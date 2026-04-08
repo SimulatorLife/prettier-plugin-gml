@@ -219,7 +219,7 @@ function printNodeDocComments(node, path, options) {
     sortDocCommentsBySourceOrder(docCommentDocs);
 
     const docCommentEntriesForMetadata = [...docCommentDocs];
-    const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
+    const printableDocComments = buildPrintableDocCommentLines(docCommentDocs, originalText);
     const printableDocCommentBlock = joinDocCommentsPreservingSourceSpacing(
         printableDocComments,
         docCommentEntriesForMetadata,

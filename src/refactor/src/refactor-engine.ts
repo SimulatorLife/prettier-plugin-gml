@@ -897,52 +897,53 @@ export class RefactorEngine {
             throwIfValidationFailed(validation, "Cannot apply workspace edit");
         }
 
-        // Organize edits by file so each file can be loaded, edited, and saved
-        // independently while still keeping metadata edits and renames in later phases.
+        // Organize edits by file so we can process each file independently. This
+        // allows us to load, edit, and save one file at a time, reducing memory
+        // usage and preserving existing sequential read/write semantics.
         const grouped = workspace.groupByFile();
         const results = new Map<string, string>();
 
         // Process each file by loading its current content, applying all edits for
         // that file, and optionally writing the modified content back to disk.
-        const textEditResults = await Promise.all(
-            Array.from(grouped.entries(), async ([filePath, edits]) => {
-                const originalContent = await readFile(filePath);
-                const newContent = applyGroupedTextEditsToContent(originalContent, edits);
+        const textEditIterator = grouped.entries();
+        const applyNextTextEditGroup = async (): Promise<void> => {
+            const nextTextEditGroup = textEditIterator.next();
+            if (nextTextEditGroup.done === true) {
+                return;
+            }
 
-                // Write the modified content to disk unless we're in dry-run mode, which
-                // lets callers preview changes before committing them.
-                if (!dryRun) {
-                    await writeFile(filePath, newContent);
-                }
+            const [filePath, edits] = nextTextEditGroup.value;
+            const originalContent = await readFile(filePath);
+            const newContent = applyGroupedTextEditsToContent(originalContent, edits);
 
-                return {
-                    content: includeResultContent ? newContent : "",
-                    filePath
-                };
-            })
-        );
+            results.set(filePath, includeResultContent ? newContent : "");
 
-        for (const { content, filePath } of textEditResults) {
-            results.set(filePath, content);
-        }
+            // Write the modified content to disk unless we're in dry-run mode, which
+            // lets callers preview changes before committing them.
+            if (!dryRun && writeFile !== undefined) {
+                await writeFile(filePath, newContent);
+            }
+
+            await applyNextTextEditGroup();
+        };
+        await applyNextTextEditGroup();
 
         const { metadataEdits, fileRenames } = getWorkspaceArrays(workspace);
-        const metadataEditResults = await Promise.all(
-            metadataEdits.map(async (metadataEdit) => {
-                if (!dryRun) {
-                    await writeFile(metadataEdit.path, metadataEdit.content);
-                }
+        const applyNextMetadataEdit = async (metadataEditIndex: number): Promise<void> => {
+            const metadataEdit = metadataEdits[metadataEditIndex];
+            if (metadataEdit === undefined) {
+                return;
+            }
 
-                return {
-                    content: includeResultContent ? metadataEdit.content : "",
-                    filePath: metadataEdit.path
-                };
-            })
-        );
+            results.set(metadataEdit.path, includeResultContent ? metadataEdit.content : "");
 
-        for (const { content, filePath } of metadataEditResults) {
-            results.set(filePath, content);
-        }
+            if (!dryRun && writeFile !== undefined) {
+                await writeFile(metadataEdit.path, metadataEdit.content);
+            }
+
+            await applyNextMetadataEdit(metadataEditIndex + 1);
+        };
+        await applyNextMetadataEdit(0);
 
         // Process file renames last to ensure we don't move files before we're done
         // with their text edits. This stabilizes path references during the build phase.
@@ -952,7 +953,16 @@ export class RefactorEngine {
                 throw new TypeError("applyWorkspaceEdit requires a renameFile implementation to process file renames");
             }
 
-            await Promise.all(fileRenames.map((rename) => renameFile(rename.oldPath, rename.newPath)));
+            const applyNextFileRename = async (fileRenameIndex: number): Promise<void> => {
+                const fileRename = fileRenames[fileRenameIndex];
+                if (fileRename === undefined) {
+                    return;
+                }
+
+                await renameFile(fileRename.oldPath, fileRename.newPath);
+                await applyNextFileRename(fileRenameIndex + 1);
+            };
+            await applyNextFileRename(0);
         }
         return results;
     }
