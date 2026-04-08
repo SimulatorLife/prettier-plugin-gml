@@ -140,7 +140,7 @@ function displayPath(value: string): string {
 
 function resolveJavaScriptOutputPath(gmlFilePath: string): string {
     const extension = path.extname(gmlFilePath);
-    return `${gmlFilePath.slice(0, Math.max(0, gmlFilePath.length - extension.length))}.js`;
+    return `${gmlFilePath.slice(0, -extension.length)}.js`;
 }
 
 function countLines(sourceText: string): number {
@@ -227,8 +227,8 @@ export async function runTranspileCommand(command: CommanderCommandLike): Promis
         settings.target.gmlFiles.map(async (filePath) => {
             const sourceText = await Core.readTextFile(filePath);
             const transpilationResult = transpileFile(context, filePath, sourceText, countLines(sourceText), {
-                verbose: false,
-                quiet: true
+                verbose: settings.verbose,
+                quiet: !settings.verbose
             });
 
             if (!transpilationResult.success || !transpilationResult.patch) {
@@ -245,20 +245,10 @@ export async function runTranspileCommand(command: CommanderCommandLike): Promis
 
             return {
                 sourcePath: filePath,
-                outputPath,
-                patchId: transpilationResult.patch.id,
                 jsBody
             };
         })
     );
-
-    if (settings.verbose) {
-        for (const output of outputs) {
-            console.log(
-                `[transpile] ${displayPath(output.sourcePath)} -> ${displayPath(output.outputPath)} (${output.patchId})`
-            );
-        }
-    }
 
     if (settings.dryRun) {
         emitDryRunOutput({ outputs });
