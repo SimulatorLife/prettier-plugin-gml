@@ -1729,3 +1729,33 @@ void test("optimize-logical-flow preserves else-if assignment chains", () => {
     assertEquals(result.messages.length, 0);
     assertEquals(result.output, input);
 });
+
+void test("optimize-logical-flow parenthesizes nested ternary consequents in autofix output", () => {
+    const input = [
+        "function build_values(value1, value2, value3, value4) {",
+        "    if (ready == true) {",
+        "        ready = true;",
+        "    }",
+        "",
+        "    if (!is_undefined(value2)) {",
+        "        value = (!is_undefined(value3) ? (!is_undefined(value4) ? [value1, value2, value3, value4] : [value1, value2, value3]) : [value1, value2]);",
+        "    } else {",
+        "        value = [value1];",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const result = lintWithRule("optimize-logical-flow", input, {});
+
+    assert.ok(result.messages.length > 0, "optimize-logical-flow should report diagnostics");
+    assert.ok(
+        result.output.includes("? (!is_undefined(value4) ?"),
+        "Expected nested ternary in the true branch to be wrapped in parentheses."
+    );
+    assertEquals(
+        result.output.includes("? !is_undefined(value4) ?"),
+        false,
+        "Expected autofix output to avoid malformed nested ternary syntax."
+    );
+});
