@@ -1718,7 +1718,7 @@ function determineIfShouldSynthesizeReturnLine({
         propertyStyle && !hadInputDocLines && functionParameterNamesInOrder.length === 0;
     const suppressUndocumentedFunctionPropertyStructReturn =
         !assignmentStyle &&
-        !hadInputDocLines &&
+        !hasExistingReturnLine &&
         returnInference.hasStructReturnWithFunctionProperties &&
         normalizeReturnTypeForComparison(inferredReturnType) === "struct";
 
