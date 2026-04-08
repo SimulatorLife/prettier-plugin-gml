@@ -60,7 +60,7 @@ function isNodeTestRunnerProcess(execArguments: ReadonlyArray<string> = process.
 }
 
 function shouldAutoRunCliProcess(
-    env: NodeJS.ProcessEnv | null | undefined = process.env,
+    env: NodeJS.ProcessEnv = process.env,
     execArguments: ReadonlyArray<string> = process.execArgv
 ): boolean {
     return !isCliRunSkipped(env) && !isNodeTestRunnerProcess(execArguments);
