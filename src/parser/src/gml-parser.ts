@@ -7,6 +7,7 @@ import { convertToESTree } from "./ast/estree-converter.js";
 import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
 import createGameMakerParseErrorListener, { createGameMakerLexerErrorListener } from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
+import { assertNestedTernaryConsequentsAreParenthesized } from "./ast/ternary-expression-grouping-validation.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import { defaultParserOptions, type ParserOptions } from "./types/index.js";
 
@@ -302,6 +303,7 @@ export class GMLParser {
         const builder = new GameMakerASTBuilder(this.options, this.whitespaces);
         let astTree;
         astTree = builder.build(tree);
+        assertNestedTernaryConsequentsAreParenthesized(this.text, astTree);
 
         if (this.options.getComments) {
             astTree.comments = this.comments;
