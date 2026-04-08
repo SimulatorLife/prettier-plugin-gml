@@ -7,7 +7,6 @@
 
 import { lstat, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import process from "node:process";
 
 import { Core } from "@gmloop/core";
 import { Refactor } from "@gmloop/refactor";
@@ -25,7 +24,10 @@ import {
     createVerboseOption
 } from "../cli-core/shared-command-options.js";
 import { GmlParserBridge, GmlSemanticBridge, GmlTranspilerBridge } from "../modules/refactor/index.js";
-import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
+import {
+    discoverProjectRoot,
+    resolveExistingGmloopConfigPath,
+    resolveExplicitWorkflowTargetPath} from "../workflow/project-root.js";
 import { resolveIndexedRootTargetGmlFiles } from "./refactor-target-gml-files.js";
 
 const { buildProjectIndex } = Semantic;
@@ -179,7 +181,7 @@ function hasExplicitCodemodIntentHint(options: RefactorCommandOptions): boolean 
     return Boolean(options.path || options.config || options.fix || options.only || options.list);
 }
 
-function validateRenameOptions(options: RefactorCommandOptions): ValidatedRenameOptions {
+async function validateRenameOptions(options: RefactorCommandOptions): Promise<ValidatedRenameOptions> {
     if (!options.newName) {
         throw new Error("--new-name is required");
     }
@@ -193,7 +195,7 @@ function validateRenameOptions(options: RefactorCommandOptions): ValidatedRename
     }
 
     return {
-        projectRoot: path.resolve(options.path ?? process.cwd()),
+        projectRoot: await resolveDiscoveredProjectRoot(options.path, options.config),
         verbose: Boolean(options.verbose),
         symbolId: options.symbolId,
         oldName: options.oldName,
@@ -209,7 +211,11 @@ async function validateCodemodOptions(
     pathArguments: Array<string>
 ): Promise<ValidatedCodemodOptions> {
     const projectRoot = await resolveDiscoveredProjectRoot(options.path, options.config);
-    const targetPaths = pathArguments.length === 0 ? [projectRoot] : pathArguments.map((entry) => path.resolve(entry));
+    const explicitTargetPath = resolveExplicitWorkflowTargetPath(options.path);
+    const targetPaths =
+        pathArguments.length === 0
+            ? [explicitTargetPath ?? projectRoot]
+            : pathArguments.map((entry) => path.resolve(entry));
 
     return {
         projectRoot,
@@ -240,7 +246,7 @@ async function validateRefactorIntent(command: CommanderCommandLike): Promise<Re
     if (hasExplicitRenameIntent(options)) {
         return {
             mode: "rename",
-            options: validateRenameOptions(options)
+            options: await validateRenameOptions(options)
         };
     }
 

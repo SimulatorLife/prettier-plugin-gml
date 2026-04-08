@@ -133,3 +133,19 @@ void test("parse --fix writes AST JSON artifacts for directory targets", async (
         assert.equal(secondAst.type, "Program");
     });
 });
+
+void test("parse accepts a .yyp target path and parses project .gml files", async () => {
+    await withTemporaryDirectory(async (temporaryDirectory) => {
+        await writeFile(path.join(temporaryDirectory, "MyGame.yyp"), JSON.stringify({ name: "MyGame" }), "utf8");
+        await mkdir(path.join(temporaryDirectory, "scripts", "demo"), { recursive: true });
+        await writeFile(path.join(temporaryDirectory, "scripts", "demo", "demo.gml"), "var demo = 1;\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["parse", "--path", path.join(temporaryDirectory, "MyGame.yyp"), "--fix"]
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.stderr, "");
+        await access(path.join(temporaryDirectory, "scripts", "demo", "demo.gml.ast.json"));
+    });
+});

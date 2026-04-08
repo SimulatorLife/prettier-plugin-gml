@@ -1813,6 +1813,45 @@ void test("refactor codemod target paths restrict which gml files are rewritten"
     }
 });
 
+void test("refactor codemod --path accepts a single .gml file and scopes rewrites to that file", async () => {
+    const projectRoot = await createSyntheticProject({
+        refactor: {
+            codemods: {
+                loopLengthHoisting: {}
+            }
+        }
+    });
+
+    try {
+        await writeScriptResource(
+            projectRoot,
+            "selected_script",
+            "for (var i = 0; i < array_length(selected_items); i++) {\n    total += i;\n}\n"
+        );
+        await writeScriptResource(
+            projectRoot,
+            "other_script",
+            "for (var i = 0; i < array_length(other_items); i++) {\n    total += i;\n}\n"
+        );
+
+        const selectedScriptPath = path.join(projectRoot, "scripts", "selected_script", "selected_script.gml");
+        const result = await runCliTestCommand({
+            argv: ["refactor", "codemod", "--path", selectedScriptPath, "--fix"]
+        });
+
+        assert.equal(result.exitCode, 0);
+        const selectedSource = await readFile(
+            path.join(projectRoot, "scripts/selected_script/selected_script.gml"),
+            "utf8"
+        );
+        const otherSource = await readFile(path.join(projectRoot, "scripts/other_script/other_script.gml"), "utf8");
+        assert.match(selectedSource, /var len = array_length\(selected_items\);/);
+        assert.doesNotMatch(otherSource, /var len = array_length\(other_items\);/);
+    } finally {
+        await rm(projectRoot, { recursive: true, force: true });
+    }
+});
+
 void test("refactor codemod errors when gmloop.json cannot be found", async () => {
     const projectRoot = await mkdtemp(path.join(os.tmpdir(), "gmloop-refactor-cli-missing-config-"));
     await writeProjectFile(

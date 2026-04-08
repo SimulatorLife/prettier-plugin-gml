@@ -16,7 +16,10 @@ import {
     createVerboseOption
 } from "../cli-core/shared-command-options.js";
 import { SKIP_CLI_RUN_ENV_VAR } from "../shared/skip-cli-run.js";
-import { discoverProjectRoot, resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
+import {
+    discoverProjectRoot,
+    resolveExistingGmloopConfigPath,
+    resolveExplicitWorkflowTargetPath} from "../workflow/project-root.js";
 import { runFormatCommand } from "./format.js";
 import { runLintCommand } from "./lint.js";
 import { executeRefactorCommand } from "./refactor.js";
@@ -32,6 +35,7 @@ type FixCommandOptions = {
 
 type ValidatedFixCommandOptions = {
     projectRoot: string;
+    targetPath: string;
     configPath: string;
     dryRun: boolean;
     only: string | undefined;
@@ -124,6 +128,7 @@ function createFixCommandValidationError(error: unknown, command: CommanderComma
 
 async function validateFixCommandOptions(command: CommanderCommandLike): Promise<ValidatedFixCommandOptions> {
     const options = (command.opts() ?? {}) as FixCommandOptions;
+    const explicitTargetPath = resolveExplicitWorkflowTargetPath(options.path);
 
     const projectRoot = await discoverProjectRoot({
         explicitProjectPath: options.path,
@@ -132,6 +137,7 @@ async function validateFixCommandOptions(command: CommanderCommandLike): Promise
 
     return {
         projectRoot,
+        targetPath: explicitTargetPath ?? projectRoot,
         configPath: await resolveExistingGmloopConfigPath(projectRoot, options.config),
         dryRun: options.fix !== true,
         only: options.only,
@@ -190,7 +196,7 @@ async function runWorkflowStage(parameters: {
 
 function createRefactorStageCommand(options: ValidatedFixCommandOptions): CommanderCommandLike {
     return createStubCommand({
-        args: ["codemod"],
+        args: ["codemod", options.targetPath],
         options: {
             path: options.projectRoot,
             config: options.configPath,
@@ -217,6 +223,8 @@ function createRefactorCodemodArgs(options: ValidatedFixCommandOptions): Array<s
     if (options.verbose) {
         args.push("--verbose");
     }
+
+    args.push(options.targetPath);
 
     return args;
 }
@@ -265,6 +273,7 @@ function printFixCommandSettings(options: ValidatedFixCommandOptions): void {
     const selectedCodemods = normalizedOnly && normalizedOnly.length > 0 ? normalizedOnly : "(all configured codemods)";
 
     console.log(`Project root: ${options.projectRoot}`);
+    console.log(`Target path: ${options.targetPath}`);
     console.log(`Config path: ${options.configPath}`);
     console.log(`Selected codemods: ${selectedCodemods}`);
     console.log(`Verbose mode: ${options.verbose ? "enabled" : "disabled"}`);
@@ -273,7 +282,7 @@ function printFixCommandSettings(options: ValidatedFixCommandOptions): void {
 
 function createLintStageCommand(options: ValidatedFixCommandOptions): CommanderCommandLike {
     return createStubCommand({
-        args: [options.projectRoot],
+        args: [options.targetPath],
         options: {
             fix: !options.dryRun,
             formatter: "stylish",
@@ -292,7 +301,7 @@ function createFormatStageCommand(options: ValidatedFixCommandOptions): Commande
     return createStubCommand({
         args: [],
         options: {
-            path: options.projectRoot,
+            path: options.targetPath,
             fix: !options.dryRun,
             onParseError: "skip",
             verbose: options.verbose
@@ -383,6 +392,7 @@ export async function runFixCommand(command: CommanderCommandLike): Promise<void
     }
 
     console.log(`Project root: ${options.projectRoot}`);
+    console.log(`Target path: ${options.targetPath}`);
 
     await runFixWorkflowStages(options);
 
