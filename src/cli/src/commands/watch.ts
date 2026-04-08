@@ -78,7 +78,7 @@ import {
     DEFAULT_WATCH_POLLING_INTERVAL_MS
 } from "./watch-constants.js";
 
-const { debounce, getErrorMessage, getLineBreakCount, isFsErrorCode } = Core;
+const { debounce, getErrorMessage, getLineBreakCount, isErrorWithCode } = Core;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -1475,7 +1475,7 @@ async function handleFileChange(
 
             await processTranspileResult(runtimeContext, filePath, result, verbose, quiet);
         } catch (error) {
-            if (runtimeContext && isFsErrorCode(error, "ENOENT")) {
+            if (runtimeContext && isErrorWithCode(error, "ENOENT")) {
                 cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
                 if (verbose && !quiet) {
                     console.log("  ↳ File missing during read (deleted before processing)");

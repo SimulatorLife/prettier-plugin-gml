@@ -42,7 +42,7 @@ function tryAccess(fsFacade, method, targetPath, ...args) {
         const result = fn.call(fsFacade, targetPath, ...args);
         return method === "existsSync" ? Boolean(result) : true;
     } catch (error) {
-        if (Core.isFsErrorCode(error, "ENOENT")) {
+        if (Core.isErrorWithCode(error, "ENOENT")) {
             return false;
         }
         throw error;

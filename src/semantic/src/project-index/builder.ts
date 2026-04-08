@@ -1446,7 +1446,7 @@ async function readProjectGmlFile({ file, fsFacade, metrics }) {
         metrics.counters.increment("io.gmlBytes", Buffer.byteLength(contents));
         return contents;
     } catch (error) {
-        if (Core.isFsErrorCode(error, "ENOENT")) {
+        if (Core.isErrorWithCode(error, "ENOENT")) {
             metrics.counters.increment("files.missingDuringRead");
             return null;
         }
