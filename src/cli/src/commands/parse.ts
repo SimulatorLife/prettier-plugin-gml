@@ -148,7 +148,7 @@ async function parseFileToAst(filePath: string): Promise<ParsedFileAst> {
     return {
         sourcePath: filePath,
         displayPath: formatPathForDisplay(filePath),
-        ast: ParserWorkspace.Parser.GMLParser.parse(source) as ParsedAst
+        ast: ParserWorkspace.Parser.GMLParser.parse(source) as ParsedGmlAst
     };
 }
 
