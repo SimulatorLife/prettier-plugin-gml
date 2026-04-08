@@ -95,6 +95,16 @@ pnpm run cli -- refactor --old-name player_hp --new-name playerHealth
 pnpm run cli -- refactor --old-name player_hp --new-name playerHealth --fix
 ```
 
+### Transpile from a local clone
+
+```bash
+# dry-run transpile (prints JavaScript to stdout)
+pnpm run cli -- transpile --path /absolute/path/to/MyGame/scripts/scr_demo/scr_demo.gml
+
+# write .js outputs for all discovered .gml files under the target path
+pnpm run cli -- transpile --fix --path /absolute/path/to/MyGame
+```
+
 ## Architecture overview
 
 | Workspace | Path | Responsibility |
@@ -131,6 +141,9 @@ pnpm run cli -- lint /path/to/project --fix
 
 # refactor
 pnpm run cli -- refactor --old-name old_name --new-name newName
+
+# transpile
+pnpm run cli -- transpile --fix --path /path/to/project
 
 # hot-reload watch pipeline
 pnpm run cli -- watch /path/to/project --verbose
