@@ -83,6 +83,16 @@ pnpm run cli -- lint /absolute/path/to/MyGame
 pnpm run cli -- lint /absolute/path/to/MyGame --fix
 ```
 
+### Parse from a local clone
+
+```bash
+# write AST JSON to stdout
+pnpm run cli -- parse --path /absolute/path/to/MyGame/scripts/demo.gml
+
+# write sibling *.ast.json files
+pnpm run cli -- parse --fix --path /absolute/path/to/MyGame
+```
+
 ### Refactor from a local clone
 
 The refactor workspace implements a GML-native Collection API (similar to `jscodeshift`) for atomic cross-file transactions and metadata edits.
@@ -135,6 +145,10 @@ pnpm run test:cli
 
 # formatter
 pnpm run format:gml -- /path/to/project
+
+# parser AST inspection
+pnpm run cli -- parse --path /path/to/project/scripts/demo.gml
+pnpm run cli -- parse --fix --path /path/to/project
 
 # lint
 pnpm run cli -- lint /path/to/project --fix

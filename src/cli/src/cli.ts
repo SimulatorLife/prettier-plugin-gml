@@ -31,6 +31,7 @@ import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./comm
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createLintCommand, runLintCommand } from "./commands/lint.js";
+import { createParseCommand, runParseCommand } from "./commands/parse.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
 import { createTranspileCommand, runTranspileCommand } from "./commands/transpile.js";
@@ -366,6 +367,16 @@ cliCommandRegistry.registerCommand({
         handleCliError(error, {
             prefix: "Lint command failed.",
             exitCode: 2
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createParseCommand(),
+    run: ({ command }) => runParseCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Parse command failed.",
+            exitCode: 1
         })
 });
 

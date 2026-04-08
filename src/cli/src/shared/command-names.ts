@@ -16,6 +16,7 @@ export const CLI_COMMAND_NAMES = Object.freeze(
         "format",
         "fix",
         "lint",
+        "parse",
         "performance",
         "generate-gml-identifiers",
         "generate-quality-report",
