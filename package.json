@@ -12,7 +12,8 @@
     "src/transpiler",
     "src/runtime-wrapper",
     "src/refactor",
-    "src/fixture-runner"
+    "src/fixture-runner",
+    "src/mcp"
   ],
   "type": "module",
   "imports": {
@@ -84,6 +85,7 @@
     "test:format": "pnpm run build:ts && bash -lc 'mapfile -t tests < <(pnpm -s test:format:files); ((${#tests[@]})) || { echo \"No compiled format test files found\" >&2; exit 1; }; node --test \"${tests[@]}\"'",
     "test:format:report": "bash -lc 'mkdir -p reports; rm -f reports/format.xml; pnpm run build:ts; mapfile -t tests < <(pnpm -s test:format:files); ((${#tests[@]})) || { echo \"No compiled format test files found\" >&2; exit 1; }; node --test --test-reporter=junit --test-reporter-destination=./reports/format.xml \"${tests[@]}\"'",
     "test:cli": "pnpm --filter @gmloop/cli run build:types && node --test src/cli/dist/test/*.test.js",
+    "test:mcp": "pnpm --filter @gmloop/mcp run build:types && node --test src/mcp/dist/test/*.test.js",
     "test:cli:report": "pnpm --filter @gmloop/cli run build:types && node --test --test-reporter=junit --test-reporter-destination=./reports/cli.xml src/cli/dist/test/*.test.js",
     "test:root": "pnpm run build:ts && node --test test/dist/*.test.js",
     "test:lint": "pnpm --filter @gmloop/lint run build:types && node --test 'src/lint/dist/test/**/*.test.js'",
@@ -162,6 +164,7 @@
     "@gmloop/cli": "workspace:*",
     "@gmloop/core": "workspace:*",
     "@gmloop/lint": "workspace:*",
+    "@gmloop/mcp": "workspace:*",
     "@gmloop/parser": "workspace:*",
     "@gmloop/format": "workspace:*",
     "@gmloop/fixture-runner": "workspace:*",
