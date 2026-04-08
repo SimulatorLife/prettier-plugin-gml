@@ -155,3 +155,39 @@ void test("lint clean-run summary uses plural 'files' for more than one file", a
         await rm(temporaryDirectory, { recursive: true, force: true });
     }
 });
+
+void test("lint accepts --path pointing to a .yyp file and lints the project directory", async () => {
+    const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-cli-lint-yyp-"));
+
+    try {
+        await writeFile(path.join(temporaryDirectory, "project.yyp"), JSON.stringify({ name: "MyGame" }), "utf8");
+        await writeFile(path.join(temporaryDirectory, "clean.gml"), "var x = 1;\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["lint", "--no-default-config", "--path", path.join(temporaryDirectory, "project.yyp")]
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.match(result.stdout, /✓ 1 file checked, no problems found\./);
+    } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+});
+
+void test("lint accepts --path pointing to a single .gml file target", async () => {
+    const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "gmloop-cli-lint-file-path-"));
+
+    try {
+        await writeFile(path.join(temporaryDirectory, "clean.gml"), "var x = 1;\n", "utf8");
+        await writeFile(path.join(temporaryDirectory, "ignored.gml"), "var y = 2;\n", "utf8");
+
+        const result = await runCliTestCommand({
+            argv: ["lint", "--no-default-config", "--path", path.join(temporaryDirectory, "clean.gml")]
+        });
+
+        assert.equal(result.exitCode, 0);
+        assert.match(result.stdout, /✓ 1 file checked, no problems found\./);
+    } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+});

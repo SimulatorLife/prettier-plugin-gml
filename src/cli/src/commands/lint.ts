@@ -19,7 +19,10 @@ import {
     createVerboseOption,
     PATH_OPTION_FLAGS
 } from "../cli-core/shared-command-options.js";
-import { resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
+import {
+    discoverProjectRoot,
+    resolveExistingGmloopConfigPath,
+    resolveExplicitWorkflowTargetPath} from "../workflow/project-root.js";
 
 const FLAT_CONFIG_CANDIDATES = Object.freeze([
     "eslint.config.js",
@@ -115,7 +118,7 @@ function normalizeLintTargets(command: CommanderCommandLike): Array<string> {
 
     const options = (command.opts?.() ?? {}) as { path?: unknown };
     if (typeof options.path === "string" && options.path.trim().length > 0) {
-        return [options.path.trim()];
+        return [resolveExplicitWorkflowTargetPath(options.path.trim()) ?? options.path.trim()];
     }
 
     return ["."];
@@ -208,37 +211,92 @@ function resolveEslintCwd(parameters: { cwd: string; targets: ReadonlyArray<stri
     return findCommonAncestorDirectory(targetDirectories);
 }
 
-function validateForcedProjectPath(forcedProjectPath: string | null): string | null {
+async function resolveForcedProjectRootFromPathOption(forcedProjectPath: string | null): Promise<{
+    forcedProjectRoot: string | null;
+    validationError: string | null;
+}> {
     if (!forcedProjectPath) {
-        return null;
+        return {
+            forcedProjectRoot: null,
+            validationError: null
+        };
     }
 
     const resolvedPath = path.resolve(forcedProjectPath);
-    if (!existsSync(resolvedPath)) {
-        return `Forced project path does not exist: ${resolvedPath}`;
+    if (resolvedPath.toLowerCase().endsWith(".yyp")) {
+        if (!existsSync(resolvedPath)) {
+            return {
+                forcedProjectRoot: null,
+                validationError: `Forced project .yyp path does not exist: ${resolvedPath}`
+            };
+        }
+
+        let yypStats: ReturnType<typeof statSync>;
+        try {
+            yypStats = statSync(resolvedPath);
+        } catch (error) {
+            return {
+                forcedProjectRoot: null,
+                validationError: `Unable to inspect forced project .yyp path ${resolvedPath}: ${
+                    Core.isErrorLike(error) ? error.message : String(error)
+                }`
+            };
+        }
+
+        if (!yypStats.isFile()) {
+            return {
+                forcedProjectRoot: null,
+                validationError: `Forced project .yyp path must be a file: ${resolvedPath}`
+            };
+        }
+
+        return {
+            forcedProjectRoot: path.dirname(resolvedPath),
+            validationError: null
+        };
     }
 
     let resolvedStats: ReturnType<typeof statSync>;
+    if (!existsSync(resolvedPath)) {
+        return {
+            forcedProjectRoot: null,
+            validationError: `Forced project path does not exist: ${resolvedPath}`
+        };
+    }
+
     try {
         resolvedStats = statSync(resolvedPath);
     } catch (error) {
-        return `Unable to inspect forced project path ${resolvedPath}: ${
-            Core.isErrorLike(error) ? error.message : String(error)
-        }`;
+        return {
+            forcedProjectRoot: null,
+            validationError: `Unable to inspect forced project path ${resolvedPath}: ${
+                Core.isErrorLike(error) ? error.message : String(error)
+            }`
+        };
     }
 
-    if (resolvedPath.toLowerCase().endsWith(".yyp")) {
-        if (!resolvedStats.isFile()) {
-            return `Forced project .yyp path must be a file: ${resolvedPath}`;
-        }
-        return null;
+    if (resolvedStats.isDirectory()) {
+        return {
+            forcedProjectRoot: resolvedPath,
+            validationError: null
+        };
     }
 
-    if (!resolvedStats.isDirectory()) {
-        return `Forced project path must be a directory or .yyp file: ${resolvedPath}`;
+    if (resolvedStats.isFile() && resolvedPath.toLowerCase().endsWith(GML_FILE_EXTENSION)) {
+        const forcedProjectRoot = await discoverProjectRoot({
+            explicitProjectPath: resolvedPath
+        });
+
+        return {
+            forcedProjectRoot,
+            validationError: null
+        };
     }
 
-    return null;
+    return {
+        forcedProjectRoot: null,
+        validationError: `Forced project path must be a directory, .yyp file, or ${GML_FILE_EXTENSION} file: ${resolvedPath}`
+    };
 }
 
 type LintRuntimeFailureLocation = Readonly<{
@@ -1189,15 +1247,6 @@ function collectOutOfRootFilePaths(
         .filter((filePath) => !Core.isPathWithinBoundary(path.resolve(filePath), forcedProjectRoot));
 }
 
-function resolveForcedProjectRoot(forcedProjectPath: string | null): string | null {
-    if (!forcedProjectPath) {
-        return null;
-    }
-
-    const resolvedPath = path.resolve(forcedProjectPath);
-    return resolvedPath.toLowerCase().endsWith(".yyp") ? path.dirname(resolvedPath) : resolvedPath;
-}
-
 /**
  * Render up to `OUT_OF_ROOT_DISPLAY_LIMIT` paths as a newline-separated
  * string, appending "and N more…" when the list is truncated.
@@ -1281,13 +1330,13 @@ export async function runLintCommand(command: CommanderCommandLike): Promise<voi
         return;
     }
 
-    const forcedProjectValidationError = validateForcedProjectPath(options.path);
+    const { forcedProjectRoot, validationError: forcedProjectValidationError } =
+        await resolveForcedProjectRootFromPathOption(options.path);
     if (forcedProjectValidationError) {
         console.error(forcedProjectValidationError);
         setProcessExitCode(2);
         return;
     }
-    const forcedProjectRoot = resolveForcedProjectRoot(options.path);
 
     let eslint: ESLint;
     try {

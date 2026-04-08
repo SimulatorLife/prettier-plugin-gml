@@ -15,6 +15,7 @@ import {
     createPathOption,
     createVerboseOption
 } from "../cli-core/shared-command-options.js";
+import { resolveExplicitWorkflowTargetPath } from "../workflow/project-root.js";
 
 const GML_FILE_EXTENSION = ".gml";
 const AST_JSON_EXTENSION = ".ast.json";
@@ -76,10 +77,11 @@ function resolveCommandOptions(command: CommanderCommandLike): ParseCommandOptio
 
 function resolveParseCommandSettings(command: CommanderCommandLike): ParseCommandSettings {
     const options = resolveCommandOptions(command);
-    const targetPathInput = Core.isNonEmptyString(options.path) ? options.path : ".";
+    const explicitTargetPath = resolveExplicitWorkflowTargetPath(options.path);
+    const targetPath = explicitTargetPath ?? path.resolve(process.cwd(), ".");
 
     return {
-        targetPath: path.resolve(process.cwd(), targetPathInput),
+        targetPath,
         writeMode: Boolean(options.fix),
         list: Boolean(options.list),
         verbose: Boolean(options.verbose)

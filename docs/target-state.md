@@ -82,7 +82,7 @@ Use a two-tier workflow: format only when parse succeeds, and run lint in two ph
 - **Recommended config**: `Lint.configs.recommended` is a complete flat-config preset.
 - **AST, token, and comment contract**: Output model is ESTree-compatible plus explicit GML extension node types. `range` is `[start, end)` in UTF-16 code-unit offsets.
 - **Parse errors and recovery**: Language parse never throws uncaught exceptions to ESLint. Parse failures are returned through ESLint v9’s documented language parse-failure channel.
-- **Project context**: CLI may use `--path <path>` only as an explicit project-root override for target classification. Lint rules do not receive project-aware registries, semantic indexes, rename-planning services, or cross-file safety services.
+- **Project context**: CLI `--path <path>` accepts a target `.gml` file, project directory, or `.yyp` path. Lint rules still remain single-file analyzers and do not receive project-aware registries, semantic indexes, rename-planning services, or cross-file safety services.
 
 ### 3.4 Rule System Contracts
 

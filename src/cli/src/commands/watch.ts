@@ -726,7 +726,16 @@ async function performInitialScan(
         }
     }
 
-    await scanDirectory(dirPath);
+    // When the startup file cache is populated, every tracked file was already
+    // discovered and read during collectScriptNames. Process them directly from the
+    // cache keys, eliminating a second round of readdir calls across the project tree.
+    // Files that failed to read or parse in collectScriptNames are not in the cache;
+    // they will be processed on their first watch event instead.
+    if (fileDataCache !== undefined && fileDataCache.size > 0) {
+        await Core.runInParallel(Array.from(fileDataCache.keys()), processFile);
+    } else {
+        await scanDirectory(dirPath);
+    }
 
     const stats = runtimeContext.dependencyTracker.getStatistics();
     if (!quiet) {
