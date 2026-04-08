@@ -12,7 +12,15 @@
  */
 
 import { createHash } from "node:crypto";
-import { type Dirent, type FSWatcher, type Stats, watch, type WatchListener, type WatchOptions } from "node:fs";
+import {
+    type Dirent,
+    existsSync,
+    type FSWatcher,
+    type Stats,
+    watch,
+    type WatchListener,
+    type WatchOptions
+} from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -284,6 +292,7 @@ interface ScriptNameRegistrationContext {
  * Runtime state required when removing cached data for deleted files.
  */
 interface FileRemovalCleanupContext {
+    scriptNames: Set<string>;
     dependencyTracker: DependencyTracker;
     fileSnapshots: Map<string, number>;
     fileContentHashes: Map<string, string>;
@@ -953,8 +962,10 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                         console.log(`Patch streaming client connected: ${clientId}`);
                     }
                 },
-                prepareInitialMessages: () =>
-                    orderPatchesForReplay(Array.from(runtimeContext.lastSuccessfulPatches.values())),
+                prepareInitialMessages: () => {
+                    removeDeletedCachedPatchSources(runtimeContext, verbose, quiet);
+                    return orderPatchesForReplay(Array.from(runtimeContext.lastSuccessfulPatches.values()));
+                },
                 onClientDisconnect: (clientId) => {
                     if (verbose) {
                         console.log(`Patch streaming client disconnected: ${clientId}`);
@@ -1368,9 +1379,6 @@ async function handleFileChange(
             if (verbose && !quiet) {
                 console.log(`  ↳ File removed (deleted or renamed away)`);
             }
-            if (runtimeContext?.scriptNames) {
-                unregisterScriptName(filePath, runtimeContext.scriptNames);
-            }
             if (runtimeContext) {
                 cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
             }
@@ -1459,7 +1467,6 @@ async function handleFileChange(
             await processTranspileResult(runtimeContext, filePath, result, verbose, quiet);
         } catch (error) {
             if (runtimeContext && isFsErrorCode(error, "ENOENT")) {
-                unregisterScriptName(filePath, runtimeContext.scriptNames);
                 cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
                 if (verbose && !quiet) {
                     console.log("  ↳ File missing during read (deleted before processing)");
@@ -1843,6 +1850,7 @@ function cleanupRemovedFile(
     verbose: boolean,
     quiet: boolean
 ): void {
+    unregisterScriptName(filePath, runtimeContext.scriptNames);
     runtimeContext.dependencyTracker.removeFile(filePath);
     runtimeContext.fileSnapshots.delete(filePath);
     runtimeContext.fileContentHashes.delete(filePath);
@@ -1859,6 +1867,27 @@ function cleanupRemovedFile(
         const patchMessage =
             removedPatchCount > 0 ? `cleared ${removedPatchCount} cached patch(es)` : "no cached patch found";
         console.log(`  ↳ Removed dependency tracking (${patchMessage})`);
+    }
+}
+
+function removeDeletedCachedPatchSources(
+    runtimeContext: FileRemovalCleanupContext,
+    verbose: boolean,
+    quiet: boolean
+): void {
+    const deletedSourcePaths = new Set<string>();
+
+    for (const cachedPatch of runtimeContext.lastSuccessfulPatches.values()) {
+        const metadata = Core.isObjectLike(cachedPatch.metadata) ? cachedPatch.metadata : null;
+        const sourcePath = Core.isNonEmptyString(metadata?.sourcePath) ? metadata.sourcePath : null;
+
+        if (sourcePath !== null && !existsSync(sourcePath)) {
+            deletedSourcePaths.add(sourcePath);
+        }
+    }
+
+    for (const sourcePath of deletedSourcePaths) {
+        cleanupRemovedFile(runtimeContext, sourcePath, verbose, quiet);
     }
 }
 
