@@ -2016,3 +2016,12 @@ void test("Transpiler.emitJavaScript does not fold unary with variable operand",
     const result = Transpiler.emitJavaScript(ast);
     assert.strictEqual(result, "var x = -(y);");
 });
+
+void test("GmlToJsEmitter folds ternary expressions with constant boolean conditions", () => {
+    const source = "result = true ? expensive() : cheap()";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.match(result, /^result = expensive\(\);$/, "Should emit only the selected ternary branch");
+});

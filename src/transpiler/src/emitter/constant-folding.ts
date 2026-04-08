@@ -1,4 +1,4 @@
-import type { BinaryExpressionNode, UnaryExpressionNode } from "./ast.js";
+import type { BinaryExpressionNode, GmlNode, TernaryExpressionNode, UnaryExpressionNode } from "./ast.js";
 
 const ZERO_COMPARISON_EPSILON = Number.EPSILON * 4;
 
@@ -269,4 +269,27 @@ export function tryFoldConstantUnaryExpression(ast: UnaryExpressionNode): number
 
     // Couldn't fold this expression
     return null;
+}
+
+/**
+ * Attempt to fold a ternary expression when the condition is a boolean literal.
+ *
+ * This is intentionally conservative: only explicit boolean literals
+ * (`true`, `false`, and parser-normalized `"true"`/`"false"` strings) are
+ * folded to avoid changing GML truthiness semantics for numeric/string literals.
+ *
+ * @param ast - Ternary expression node to potentially fold
+ * @returns The selected branch node when folding is safe, otherwise null
+ */
+export function tryFoldConstantTernaryExpression(ast: TernaryExpressionNode): GmlNode | null {
+    if (ast.test.type !== "Literal") {
+        return null;
+    }
+
+    const foldedCondition = toBooleanLiteral(ast.test.value);
+    if (foldedCondition === null) {
+        return null;
+    }
+
+    return foldedCondition ? ast.consequent : ast.alternate;
 }
