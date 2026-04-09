@@ -11,6 +11,7 @@ import { Core } from "@gmloop/core";
 
 import { createTempFileStorageBackend, type StorageBackend } from "./backends/index.js";
 import { executeRegisteredCodemods } from "./codemod-registry.js";
+import { applyGlobalvarToGlobalCodemod, collectGlobalvarDeclaredNames } from "./codemods/globalvar-to-global/index.js";
 import { applyLoopLengthHoistingCodemod } from "./codemods/loop-length-hoisting/index.js";
 import { planNamingConventionCodemod } from "./codemods/naming-convention/index.js";
 import * as HotReload from "./hot-reload.js";
@@ -29,6 +30,8 @@ import {
     type ConflictEntry,
     ConflictType,
     type ExecuteBatchRenameRequest,
+    type ExecuteGlobalvarToGlobalCodemodRequest,
+    type ExecuteGlobalvarToGlobalCodemodResult,
     type ExecuteLoopLengthHoistingCodemodRequest,
     type ExecuteLoopLengthHoistingCodemodResult,
     type ExecuteRenameRequest,
@@ -1175,6 +1178,109 @@ export class RefactorEngine {
             hotReloadUpdates,
             fileRenames: [...workspace.fileRenames]
         };
+    }
+
+    /**
+     * Execute the globalvar-to-global codemod across all provided files.
+     *
+     * The engine runs a **two-phase** strategy:
+     *
+     * Phase 1 (collection): scan every file to identify all `globalvar`-declared
+     * names across the project.  A single name may appear in a declaration in one
+     * file and as bare references in many others.
+     *
+     * Phase 2 (rewrite): for each file that either declares or references a
+     * collected globalvar name, emit edits to remove declarations and replace bare
+     * references with `global.<name>`.  All edits are accumulated into a single
+     * `WorkspaceEdit` and applied atomically via `applyWorkspaceEdit`.
+     */
+    async executeGlobalvarToGlobalCodemod(
+        request: ExecuteGlobalvarToGlobalCodemodRequest
+    ): Promise<ExecuteGlobalvarToGlobalCodemodResult> {
+        const { filePaths, readFile, writeFile, options, dryRun = false } = request ?? {};
+
+        if (!Array.isArray(filePaths) || filePaths.length === 0) {
+            throw new TypeError("executeGlobalvarToGlobalCodemod requires a non-empty filePaths array");
+        }
+
+        Core.assertFunction(readFile, "readFile", {
+            errorMessage: "executeGlobalvarToGlobalCodemod requires a readFile function"
+        });
+
+        const uniqueFilePaths = [...new Set(filePaths)];
+
+        // ── Phase 1: collect all globalvar names declared across the project ──
+        // Read every file once and accumulate declared names into a shared set.
+        // Uses the lightweight `collectGlobalvarDeclaredNames` helper which only
+        // parses and scans for declarations, skipping all edit-generation work.
+        const projectGlobalvarNames = new Set<string>();
+        const fileContents = new Map<string, string>();
+
+        await Core.runSequentially(uniqueFilePaths, async (filePath) => {
+            Core.assertNonEmptyString(filePath, {
+                errorMessage: "executeGlobalvarToGlobalCodemod file paths must be non-empty strings"
+            });
+
+            const sourceText = await readFile(filePath);
+            fileContents.set(filePath, sourceText);
+
+            // collectGlobalvarDeclaredNames already performs the fast-path keyword
+            // check internally, so no duplicate guard is needed here.
+            for (const name of collectGlobalvarDeclaredNames(sourceText)) {
+                projectGlobalvarNames.add(name);
+            }
+        });
+
+        if (projectGlobalvarNames.size === 0) {
+            return {
+                workspace: new WorkspaceEdit(),
+                applied: new Map(),
+                changedFiles: []
+            };
+        }
+
+        // ── Phase 2: rewrite files that reference collected globalvar names ──
+        const workspace = new WorkspaceEdit();
+        const changedFiles: ExecuteGlobalvarToGlobalCodemodResult["changedFiles"] = [];
+
+        await Core.runSequentially(uniqueFilePaths, async (filePath) => {
+            const sourceText = fileContents.get(filePath) ?? (await readFile(filePath));
+            const result = applyGlobalvarToGlobalCodemod(sourceText, projectGlobalvarNames, options);
+
+            if (!result.changed) {
+                return;
+            }
+
+            workspace.addEdit(filePath, 0, sourceText.length, result.outputText);
+            changedFiles.push({
+                path: filePath,
+                appliedEditCount: result.appliedEdits.length,
+                migratedNames: [...result.migratedNames]
+            });
+        });
+
+        if (workspace.edits.length === 0) {
+            return {
+                workspace,
+                applied: new Map(),
+                changedFiles
+            };
+        }
+
+        if (!dryRun) {
+            Core.assertFunction(writeFile, "writeFile", {
+                errorMessage: "executeGlobalvarToGlobalCodemod requires a writeFile function in write mode"
+            });
+        }
+
+        const applied = await this.applyWorkspaceEdit(workspace, {
+            readFile,
+            writeFile,
+            includeResultContent: dryRun,
+            dryRun
+        });
+
+        return { workspace, applied, changedFiles };
     }
 
     /**
