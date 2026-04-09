@@ -1759,3 +1759,59 @@ void test("optimize-logical-flow parenthesizes nested ternary consequents in aut
         "Expected autofix output to avoid malformed nested ternary syntax."
     );
 });
+
+void test("no-unary-plus-on-identifier autofixes +identifier to bare identifier", () => {
+    const input = "var value = +count;\n";
+    const expected = "var value = count;\n";
+
+    const result = lintWithRule("no-unary-plus-on-identifier", input, {});
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.messages[0]?.messageId, "noUnaryPlusOnIdentifier");
+    assertEquals(result.output, expected);
+});
+
+void test("no-unary-plus-on-identifier handles multiple unary plus usages in one file", () => {
+    const input = ["var a = +score;", "var b = +lives;", ""].join("\n");
+    const expected = ["var a = score;", "var b = lives;", ""].join("\n");
+
+    const result = lintWithRule("no-unary-plus-on-identifier", input, {});
+    assertEquals(result.messages.length, 2);
+    assertEquals(result.output, expected);
+});
+
+void test("no-unary-plus-on-identifier preserves unary plus on non-identifier operands", () => {
+    // `+"5"` coerces a string literal to a number — a useful conversion that is
+    // not a simple "remove the operator" case; only identifier operands are flagged.
+    const input = 'var value = +"5";\n';
+
+    const result = lintWithRule("no-unary-plus-on-identifier", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
+void test("no-unary-plus-on-identifier preserves unary plus on call-expression operands", () => {
+    const input = "var value = +get_count();\n";
+
+    const result = lintWithRule("no-unary-plus-on-identifier", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});
+
+void test("no-unary-plus-on-identifier autofixes +identifier when wrapped in parentheses", () => {
+    // `+(count)` still has an Identifier as its innermost operand once the
+    // synthetic parentheses are unwrapped.
+    const input = "var value = +(count);\n";
+    const expected = "var value = (count);\n";
+
+    const result = lintWithRule("no-unary-plus-on-identifier", input, {});
+    assertEquals(result.messages.length, 1);
+    assertEquals(result.output, expected);
+});
+
+void test("no-unary-plus-on-identifier does not flag prefix increment (++)", () => {
+    const input = "var value = ++count;\n";
+
+    const result = lintWithRule("no-unary-plus-on-identifier", input, {});
+    assertEquals(result.messages.length, 0);
+    assertEquals(result.output, input);
+});

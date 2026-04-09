@@ -672,10 +672,6 @@ function printBinaryExpressionNode(node, path, options, print) {
 
 function printUnaryLikeExpressionNode(node, _path, _options, print) {
     if (node.prefix) {
-        if (node.operator === "+" && shouldOmitUnaryPlus(node.argument)) {
-            return print("argument");
-        }
-
         // Normalize `-0` to `0`: when a unary minus is applied to a literal zero
         // (including normalized forms like `0.` → `0`), the result is numerically
         // identical to positive zero in GML. Keeping `-0` would generate incorrect
@@ -3099,31 +3095,6 @@ function shouldBreakVariableInitializerOnAssignmentLine(node): boolean {
 
     const initializer = unwrapParensForInitializer(node.init);
     return initializer?.type === "BinaryExpression" && binaryExpressionContainsString(initializer);
-}
-
-function shouldOmitUnaryPlus(argument) {
-    const candidate = unwrapUnaryPlusCandidate(argument);
-
-    if (!candidate || typeof candidate !== OBJECT_TYPE) {
-        return false;
-    }
-
-    return candidate.type === "Identifier";
-}
-
-function unwrapUnaryPlusCandidate(node) {
-    let current = node;
-
-    while (
-        current &&
-        typeof current === OBJECT_TYPE &&
-        current.type === "ParenthesizedExpression" &&
-        current.expression
-    ) {
-        current = current.expression;
-    }
-
-    return current;
 }
 
 function unwrapParenthesizedExpression(childPath, print) {
