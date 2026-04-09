@@ -44,6 +44,37 @@ function isNullableString(value: unknown): value is string | null {
     return typeof value === "string" || value === null;
 }
 
+const GLOBALVAR_TO_GLOBAL_ALLOWED_KEYS = new Set(["excludeNames"]);
+
+function normalizeGlobalvarToGlobalConfig(
+    value: unknown,
+    context: string
+): RefactorCodemodConfigEntry<"globalvarToGlobal"> {
+    if (value === false) {
+        return false;
+    }
+
+    const object = assertRefactorConfigPlainObjectWithAllowedKeys(value, GLOBALVAR_TO_GLOBAL_ALLOWED_KEYS, context);
+
+    if (object.excludeNames === undefined) {
+        return {};
+    }
+
+    if (!Array.isArray(object.excludeNames)) {
+        throw new TypeError(`${context}.excludeNames must be an array of strings`);
+    }
+
+    const excludeNames: Array<string> = [];
+    for (const [index, entry] of object.excludeNames.entries()) {
+        if (typeof entry !== "string") {
+            throw new TypeError(`${context}.excludeNames[${String(index)}] must be a string, received ${typeof entry}`);
+        }
+        excludeNames.push(entry);
+    }
+
+    return { excludeNames };
+}
+
 const LOOP_LENGTH_HOISTING_ALLOWED_KEYS = new Set(["functionSuffixes"]);
 
 function normalizeLoopLengthHoistingConfig(
@@ -93,6 +124,49 @@ function normalizeNamingConventionConfig(
 }
 
 const REGISTERED_CODEMOD_DEFINITIONS: RegisteredCodemodDefinitions = Object.freeze({
+    globalvarToGlobal: Object.freeze({
+        id: "globalvarToGlobal",
+        description:
+            "Remove legacy `globalvar` declarations and replace all bare identifier references with `global.<name>`.",
+        normalizeConfig: normalizeGlobalvarToGlobalConfig,
+        async execute(
+            engine: CodemodEngine,
+            request: ConfiguredCodemodRunRequest,
+            effectiveConfig: RefactorCodemodConfigMap["globalvarToGlobal"]
+        ): Promise<ConfiguredCodemodExecutionResult> {
+            if (request.gmlFilePaths.length === 0) {
+                return {
+                    appliedFiles: new Map(),
+                    summary: {
+                        id: "globalvarToGlobal",
+                        changed: false,
+                        changedFiles: [],
+                        warnings: ["No .gml files were selected for globalvar-to-global migration."],
+                        errors: []
+                    }
+                };
+            }
+
+            const result = await engine.executeGlobalvarToGlobalCodemod({
+                filePaths: request.gmlFilePaths,
+                readFile: request.readFile,
+                writeFile: request.writeFile,
+                options: effectiveConfig,
+                dryRun: request.dryRun
+            });
+
+            return {
+                appliedFiles: result.applied,
+                summary: {
+                    id: "globalvarToGlobal",
+                    changed: result.changedFiles.length > 0,
+                    changedFiles: result.changedFiles.map((entry) => entry.path),
+                    warnings: [],
+                    errors: []
+                }
+            };
+        }
+    }),
     loopLengthHoisting: Object.freeze({
         id: "loopLengthHoisting",
         description: "Hoist repeated loop-length helper calls out of for-loop test expressions.",

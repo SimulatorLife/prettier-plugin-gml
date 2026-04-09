@@ -8,6 +8,8 @@ import type {
     BatchRenamePlanSummary,
     CodemodEngine,
     ExecuteBatchRenameRequest,
+    ExecuteGlobalvarToGlobalCodemodRequest,
+    ExecuteGlobalvarToGlobalCodemodResult,
     ExecuteLoopLengthHoistingCodemodRequest,
     ExecuteLoopLengthHoistingCodemodResult,
     ExecuteRenameResult,
@@ -50,6 +52,12 @@ class ValidationDelayEngine implements CodemodEngine {
         this.semantic = {
             listNamingConventionTargets: listTargets
         };
+    }
+
+    public async executeGlobalvarToGlobalCodemod(
+        _request: ExecuteGlobalvarToGlobalCodemodRequest
+    ): Promise<ExecuteGlobalvarToGlobalCodemodResult> {
+        throw new Error("Not used by naming-convention validation performance test.");
     }
 
     public async executeLoopLengthHoistingCodemod(

@@ -7,6 +7,7 @@
 import { Core } from "@gmloop/core";
 
 import type { StorageBackend } from "./backends/storage-backend.js";
+import type { GlobalvarToGlobalCodemodOptions } from "./codemods/globalvar-to-global/types.js";
 import type { LoopLengthHoistingCodemodOptions } from "./codemods/loop-length-hoisting/types.js";
 import type { FileRename, WorkspaceEdit } from "./workspace-edit.js";
 
@@ -85,12 +86,13 @@ export interface NamingConventionPolicy {
 /**
  * Stable identifiers for codemods exposed through project configuration and the CLI.
  */
-export type RefactorCodemodId = "loopLengthHoisting" | "namingConvention";
+export type RefactorCodemodId = "globalvarToGlobal" | "loopLengthHoisting" | "namingConvention";
 
 /**
  * Normalized config payloads keyed by registered codemod id.
  */
 export interface RefactorCodemodConfigMap {
+    globalvarToGlobal: GlobalvarToGlobalCodemodOptions;
     loopLengthHoisting: LoopLengthHoistingCodemodOptions;
     namingConvention: NamingConventionPolicy;
 }
@@ -614,6 +616,38 @@ export interface ExecuteBatchRenameRequest {
 }
 
 /**
+ * Parameters for running the globalvar-to-global codemod across multiple files.
+ */
+export interface ExecuteGlobalvarToGlobalCodemodRequest {
+    /** All GML file paths in the project (used in phase 1 to collect globalvar names). */
+    filePaths: Array<string>;
+    readFile: WorkspaceReadFile;
+    writeFile?: WorkspaceWriteFile;
+    options?: GlobalvarToGlobalCodemodOptions;
+    dryRun?: boolean;
+}
+
+/**
+ * Summary for a single file processed by the globalvar-to-global codemod.
+ */
+export interface GlobalvarToGlobalFileSummary {
+    path: string;
+    /** Number of source edits applied (declaration removals + reference replacements). */
+    appliedEditCount: number;
+    /** Globalvar names that were migrated in this file. */
+    migratedNames: Array<string>;
+}
+
+/**
+ * Result payload returned after executing the globalvar-to-global codemod transaction.
+ */
+export interface ExecuteGlobalvarToGlobalCodemodResult {
+    workspace: WorkspaceEdit;
+    applied: Map<string, string>;
+    changedFiles: Array<GlobalvarToGlobalFileSummary>;
+}
+
+/**
  * Parameters for running the loop-length hoisting codemod across multiple files.
  */
 export interface ExecuteLoopLengthHoistingCodemodRequest {
@@ -986,6 +1020,9 @@ export interface RefactorEngineDependencies {
  */
 export interface CodemodEngine {
     readonly semantic: PartialSemanticAnalyzer | null;
+    executeGlobalvarToGlobalCodemod(
+        request: ExecuteGlobalvarToGlobalCodemodRequest
+    ): Promise<ExecuteGlobalvarToGlobalCodemodResult>;
     executeLoopLengthHoistingCodemod(
         request: ExecuteLoopLengthHoistingCodemodRequest
     ): Promise<ExecuteLoopLengthHoistingCodemodResult>;
