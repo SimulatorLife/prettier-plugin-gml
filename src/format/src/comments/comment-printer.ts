@@ -211,6 +211,12 @@ function printComment(commentPath, options) {
                 const rawText = Core.getLineCommentRawText(comment, {
                     originalText: options?.originalText
                 });
+                // For trailing (end-of-line) comments, ensure there is a space after the
+                // opening `//` so that `//text` becomes `// text`.  This preserves the raw
+                // source text for all other comment styles (doc `///`, banner `//---`, etc.)
+                // and for own-line comments where the trailing context does not apply.
+                const commentText =
+                    !isOwnLineComment && /^\/\/[^\s/]/.test(rawText) ? `// ${rawText.slice(2)}` : rawText;
                 const sourceIndentationWidth = resolveCommentSourceIndentationWidth(comment, options?.originalText);
                 const previousSignificantCharacter = resolvePreviousSignificantSourceCharacterBeforeComment(
                     comment,
@@ -231,16 +237,23 @@ function printComment(commentPath, options) {
                     previousSignificantCharacter !== "*" &&
                     !previousSignificantIsCommentedOutBrace &&
                     !hasTopLevelDocLineImmediatelyBeforeComment(comment, options?.originalText);
+                // Blank-line insertion is gated by `allowSourceDrivenBlankLinePrepend`.
+                // When that flag is false (e.g. the comment follows a `///` doc line or
+                // lives inside an indented body), Prettier's own blank-line preservation
+                // already emits the correct separation; adding another `hardline` here
+                // would produce a double blank line.  When the flag is true (e.g. a
+                // top-level comment after a regular code statement), the formatter is
+                // responsible for the blank line and we check either the comment's stored
+                // leading-whitespace or the original source for two consecutive newlines.
                 const shouldPrependBlankLine =
                     comment._gmlForceLeadingBlankLine === true ||
-                    hasLeadingBlankLineInWhitespace(comment) ||
                     (allowSourceDrivenBlankLinePrepend &&
-                        !hasLeadingBlankLineInWhitespace(comment) &&
-                        hasSimpleLeadingBlankLineInSource(comment, options?.originalText));
+                        (hasLeadingBlankLineInWhitespace(comment) ||
+                            hasSimpleLeadingBlankLineInSource(comment, options?.originalText)));
                 if (shouldPrependBlankLine) {
-                    return [hardline, rawText];
+                    return [hardline, commentText];
                 }
-                return rawText;
+                return commentText;
             }
             default: {
                 throw new Error(`Unknown comment type`);
