@@ -31,6 +31,7 @@ import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./comm
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createLintCommand, runLintCommand } from "./commands/lint.js";
+import { createLookupGmlIdentifierCommand, runLookupGmlIdentifierCommand } from "./commands/lookup-gml-identifier.js";
 import { createParseCommand, runParseCommand } from "./commands/parse.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
@@ -382,6 +383,16 @@ cliCommandRegistry.registerCommand({
         handleCliError(error, {
             prefix: "Lint command failed.",
             exitCode: 2
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createLookupGmlIdentifierCommand(),
+    run: ({ command }) => runLookupGmlIdentifierCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "GML identifier lookup command failed.",
+            exitCode: 1
         })
 });
 
