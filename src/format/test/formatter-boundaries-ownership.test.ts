@@ -761,4 +761,26 @@ void describe("formatter boundaries ownership", () => {
             "Formatter must not return source verbatim as a recovery fallback (§3.2)."
         );
     });
+
+    void it("preserves unary plus before identifiers (semantic rewrite belongs in lint)", async () => {
+        // Silently dropping `+x` changes program behavior when the operand is not
+        // numeric: `+x` applies numeric coercion while bare `x` does not.
+        // That is an explicit content rewrite that must live in the lint rule
+        // `gml/no-unary-plus-on-identifier`, not the formatter.
+        // (target-state.md §2.1, §3.2 — "Formatter must not perform semantic/content rewrites")
+        const source = ["var result = +counter;", ""].join("\n");
+
+        const formatted = await Format.format(source);
+
+        assert.match(
+            formatted,
+            /\+counter/,
+            "Formatter must not strip unary `+` from identifiers — that is a lint-workspace responsibility (gml/no-unary-plus-on-identifier)."
+        );
+        assert.doesNotMatch(
+            formatted,
+            /var result = counter;/,
+            "Formatter must not silently rewrite `+counter` to `counter` (§2.1, §3.2)."
+        );
+    });
 });

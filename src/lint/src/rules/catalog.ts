@@ -233,6 +233,12 @@ export const gmlRuleDefinitions: ReadonlyArray<GmlRuleDefinition> = Object.freez
         shortName: "simplify-real-calls",
         fullId: "gml/simplify-real-calls",
         messageId: "simplifyRealCalls"
+    },
+    {
+        mapKey: "GmlNoUnaryPlusOnIdentifier",
+        shortName: "no-unary-plus-on-identifier",
+        fullId: "gml/no-unary-plus-on-identifier",
+        messageId: "noUnaryPlusOnIdentifier"
     }
 ]);
 

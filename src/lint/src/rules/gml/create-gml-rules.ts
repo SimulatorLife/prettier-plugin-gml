@@ -6,6 +6,7 @@ import { createNoEmptyRegionsRule } from "./rules/no-empty-regions-rule.js";
 import { createNoGlobalvarRule } from "./rules/no-globalvar-rule.js";
 import { createNoLegacyApiRule } from "./rules/no-legacy-api-rule.js";
 import { createNoScientificNotationRule } from "./rules/no-scientific-notation-rule.js";
+import { createNoUnaryPlusOnIdentifierRule } from "./rules/no-unary-plus-on-identifier-rule.js";
 import { createNoUnnecessaryStringInterpolationRule } from "./rules/no-unnecessary-string-interpolation-rule.js";
 import { createNormalizeBannerCommentsRule } from "./rules/normalize-banner-comments-rule.js";
 import { createNormalizeDataStructureAccessorsRule } from "./rules/normalize-data-structure-accessors-rule.js";
@@ -123,6 +124,9 @@ export function createGmlRule(definition: GmlRuleDefinition): Rule.RuleModule {
         }
         case "simplify-real-calls": {
             return createSimplifyRealCallsRule(definition);
+        }
+        case "no-unary-plus-on-identifier": {
+            return createNoUnaryPlusOnIdentifierRule(definition);
         }
         default: {
             throw new Error(`Missing gml rule implementation for shortName '${definition.shortName}'.`);

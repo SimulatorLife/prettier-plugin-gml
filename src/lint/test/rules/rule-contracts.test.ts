@@ -200,6 +200,11 @@ const expectedRules = Object.freeze([
         shortName: "simplify-real-calls",
         messageId: "simplifyRealCalls",
         schema: [{ type: "object", additionalProperties: false, properties: {} }]
+    },
+    {
+        shortName: "no-unary-plus-on-identifier",
+        messageId: "noUnaryPlusOnIdentifier",
+        schema: [{ type: "object", additionalProperties: false, properties: {} }]
     }
 ]);
 
