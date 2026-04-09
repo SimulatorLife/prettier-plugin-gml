@@ -1378,20 +1378,27 @@ async function handleFileChange(
     let resolvedFileStats: Stats | null = fileStats ?? null;
 
     if (eventType === "rename") {
-        try {
-            resolvedFileStats = await stat(filePath);
+        if (resolvedFileStats) {
             shouldTranspile = true;
             if (verbose && !quiet) {
                 console.log(`  ↳ File exists (created or renamed)`);
             }
-        } catch {
-            if (verbose && !quiet) {
-                console.log(`  ↳ File removed (deleted or renamed away)`);
+        } else {
+            try {
+                resolvedFileStats = await stat(filePath);
+                shouldTranspile = true;
+                if (verbose && !quiet) {
+                    console.log(`  ↳ File exists (created or renamed)`);
+                }
+            } catch {
+                if (verbose && !quiet) {
+                    console.log(`  ↳ File removed (deleted or renamed away)`);
+                }
+                if (runtimeContext) {
+                    cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+                }
+                return;
             }
-            if (runtimeContext) {
-                cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
-            }
-            return;
         }
     }
 
