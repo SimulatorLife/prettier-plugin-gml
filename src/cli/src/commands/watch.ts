@@ -312,6 +312,8 @@ interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
     fileStats?: Stats | null;
     abortSignal?: AbortSignal;
+    /** Wall-clock timestamp (Date.now()) when the filesystem change event was first detected. */
+    fileChangeDetectedAt?: number;
 }
 
 /**
@@ -509,6 +511,42 @@ export function resolveUnknownScanConcurrency(configuredMaximum: number): number
  */
 export function resolveDependentRetranspileConcurrency(configuredMaximum: number): number {
     return Math.max(1, Math.trunc(configuredMaximum));
+}
+
+/**
+ * Computes average and 95th-percentile hot-reload latency from a metrics window.
+ *
+ * Only patches that have a recorded `hotReloadLatencyMs` value (i.e., those
+ * triggered by a live file-change event rather than the initial scan) contribute
+ * to the result. Returns `undefined` for both values when no latency data is available.
+ *
+ * @param metrics - The bounded metrics window from the runtime context.
+ * @returns Object with `avg` and `p95` in milliseconds, or `undefined` when unavailable.
+ */
+export function computeHotReloadLatencyStats(
+    metrics: ReadonlyArray<{ hotReloadLatencyMs?: number }>
+): { avg: number; p95: number } | undefined {
+    const latencies: Array<number> = [];
+
+    for (const metric of metrics) {
+        if (typeof metric.hotReloadLatencyMs === "number") {
+            latencies.push(metric.hotReloadLatencyMs);
+        }
+    }
+
+    if (latencies.length === 0) {
+        return undefined;
+    }
+
+    const sum = latencies.reduce((acc, val) => acc + val, 0);
+    const avg = sum / latencies.length;
+
+    // Sort a copy for p95 computation to avoid mutating the input array.
+    const sorted = latencies.slice().sort((a, b) => a - b);
+    const p95Index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
+    const p95 = sorted.at(p95Index) ?? sorted.at(-1) ?? 0;
+
+    return { avg, p95 };
 }
 
 /**
@@ -731,11 +769,9 @@ async function performInitialScan(
     // cache keys, eliminating a second round of readdir calls across the project tree.
     // Files that failed to read or parse in collectScriptNames are not in the cache;
     // they will be processed on their first watch event instead.
-    if (fileDataCache !== undefined && fileDataCache.size > 0) {
-        await Core.runInParallel(Array.from(fileDataCache.keys()), processFile);
-    } else {
-        await scanDirectory(dirPath);
-    }
+    await (fileDataCache !== undefined && fileDataCache.size > 0
+        ? Core.runInParallel(Array.from(fileDataCache.keys()), processFile)
+        : scanDirectory(dirPath));
 
     const stats = runtimeContext.dependencyTracker.getStatistics();
     if (!quiet) {
@@ -1015,27 +1051,33 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             statusServerController = await startStatusServer({
                 host: statusHost,
                 port: statusPort,
-                getSnapshot: () => ({
-                    uptime: Date.now() - runtimeContext.startTime,
-                    patchCount: runtimeContext.metrics.length,
-                    totalPatchCount: runtimeContext.totalPatchCount,
-                    patchHistorySize: runtimeContext.patches.length,
-                    maxPatchHistory: runtimeContext.maxPatchHistory,
-                    errorCount: runtimeContext.errors.length,
-                    recentPatches: runtimeContext.metrics.slice(-10).map((m) => ({
-                        id: m.patchId,
-                        timestamp: m.timestamp,
-                        durationMs: m.durationMs,
-                        filePath: path.relative(normalizedPath, m.filePath)
-                    })),
-                    recentErrors: runtimeContext.errors.slice(-10).map((e) => ({
-                        timestamp: e.timestamp,
-                        filePath: path.relative(normalizedPath, e.filePath),
-                        error: e.error
-                    })),
-                    websocketClients: runtimeContext.websocketServer?.getClientCount() ?? 0,
-                    scanComplete: runtimeContext.scanComplete
-                })
+                getSnapshot: () => {
+                    const latencyStats = computeHotReloadLatencyStats(runtimeContext.metrics);
+                    return {
+                        uptime: Date.now() - runtimeContext.startTime,
+                        patchCount: runtimeContext.metrics.length,
+                        totalPatchCount: runtimeContext.totalPatchCount,
+                        patchHistorySize: runtimeContext.patches.length,
+                        maxPatchHistory: runtimeContext.maxPatchHistory,
+                        errorCount: runtimeContext.errors.length,
+                        recentPatches: runtimeContext.metrics.slice(-10).map((m) => ({
+                            id: m.patchId,
+                            timestamp: m.timestamp,
+                            durationMs: m.durationMs,
+                            filePath: path.relative(normalizedPath, m.filePath),
+                            hotReloadLatencyMs: m.hotReloadLatencyMs
+                        })),
+                        recentErrors: runtimeContext.errors.slice(-10).map((e) => ({
+                            timestamp: e.timestamp,
+                            filePath: path.relative(normalizedPath, e.filePath),
+                            error: e.error
+                        })),
+                        websocketClients: runtimeContext.websocketServer?.getClientCount() ?? 0,
+                        scanComplete: runtimeContext.scanComplete,
+                        avgHotReloadLatencyMs: latencyStats?.avg,
+                        p95HotReloadLatencyMs: latencyStats?.p95
+                    };
+                }
             });
 
             runtimeContext.statusServer = statusServerController;
@@ -1282,7 +1324,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                             verbose,
                             quiet,
                             runtimeContext,
-                            abortSignal
+                            abortSignal,
+                            fileChangeDetectedAt: Date.now()
                         }).catch((error) => {
                             const message = getErrorMessage(error, {
                                 fallback: "Unknown file processing error"
@@ -1308,7 +1351,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
                             verbose,
                             quiet,
                             runtimeContext,
-                            abortSignal
+                            abortSignal,
+                            fileChangeDetectedAt: Date.now()
                         });
                     }
                 }
@@ -1363,7 +1407,14 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 async function handleFileChange(
     filePath: string,
     eventType: string,
-    { verbose = false, quiet = false, runtimeContext, fileStats, abortSignal }: FileChangeOptions = {}
+    {
+        verbose = false,
+        quiet = false,
+        runtimeContext,
+        fileStats,
+        abortSignal,
+        fileChangeDetectedAt
+    }: FileChangeOptions = {}
 ): Promise<void> {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -1477,7 +1528,8 @@ async function handleFileChange(
             // Transpile the changed file
             const result = transpileFile(runtimeContext, filePath, content, lines, {
                 verbose,
-                quiet
+                quiet,
+                fileChangeDetectedAt
             });
 
             await processTranspileResult(runtimeContext, filePath, result, verbose, quiet);
