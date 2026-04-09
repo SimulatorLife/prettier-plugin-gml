@@ -65,8 +65,97 @@ type AstCollectionResult = Readonly<{
 }>;
 
 // ---------------------------------------------------------------------------
-// Single-pass AST traversal
+// Single-pass AST traversal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Context threaded through the recursive AST walk.
+ * Avoids allocating per-call objects by using a single mutable bag.
+ */
+type VisitContext = {
+    readonly declarations: Array<GlobalVarStatementInfo>;
+    readonly references: Array<IdentifierReferenceInfo>;
+    readonly globalvarNames: Set<string>;
+};
+
+/** Process a `GlobalVarStatement` node — collect declared names and ranges. */
+function visitGlobalVarStatement(record: Record<string, unknown>, ctx: VisitContext): void {
+    const stmtStart = typeof record.start === "number" ? record.start : null;
+    const stmtEnd = typeof record.end === "number" ? record.end : null;
+
+    if (stmtStart === null || stmtEnd === null) {
+        return;
+    }
+
+    const declaredNames = collectDeclaredNamesFromStatement(record, ctx.globalvarNames);
+    ctx.declarations.push(
+        Object.freeze({
+            startInclusive: stmtStart,
+            endInclusive: stmtEnd,
+            declaredNames: Object.freeze(declaredNames)
+        })
+    );
+}
+
+/** Process an `Identifier` node that is NOT a member-property access. */
+function visitIdentifier(record: Record<string, unknown>, ctx: VisitContext): void {
+    const name = record.name;
+    const start = typeof record.start === "number" ? record.start : null;
+    const end = typeof record.end === "number" ? record.end : null;
+
+    if (typeof name === "string" && start !== null && end !== null && ctx.globalvarNames.has(name)) {
+        ctx.references.push(Object.freeze({ startInclusive: start, endInclusive: end, name }));
+    }
+}
+
+/**
+ * Recursively visit an AST node or array of nodes.
+ *
+ * @param node - Current AST value to visit.
+ * @param isPropertyAccess - Whether `node` is the `.property` side of a
+ *   `MemberDotExpression`; when true, bare identifiers are skipped because
+ *   they are member property names, not globalvar references.
+ * @param ctx - Shared mutable context accumulating results.
+ */
+function visitAstNode(node: unknown, isPropertyAccess: boolean, ctx: VisitContext): void {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const element of node) {
+            visitAstNode(element, false, ctx);
+        }
+        return;
+    }
+
+    const record = node as Record<string, unknown>;
+    const type = record.type;
+
+    if (type === "GlobalVarStatement") {
+        visitGlobalVarStatement(record, ctx);
+        // Never descend: identifier children are declarations, not references.
+        return;
+    }
+
+    if (type === "MemberDotExpression") {
+        visitAstNode(record.object, false, ctx);
+        visitAstNode(record.property, true, ctx);
+        return;
+    }
+
+    if (type === "Identifier" && !isPropertyAccess) {
+        visitIdentifier(record, ctx);
+        return;
+    }
+
+    // Generic descent for all other node types.
+    for (const value of Object.values(record)) {
+        if (value && typeof value === "object") {
+            visitAstNode(value, false, ctx);
+        }
+    }
+}
 
 /**
  * Collect GlobalVarStatement declarations and bare Identifier references in a
@@ -80,82 +169,9 @@ type AstCollectionResult = Readonly<{
  *   with any `GlobalVarStatement` names found in this file.
  */
 function collectAstData(programNode: unknown, globalvarNames: Set<string>): AstCollectionResult {
-    const declarations: Array<GlobalVarStatementInfo> = [];
-    const references: Array<IdentifierReferenceInfo> = [];
-
-    /**
-     * @param node - Current AST node.
-     * @param isPropertyAccess - True when this node is the `.property` of a
-     *   `MemberDotExpression` — in that case bare identifiers must not be
-     *   treated as globalvar references (they are member property names).
-     */
-    const visit = (node: unknown, isPropertyAccess: boolean): void => {
-        if (!node || typeof node !== "object") {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const element of node) {
-                visit(element, false);
-            }
-            return;
-        }
-
-        const record = node as Record<string, unknown>;
-        const type = record.type;
-
-        // ── GlobalVarStatement ───────────────────────────────────────────────
-        if (type === "GlobalVarStatement") {
-            const stmtStart = typeof record.start === "number" ? record.start : null;
-            const stmtEnd = typeof record.end === "number" ? record.end : null;
-
-            if (stmtStart !== null && stmtEnd !== null) {
-                const declaredNames = collectDeclaredNamesFromStatement(record, globalvarNames);
-                declarations.push(
-                    Object.freeze({
-                        startInclusive: stmtStart,
-                        endInclusive: stmtEnd,
-                        declaredNames: Object.freeze(declaredNames)
-                    })
-                );
-            }
-            // Do NOT descend into GlobalVarStatement children — the identifiers
-            // there are declarations, not references.
-            return;
-        }
-
-        // ── MemberDotExpression ──────────────────────────────────────────────
-        // Visit the `object` side normally (it can be a globalvar reference:
-        // e.g. a struct stored in a globalvar), but mark the `property` side
-        // as a property-access so we do not rewrite it.
-        if (type === "MemberDotExpression") {
-            visit(record.object, false);
-            visit(record.property, true);
-            return;
-        }
-
-        // ── Identifier ───────────────────────────────────────────────────────
-        if (type === "Identifier" && !isPropertyAccess) {
-            const name = record.name;
-            const start = typeof record.start === "number" ? record.start : null;
-            const end = typeof record.end === "number" ? record.end : null;
-
-            if (typeof name === "string" && start !== null && end !== null && globalvarNames.has(name)) {
-                references.push(Object.freeze({ startInclusive: start, endInclusive: end, name }));
-            }
-            return;
-        }
-
-        // ── Generic descent ──────────────────────────────────────────────────
-        for (const value of Object.values(record)) {
-            if (value && typeof value === "object") {
-                visit(value, false);
-            }
-        }
-    };
-
-    visit(programNode, false);
-    return Object.freeze({ declarations, references });
+    const ctx: VisitContext = { declarations: [], references: [], globalvarNames };
+    visitAstNode(programNode, false, ctx);
+    return Object.freeze({ declarations: ctx.declarations, references: ctx.references });
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +234,9 @@ function applyEdits(sourceText: string, edits: ReadonlyArray<GlobalvarToGlobalEd
     }
 
     // Sort descending by start position to preserve earlier offsets.
-    const sorted = [...edits].sort((a, b) => b.start - a.start || b.end - a.end);
+    // Edits in this codemod are non-overlapping by design, so a single sort
+    // key on start position is sufficient.
+    const sorted = [...edits].sort((a, b) => b.start - a.start);
     let output = sourceText;
 
     for (const edit of sorted) {

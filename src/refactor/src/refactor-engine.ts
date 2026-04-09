@@ -1210,11 +1210,10 @@ export class RefactorEngine {
         const uniqueFilePaths = [...new Set(filePaths)];
 
         // ── Phase 1: collect all globalvar names declared across the project ──
-        // Read every file once and accumulate declared names into a shared set.
-        // Uses the lightweight `collectGlobalvarDeclaredNames` helper which only
-        // parses and scans for declarations, skipping all edit-generation work.
+        // Reads each file once using the lightweight `collectGlobalvarDeclaredNames`
+        // helper.  File contents are NOT cached here to avoid holding the entire
+        // project in memory simultaneously; Phase 2 re-reads files as needed.
         const projectGlobalvarNames = new Set<string>();
-        const fileContents = new Map<string, string>();
 
         await Core.runSequentially(uniqueFilePaths, async (filePath) => {
             Core.assertNonEmptyString(filePath, {
@@ -1222,7 +1221,6 @@ export class RefactorEngine {
             });
 
             const sourceText = await readFile(filePath);
-            fileContents.set(filePath, sourceText);
 
             // collectGlobalvarDeclaredNames already performs the fast-path keyword
             // check internally, so no duplicate guard is needed here.
@@ -1240,11 +1238,13 @@ export class RefactorEngine {
         }
 
         // ── Phase 2: rewrite files that reference collected globalvar names ──
+        // Each file is re-read individually so that peak memory usage stays
+        // proportional to a single file's content rather than the entire project.
         const workspace = new WorkspaceEdit();
         const changedFiles: ExecuteGlobalvarToGlobalCodemodResult["changedFiles"] = [];
 
         await Core.runSequentially(uniqueFilePaths, async (filePath) => {
-            const sourceText = fileContents.get(filePath) ?? (await readFile(filePath));
+            const sourceText = await readFile(filePath);
             const result = applyGlobalvarToGlobalCodemod(sourceText, projectGlobalvarNames, options);
 
             if (!result.changed) {
