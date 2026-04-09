@@ -690,6 +690,22 @@ Generates GML identifier metadata from the GameMaker manual repository.
 pnpm run cli -- generate-gml-identifiers
 ```
 
+### `lookup-gml-identifier` - Query Built-In Metadata
+
+Looks up a built-in GML keyword/function/identifier from `gml-identifiers.json`
+(the manual-derived snapshot). This command does not maintain a separate glossary;
+it reads the identifier snapshot directly.
+
+```bash
+pnpm run cli -- lookup-gml-identifier draw_text
+pnpm run cli -- lookup-gml-identifier draw_text --json
+```
+
+Behavior:
+
+- Exit code `0`: identifier exists in the snapshot.
+- Exit code `2`: identifier is not recognized as a built-in.
+
 ### `generate-feather-metadata` - Generate Feather Metadata
 
 Generates Feather metadata for GameMaker's static analysis.
@@ -756,6 +772,7 @@ The CLI package is organized into focused, single-responsibility modules:
 - `refactor.ts` - Safe, project-wide code transformations
 - `format.ts` - GML code formatting
 - `generate-gml-identifiers.ts` - Identifier metadata generation
+- `lookup-gml-identifier.ts` - Built-in identifier lookup from manual-derived metadata
 - `generate-feather-metadata.ts` - Feather metadata generation
 
 **Modules** (`src/modules/`)

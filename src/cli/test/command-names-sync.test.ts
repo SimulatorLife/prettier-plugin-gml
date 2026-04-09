@@ -16,6 +16,7 @@ void test("CLI_COMMAND_NAMES includes all expected commands", () => {
         "format",
         "fix",
         "lint",
+        "lookup-gml-identifier",
         "parse",
         "performance",
         "generate-gml-identifiers",
