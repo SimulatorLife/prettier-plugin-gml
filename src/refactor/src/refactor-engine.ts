@@ -73,6 +73,7 @@ import {
     getWorkspaceEditRevision,
     type GroupedTextEdits,
     isWorkspaceEditLike,
+    mergeWorkspaceEditInto,
     type TextEdit,
     validateFileRenameOperations,
     WorkspaceEdit
@@ -719,34 +720,12 @@ export class RefactorEngine {
             }
         }
 
-        // Build a workspace edit containing text edits for every occurrence. Each
-        // edit replaces the old symbol name with the new name at its source location.
+        // Populate a workspace with text edits for all occurrence spans, then
+        // merge any extra structural edits (file renames, metadata rewrites) that
+        // the semantic provider supplies for this symbol rename.
         const workspace = new WorkspaceEdit();
-
-        for (const occurrence of occurrences) {
-            workspace.addEdit(occurrence.path, occurrence.start, occurrence.end, normalizedNewName);
-        }
-
-        // Add additional edits (like file renames) if the semantic analyzer provides them.
-        const semantic = this.semantic;
-        if (Core.hasMethods(semantic, "getAdditionalSymbolEdits")) {
-            const additionalEdits = await semantic.getAdditionalSymbolEdits(symbolId, normalizedNewName);
-            if (additionalEdits && Array.isArray(additionalEdits.edits)) {
-                for (const edit of additionalEdits.edits) {
-                    workspace.addEdit(edit.path, edit.start, edit.end, edit.newText);
-                }
-            }
-            if (additionalEdits && Array.isArray(additionalEdits.fileRenames)) {
-                for (const rename of additionalEdits.fileRenames) {
-                    workspace.addFileRename(rename.oldPath, rename.newPath);
-                }
-            }
-            if (additionalEdits && Array.isArray(additionalEdits.metadataEdits)) {
-                for (const metadataEdit of additionalEdits.metadataEdits) {
-                    workspace.addMetadataEdit(metadataEdit.path, metadataEdit.content);
-                }
-            }
-        }
+        populateWorkspaceWithOccurrenceEdits(workspace, occurrences, normalizedNewName);
+        await mergeAdditionalSymbolEditsFromSemantic(workspace, this.semantic, symbolId, normalizedNewName);
 
         return dropRedundantTextEditsForMetadataRewrites(workspace);
     }
@@ -2617,6 +2596,46 @@ function throwIfValidationFailed(validation: ValidationSummary, context: string)
     if (!validation.valid) {
         throw new Error(`${context}: ${validation.errors.join("; ")}`);
     }
+}
+
+/**
+ * Populate a workspace with one text edit per occurrence of the renamed symbol.
+ * Each edit replaces the old symbol name span with `newName` at its source location.
+ *
+ * Extracted from {@link RefactorEngine.planRename} so the orchestrator body
+ * remains a readable sequence of delegation steps at a single abstraction level.
+ */
+function populateWorkspaceWithOccurrenceEdits(
+    workspace: WorkspaceEdit,
+    occurrences: ReadonlyArray<SymbolOccurrence>,
+    newName: string
+): void {
+    for (const occurrence of occurrences) {
+        workspace.addEdit(occurrence.path, occurrence.start, occurrence.end, newName);
+    }
+}
+
+/**
+ * Merge structural edits produced by the semantic analyzer for a symbol rename
+ * into the given workspace.
+ *
+ * Only executes when the analyzer implements
+ * {@link OccurrenceTracker.getAdditionalSymbolEdits}; otherwise this is a no-op.
+ * Delegates the collection bookkeeping to {@link mergeWorkspaceEditInto} so
+ * the caller does not need to iterate over individual edit arrays.
+ */
+async function mergeAdditionalSymbolEditsFromSemantic(
+    workspace: WorkspaceEdit,
+    semantic: PartialSemanticAnalyzer | null,
+    symbolId: string,
+    newName: string
+): Promise<void> {
+    if (!Core.hasMethods(semantic, "getAdditionalSymbolEdits")) {
+        return;
+    }
+
+    const additionalEdits = await semantic.getAdditionalSymbolEdits(symbolId, newName);
+    mergeWorkspaceEditInto(workspace, additionalEdits);
 }
 
 export function createRefactorEngine(dependencies: Partial<RefactorEngineDependencies> = {}): RefactorEngine {
