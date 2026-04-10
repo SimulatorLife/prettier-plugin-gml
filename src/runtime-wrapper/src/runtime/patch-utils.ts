@@ -484,7 +484,7 @@ function collectMissingDependencies(
 export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistry): DependencyValidationResult {
     const dependencies = patch.metadata?.dependencies;
 
-    if (!dependencies || !Array.isArray(dependencies) || dependencies.length === 0) {
+    if (!Core.isNonEmptyArray(dependencies)) {
         return { satisfied: true, missingDependencies: [] };
     }
 
@@ -520,7 +520,7 @@ export function validateBatchPatchDependencies(
 
     for (const [index, patch] of patches.entries()) {
         const dependencies = patch.metadata?.dependencies;
-        if (dependencies && Array.isArray(dependencies) && dependencies.length > 0) {
+        if (Core.isNonEmptyArray(dependencies)) {
             const missingDependencies = collectMissingDependencies(
                 dependencies,
                 (dependencyId) =>
