@@ -19,12 +19,17 @@ export type SequentialCallback<T> = (value: T, index: number) => void | Promise<
  * });
  */
 export async function runSequentially<T>(values: Iterable<T>, callback: SequentialCallback<T>): Promise<void> {
-    const entries = Array.from(values);
+    let chain: Promise<unknown> = Promise.resolve();
+    let index = 0;
 
-    await entries.reduce(async (previousPromise, value, index) => {
-        await previousPromise;
-        return callback(value, index);
-    }, Promise.resolve());
+    for (const value of values) {
+        // `value` is block-scoped per for...of iteration, but `index` is not — capture
+        // the current iteration's index before incrementing so each closure sees its own.
+        const currentIndex = index++;
+        chain = chain.then(() => callback(value, currentIndex));
+    }
+
+    await chain;
 }
 
 /**
