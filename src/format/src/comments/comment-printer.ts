@@ -224,7 +224,12 @@ function printComment(commentPath, options) {
                     previousSignificantCharacter === "}" &&
                     previousSignificantIndex !== null &&
                     isSourceIndexInsideLineComment(previousSignificantIndex, options?.originalText);
+                const isRegionDirectiveComment = /^#(?:end)?region\b/u.test(rawText.trimStart());
+                const followsRegionDirective =
+                    isRegionDirectiveComment !== true &&
+                    hasTopLevelRegionDirectiveImmediatelyBeforeComment(comment, options?.originalText);
                 const allowSourceDrivenBlankLinePrepend =
+                    (isRegionDirectiveComment || followsRegionDirective) &&
                     (sourceIndentationWidth === 0 || previousSignificantCharacter === "{") &&
                     previousSignificantCharacter !== null &&
                     previousSignificantCharacter !== "/" &&
@@ -431,6 +436,27 @@ function hasSimpleLeadingBlankLineInSource(comment, originalText) {
     return newlineCount >= 2;
 }
 
+function hasTopLevelRegionDirectiveImmediatelyBeforeComment(comment, originalText): boolean {
+    const sourceSpan = resolveCommentSourceSpan(comment, originalText);
+    if (!sourceSpan) {
+        return false;
+    }
+
+    const sourceBeforeComment = sourceSpan.originalText.slice(0, sourceSpan.startIndex);
+    const sourceLines = sourceBeforeComment.split(/\r?\n/u);
+    let sourceIndex = sourceLines.length - 1;
+    while (sourceIndex >= 0) {
+        const candidateLine = sourceLines[sourceIndex]?.trim();
+        if (candidateLine === "") {
+            sourceIndex -= 1;
+            continue;
+        }
+        return /^#(?:end)?region\b/u.test(candidateLine);
+    }
+
+    return false;
+}
+
 function applyTrailingCommentPadding(comment) {
     if (!Core.isObjectLike(comment)) {
         return;
@@ -452,8 +478,6 @@ function applyTrailingCommentPadding(comment) {
         comment.inlinePadding = Math.max(comment.inlinePadding, adjustedPadding);
     } else if (adjustedPadding > 0) {
         comment.inlinePadding = adjustedPadding;
-    } else {
-        comment.inlinePadding = 0;
     }
 }
 
