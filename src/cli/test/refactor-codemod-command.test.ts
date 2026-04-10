@@ -1836,7 +1836,7 @@ void test("refactor codemod --path accepts a single .gml file and scopes rewrite
 
         const selectedScriptPath = path.join(projectRoot, "scripts", "selected_script", "selected_script.gml");
         const result = await runCliTestCommand({
-            argv: ["refactor", "codemod", "--path", selectedScriptPath, "--fix"]
+            argv: ["refactor", "codemod", "--path", selectedScriptPath, "--write"]
         });
 
         assert.equal(result.exitCode, 0);
