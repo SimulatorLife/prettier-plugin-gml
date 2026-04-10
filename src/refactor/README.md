@@ -45,6 +45,7 @@ Current guardrails focus on the two hottest naming-convention paths that showed 
 - Resource rename metadata planning now indexes inbound metadata references once per semantic bridge and reuses parsed `.yy/.yyp` documents across the batch instead of rescanning and reparsing them for every rename.
 - `WorkspaceEdit` now caches grouped text edits per revision and skips the second structural validation pass when the same immutable workspace is applied immediately after validation.
 - The CLI refactor command now uses the semantic workspace's default GML project-index concurrency instead of forcing a serial build, so large codemod runs do not bottleneck on one-file-at-a-time indexing.
+- Globalvar and loop-length codemod executions now reuse source text captured during planning when applying a workspace edit, eliminating redundant per-file reads in dry-run and write modes.
 
 The refactor workspace keeps naming-convention codemod stress tests in the regular TypeScript test suite:
 

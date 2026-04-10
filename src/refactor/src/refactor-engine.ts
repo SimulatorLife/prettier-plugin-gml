@@ -876,7 +876,7 @@ export class RefactorEngine {
         options?: ApplyWorkspaceEditOptions
     ): Promise<Map<string, string>> {
         const opts: ApplyWorkspaceEditOptions = options ?? ({} as ApplyWorkspaceEditOptions);
-        const { dryRun = false, includeResultContent = true, readFile, writeFile } = opts;
+        const { dryRun = false, includeResultContent = true, readFile, sourceTextByPath, writeFile } = opts;
 
         if (!workspace || !isWorkspaceEditLike(workspace)) {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
@@ -916,7 +916,7 @@ export class RefactorEngine {
             }
 
             const [filePath, edits] = nextTextEditGroup.value;
-            const originalContent = await readFile(filePath);
+            const originalContent = sourceTextByPath?.get(filePath) ?? (await readFile(filePath));
             const newContent = applyGroupedTextEditsToContent(originalContent, edits);
 
             results.set(filePath, includeResultContent ? newContent : "");
@@ -1275,6 +1275,7 @@ export class RefactorEngine {
 
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
+            sourceTextByPath: fileContents,
             writeFile,
             includeResultContent: dryRun,
             dryRun
@@ -1304,6 +1305,7 @@ export class RefactorEngine {
         const uniqueFilePaths = [...new Set(filePaths)];
 
         const workspace = new WorkspaceEdit();
+        const sourceTextByPath = new Map<string, string>();
         const changedFiles: ExecuteLoopLengthHoistingCodemodResult["changedFiles"] = [];
 
         await Core.runSequentially(uniqueFilePaths, async (filePath) => {
@@ -1312,6 +1314,7 @@ export class RefactorEngine {
             });
 
             const sourceText = await readFile(filePath);
+            sourceTextByPath.set(filePath, sourceText);
             const result = applyLoopLengthHoistingCodemod(sourceText, options);
 
             if (!result.changed) {
@@ -1342,6 +1345,7 @@ export class RefactorEngine {
 
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
+            sourceTextByPath,
             writeFile,
             includeResultContent: dryRun,
             dryRun
