@@ -102,8 +102,8 @@ void describe("Hot reload latency tracking in watch pipeline", () => {
 
     after(async () => {
         const activeFixture = fixture;
-        fixture = null;
         if (activeFixture) {
+            fixture = null;
             await disposeWatchTestFixture(activeFixture.dir);
         }
     });
