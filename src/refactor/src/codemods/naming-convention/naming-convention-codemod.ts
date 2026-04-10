@@ -102,6 +102,13 @@ type ScopeDataCollectionResult = {
     duplicateScopedDeclarationKeys: Set<string>;
 };
 
+function createEmptyScopeDataCollectionResult(): ScopeDataCollectionResult {
+    return {
+        localScopeNames: new Map<string, Map<string, number>>(),
+        duplicateScopedDeclarationKeys: new Set<string>()
+    };
+}
+
 /**
  * Collect all scope-level data needed for naming-convention rename planning in a
  * minimal number of passes over `selectedTargets`.
@@ -673,18 +680,23 @@ export async function planNamingConventionCodemod(
     });
     warnings.push(...queriedTargetsResult.warnings);
     const queriedTargets = queriedTargetsResult.targets;
-    const selectedTargets = queriedTargets.filter((target) => isSelectedTargetPath(target.path));
-    const requiresMacroDependencyAnalysis = selectedTargets.some((target) => target.symbolId === null);
+    // When query paths are provided, semantic target discovery is already scoped
+    // to those files/directories. Re-checking every target through the path
+    // matcher repeats path-resolution work on the hot path for large projects.
+    const selectedTargets =
+        queryPaths.length === 0 ? queriedTargets.filter((target) => isSelectedTargetPath(target.path)) : queriedTargets;
+    const hasLocalNamingTargets = selectedTargets.some((target) => target.symbolId === null);
     const macroDependencyNamesByFile =
-        requiresMacroDependencyAnalysis && typeof semantic.listMacroExpansionDependencies === "function"
+        hasLocalNamingTargets && typeof semantic.listMacroExpansionDependencies === "function"
             ? collectMacroDependencyNamesByFile(await semantic.listMacroExpansionDependencies(selectedFilePaths))
             : null;
 
-    // Collect per-scope conflict data in the fewest passes possible.
-    // `collectScopeDataFromTargets` merges what were previously two separate full
-    // iterations into a single first pass (plus an optional targeted second pass only
-    // for scopes that actually have multiple declarations — usually none).
-    const { localScopeNames, duplicateScopedDeclarationKeys } = collectScopeDataFromTargets(selectedTargets);
+    // Skip local-scope collection entirely when the current run only contains
+    // top-level symbols. This is the dominant `refactor codemod --write` path on
+    // large projects and avoids an otherwise redundant full scan of selectedTargets.
+    const { localScopeNames, duplicateScopedDeclarationKeys } = hasLocalNamingTargets
+        ? collectScopeDataFromTargets(selectedTargets)
+        : createEmptyScopeDataCollectionResult();
     const hasDuplicateScopedDeclarations = duplicateScopedDeclarationKeys.size > 0;
 
     for (const target of selectedTargets) {
