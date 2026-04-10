@@ -10,7 +10,7 @@ export type SequentialCallback<T> = (value: T, index: number) => void | Promise<
  *
  * @template T The type of values being processed
  * @param values The iterable collection to process
- * @param callback The async function to invoke for each value
+ * @param task The async function to invoke for each value
  * @returns A promise that resolves when all callbacks complete
  *
  * @example
@@ -18,7 +18,7 @@ export type SequentialCallback<T> = (value: T, index: number) => void | Promise<
  *   console.log(`Processing ${num} at index ${index}`);
  * });
  */
-export async function runSequentially<T>(values: Iterable<T>, callback: SequentialCallback<T>): Promise<void> {
+export async function runSequentially<T>(values: Iterable<T>, task: SequentialCallback<T>): Promise<void> {
     let chain: Promise<unknown> = Promise.resolve();
     let index = 0;
 
@@ -26,7 +26,7 @@ export async function runSequentially<T>(values: Iterable<T>, callback: Sequenti
         // `value` is block-scoped per for...of iteration, but `index` is not — capture
         // the current iteration's index before incrementing so each closure sees its own.
         const currentIndex = index++;
-        chain = chain.then(() => callback(value, currentIndex));
+        chain = chain.then(() => task(value, currentIndex));
     }
 
     await chain;
