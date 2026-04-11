@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { Core } from "@gmloop/core";
+
 import {
-    cloneAstNodeWithoutTraversalLinks,
     createCommentTokenRangeIndex,
     findFirstAstNodeBy,
     isAssignmentExpressionNodeWithOperator,
@@ -68,7 +69,7 @@ void test("walkAstNodes preserves source order when traversing array children", 
     assert.deepEqual(visitedIdentifiers, ["alpha", "beta", "gamma"]);
 });
 
-void test("cloneAstNodeWithoutTraversalLinks keeps local parent links without cloning ancestors", () => {
+void test("Core.cloneAstNode keeps local parent links without cloning ancestors", () => {
     const identifierNode: { type: string; name: string; parent?: unknown } = {
         type: "Identifier",
         name: "value"
@@ -84,7 +85,7 @@ void test("cloneAstNodeWithoutTraversalLinks keeps local parent links without cl
     identifierNode.parent = astRoot;
     (astRoot as { parent?: unknown }).parent = externalParent;
 
-    const clonedRoot = cloneAstNodeWithoutTraversalLinks(astRoot);
+    const clonedRoot = Core.cloneAstNode(astRoot) as Record<string, unknown>;
     const clonedIdentifier = (clonedRoot.body as Array<Record<string, unknown>>)[0];
 
     assert.equal("parent" in clonedRoot, false);
@@ -92,7 +93,7 @@ void test("cloneAstNodeWithoutTraversalLinks keeps local parent links without cl
     assert.equal(clonedIdentifier.parent, clonedRoot);
 });
 
-void test("cloneAstNodeWithoutTraversalLinks preserves nested node values", () => {
+void test("Core.cloneAstNode preserves nested node values", () => {
     const astRoot = {
         type: "AssignmentExpression",
         operator: "=",
@@ -100,7 +101,7 @@ void test("cloneAstNodeWithoutTraversalLinks preserves nested node values", () =
         right: { type: "Literal", value: "42" }
     };
 
-    const clonedRoot = cloneAstNodeWithoutTraversalLinks(astRoot);
+    const clonedRoot = Core.cloneAstNode(astRoot) as Record<string, unknown>;
     const clonedLeft = clonedRoot.left as Record<string, unknown>;
     const clonedRight = clonedRoot.right as Record<string, unknown>;
 

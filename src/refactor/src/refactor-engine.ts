@@ -1186,7 +1186,7 @@ export class RefactorEngine {
             errorMessage: "executeGlobalvarToGlobalCodemod requires a readFile function"
         });
 
-        const uniqueFilePaths = [...new Set(filePaths)];
+        const uniqueFilePaths = Core.uniqueArray(filePaths);
 
         // ── Phase 1: collect all globalvar names declared across the project ──
         // Read every file once and accumulate declared names into a shared set.
@@ -1281,7 +1281,7 @@ export class RefactorEngine {
         Core.assertFunction(readFile, "readFile", {
             errorMessage: "executeLoopLengthHoistingCodemod requires a readFile function"
         });
-        const uniqueFilePaths = [...new Set(filePaths)];
+        const uniqueFilePaths = Core.uniqueArray(filePaths);
 
         const workspace = new WorkspaceEdit();
         const sourceTextByPath = new Map<string, string>();
