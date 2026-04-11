@@ -212,11 +212,12 @@ function printComment(commentPath, options) {
                     originalText: options?.originalText
                 });
                 // For trailing (end-of-line) comments, ensure there is a space after the
-                // opening `//` so that `//text` becomes `// text`.  This preserves the raw
-                // source text for all other comment styles (doc `///`, banner `//---`, etc.)
-                // and for own-line comments where the trailing context does not apply.
+                // opening `//` so that `//text` becomes `// text`.  This normalizes only
+                // comments Prettier explicitly marks as trailing (e.g. `code; //comment`)
+                // and intentionally leaves own-line comments (commented-out code, banners,
+                // doc lines, etc.) completely untouched.
                 const commentText =
-                    !isOwnLineComment && /^\/\/[^\s/]/.test(rawText) ? `// ${rawText.slice(2)}` : rawText;
+                    comment.trailing === true && /^\/\/[^\s/]/.test(rawText) ? `// ${rawText.slice(2)}` : rawText;
                 const sourceIndentationWidth = resolveCommentSourceIndentationWidth(comment, options?.originalText);
                 const previousSignificantCharacter = resolvePreviousSignificantSourceCharacterBeforeComment(
                     comment,
@@ -237,6 +238,17 @@ function printComment(commentPath, options) {
                     previousSignificantCharacter !== "*" &&
                     !previousSignificantIsCommentedOutBrace &&
                     !hasTopLevelDocLineImmediatelyBeforeComment(comment, options?.originalText);
+                // When this comment is a leading comment on a node that has doc comments
+                // (e.g. a `// Note:` remark before a function with `/// @param...` lines),
+                // the outer printer's `shouldPreserveSourceGapBeforeDocCommentedNode` path
+                // already emits the blank line between the preceding statement and the
+                // function.  Adding another `hardline` here would produce a double blank
+                // line.  Detect this by checking whether the following node carries attached
+                // doc comments; if so, delegate the blank line entirely to the outer printer.
+                const followingNodeHasDocComments =
+                    comment.leading === true &&
+                    Array.isArray((comment as PrinterComment).followingNode?.docComments) &&
+                    (comment as PrinterComment).followingNode.docComments.length > 0;
                 // Blank-line insertion is gated by `allowSourceDrivenBlankLinePrepend`.
                 // When that flag is false (e.g. the comment follows a `///` doc line or
                 // lives inside an indented body), Prettier's own blank-line preservation
@@ -248,6 +260,7 @@ function printComment(commentPath, options) {
                 const shouldPrependBlankLine =
                     comment._gmlForceLeadingBlankLine === true ||
                     (allowSourceDrivenBlankLinePrepend &&
+                        !followingNodeHasDocComments &&
                         (hasLeadingBlankLineInWhitespace(comment) ||
                             hasSimpleLeadingBlankLineInSource(comment, options?.originalText)));
                 if (shouldPrependBlankLine) {
