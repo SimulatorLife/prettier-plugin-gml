@@ -57,7 +57,12 @@ export const Refactor = Object.freeze({
 });
 
 export * as Backends from "./backends/index.js";
-export { executeRegisteredCodemods, listConfiguredCodemods, listRegisteredCodemods } from "./codemod-registry.js";
+export {
+    executeRegisteredCodemods,
+    listConfiguredCodemods,
+    listRegisteredCodemods,
+    listSemanticProjectIndexDependentCodemodIds
+} from "./codemod-registry.js";
 export * as Codemods from "./codemods/index.js";
 export type {
     LoopLengthHoistFunctionSuffixes,
