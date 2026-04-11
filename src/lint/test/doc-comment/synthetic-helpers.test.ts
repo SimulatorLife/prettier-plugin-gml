@@ -119,4 +119,8 @@ void describe("resolveParameterName", () => {
     void it("returns undefined for a numeric name on Identifier", () => {
         assert.strictEqual(resolveParameterName({ type: "Identifier", name: 42 }), undefined);
     });
+
+    void it("returns undefined for array input", () => {
+        assert.strictEqual(resolveParameterName([]), undefined);
+    });
 });
