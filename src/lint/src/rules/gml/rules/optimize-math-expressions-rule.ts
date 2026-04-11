@@ -1,11 +1,10 @@
-import * as CoreWorkspace from "@gmloop/core";
+import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 import type { Rule } from "eslint";
 
 import { areExpressionNodesEquivalentIgnoringParentheses } from "../ast-node-equivalence.js";
 import { printExpression, readNodeText } from "../print-expression.js";
 import {
     applySourceTextEdits,
-    cloneAstNodeWithoutTraversalLinks,
     createCommentTokenRangeIndex,
     createMeta,
     getVariableDeclarator,
@@ -39,7 +38,7 @@ const {
     isLogicalAndOperator,
     isLogicalOrOperator,
     unwrapParenthesizedExpression: unwrapParenthesized
-} = CoreWorkspace.Core;
+} = Core;
 
 type MultiplicativeComponents = Readonly<{
     coefficient: number;
@@ -70,7 +69,7 @@ function tryEvaluateExpression(node: any): any {
         if (unwrapped.value === "false") {
             return false;
         }
-        const num = CoreWorkspace.Core.getLiteralNumberValue(unwrapped);
+        const num = Core.getLiteralNumberValue(unwrapped);
         if (num !== null) {
             return num;
         }
@@ -238,7 +237,7 @@ function collectMultiplicativeComponents(sourceText: string, node: any): Multipl
         return null;
     }
 
-    const num = CoreWorkspace.Core.getLiteralNumberValue(unwrapped);
+    const num = Core.getLiteralNumberValue(unwrapped);
     if (num !== null) {
         return { coefficient: num, factors: new Map() };
     }
@@ -577,7 +576,7 @@ function tryReadNumericLiteralValue(node: unknown): number | null {
         return null;
     }
 
-    return CoreWorkspace.Core.getLiteralNumberValue(expression);
+    return Core.getLiteralNumberValue(expression);
 }
 
 function isCanonicalNumericLiteralText(sourceText: string, node: unknown): boolean {
@@ -586,7 +585,7 @@ function isCanonicalNumericLiteralText(sourceText: string, node: unknown): boole
         return false;
     }
 
-    const numericValue = CoreWorkspace.Core.getLiteralNumberValue(expression);
+    const numericValue = Core.getLiteralNumberValue(expression);
     if (numericValue === null) {
         return false;
     }
@@ -1171,7 +1170,7 @@ function performDeadCodeElimination(bodyStatements: any[], sourceText: string, e
  * expression node and return the resulting source text if it changed.
  */
 function attemptManualNormalization(sourceText: string, node: any): string | null {
-    const clone = cloneAstNodeWithoutTraversalLinks(node);
+    const clone = Core.cloneAstNode(node) as MutableGameMakerAstNode;
     if (!clone) {
         return null;
     }

@@ -92,10 +92,6 @@ export interface SourceTextEdit {
     readonly text: string;
 }
 
-export function cloneAstNodeWithoutTraversalLinks<T>(node: T): T {
-    return Core.cloneAstNode(node) as T;
-}
-
 type RuleMetaOverrides = Readonly<{
     fixable?: "code" | "whitespace" | null;
     messageText?: string;
