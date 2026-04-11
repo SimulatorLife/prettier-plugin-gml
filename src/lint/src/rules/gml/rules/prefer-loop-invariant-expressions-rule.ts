@@ -1,7 +1,6 @@
 import { Core } from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import { areExpressionNodesEquivalentIgnoringParentheses } from "../ast-node-equivalence.js";
 import {
     type AstNodeRecord,
     type AstNodeWithType,
@@ -734,7 +733,7 @@ function collectEquivalentLoopReplacementTargets(
     const replacementTargets: LoopReplacementTarget[] = [];
 
     for (const candidate of replacementCandidates) {
-        if (!areExpressionNodesEquivalentIgnoringParentheses(candidate.expressionNode, targetExpressionNode)) {
+        if (!Core.areExpressionNodesEquivalentIgnoringParentheses(candidate.expressionNode, targetExpressionNode)) {
             continue;
         }
 

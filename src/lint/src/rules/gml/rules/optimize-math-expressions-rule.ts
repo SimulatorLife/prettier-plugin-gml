@@ -1,7 +1,6 @@
 import { Core, type MutableGameMakerAstNode } from "@gmloop/core";
 import type { Rule } from "eslint";
 
-import { areExpressionNodesEquivalentIgnoringParentheses } from "../ast-node-equivalence.js";
 import { printExpression, readNodeText } from "../print-expression.js";
 import {
     applySourceTextEdits,
@@ -667,7 +666,7 @@ function tryReadSquaredOperandText(sourceText: string, node: unknown): string | 
         return null;
     }
 
-    if (!areExpressionNodesEquivalentIgnoringParentheses(expression.left, expression.right)) {
+    if (!Core.areExpressionNodesEquivalentIgnoringParentheses(expression.left, expression.right)) {
         return null;
     }
 
@@ -759,8 +758,8 @@ function tryBuildHalfLengthdirDifferenceReplacement(sourceText: string, node: un
     }
 
     if (
-        !areExpressionNodesEquivalentIgnoringParentheses(baseExpression, subtrahendBaseExpression) ||
-        !areExpressionNodesEquivalentIgnoringParentheses(baseExpression, callBaseExpression)
+        !Core.areExpressionNodesEquivalentIgnoringParentheses(baseExpression, subtrahendBaseExpression) ||
+        !Core.areExpressionNodesEquivalentIgnoringParentheses(baseExpression, callBaseExpression)
     ) {
         return null;
     }
@@ -1183,7 +1182,7 @@ function attemptManualNormalization(sourceText: string, node: any): string | nul
     cleanupMultiplicativeIdentityParentheses(clone, context as any);
 
     const original = readNodeText(sourceText, node) || "";
-    if (areExpressionNodesEquivalentIgnoringParentheses(node, clone)) {
+    if (Core.areExpressionNodesEquivalentIgnoringParentheses(node, clone)) {
         return null;
     }
 
