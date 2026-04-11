@@ -35,7 +35,6 @@ const RECOMMENDED_RULES: Readonly<Record<string, LintRuleLevel>> = Object.freeze
     "gml/normalize-data-structure-accessors": "warn",
     "gml/require-trailing-optional-defaults": "warn",
     "gml/simplify-real-calls": "warn",
-    "gml/no-unary-plus-on-identifier": "warn",
     "gml/no-negative-zero": "warn"
 });
 
