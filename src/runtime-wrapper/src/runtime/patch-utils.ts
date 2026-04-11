@@ -819,30 +819,23 @@ type PatchKindHandler = {
     apply: (registry: RuntimeRegistry, patch: Patch) => RuntimeRegistry;
 };
 
+// Pre-built handler lookup keyed by patch kind. The supported set of kinds is
+// fixed at compile time, so we build the handlers once at module load and reuse
+// them on every call. This avoids allocating a new object + closures on every
+// `captureSnapshot`, `applyPatchToRegistry`, and `restoreSnapshot` invocation —
+// calls that occur on the hot path during each 60 fps hot-reload cycle.
+const PATCH_KIND_HANDLERS: ReadonlyMap<string, PatchKindHandler> = new Map<string, PatchKindHandler>([
+    ["script", { key: "scripts", apply: (registry, patch) => applyScriptPatch(registry, patch as ScriptPatch) }],
+    ["event", { key: "events", apply: (registry, patch) => applyEventPatch(registry, patch as EventPatch) }],
+    ["closure", { key: "closures", apply: (registry, patch) => applyClosurePatch(registry, patch as ClosurePatch) }]
+]);
+
 function resolvePatchKindHandler(kind: Patch["kind"]): PatchKindHandler {
-    switch (kind) {
-        case "script": {
-            return {
-                key: "scripts",
-                apply: (registry, patch) => applyScriptPatch(registry, patch as ScriptPatch)
-            };
-        }
-        case "event": {
-            return {
-                key: "events",
-                apply: (registry, patch) => applyEventPatch(registry, patch as EventPatch)
-            };
-        }
-        case "closure": {
-            return {
-                key: "closures",
-                apply: (registry, patch) => applyClosurePatch(registry, patch as ClosurePatch)
-            };
-        }
-        default: {
-            throw new TypeError("Unsupported patch kind");
-        }
+    const handler = PATCH_KIND_HANDLERS.get(kind);
+    if (!handler) {
+        throw new TypeError("Unsupported patch kind");
     }
+    return handler;
 }
 
 function restoreEntry(registry: RuntimeRegistry, snapshot: PatchSnapshot, key: RegistryCollectionKey): RuntimeRegistry {
