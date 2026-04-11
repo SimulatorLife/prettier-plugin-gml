@@ -475,6 +475,12 @@ export interface ApplyWorkspaceEditOptions {
     dryRun?: boolean;
     includeResultContent?: boolean;
     readFile: WorkspaceReadFile;
+    /**
+     * Optional source-text cache keyed by absolute or project-relative file path.
+     * When provided, `applyWorkspaceEdit` reuses these in-memory snapshots
+     * instead of re-reading files that were already loaded during codemod planning.
+     */
+    sourceTextByPath?: ReadonlyMap<string, string>;
     writeFile?: WorkspaceWriteFile;
     renameFile?: (oldPath: string, newPath: string) => MaybePromise<void>;
     deleteFile?: (path: string) => MaybePromise<void>;

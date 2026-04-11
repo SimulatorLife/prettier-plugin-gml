@@ -349,6 +349,39 @@ export function getWorkspaceArrays(workspace: { metadataEdits?: unknown; fileRen
 }
 
 /**
+ * Merge all edits, file renames, and metadata edits from `source` into `target`.
+ *
+ * When `source` is `null` or `undefined` the function is a no-op, making it safe
+ * to call unconditionally with nullable providers (e.g. the return value of
+ * `semantic.getAdditionalSymbolEdits`).
+ *
+ * Text edits are merged via {@link WorkspaceEdit.addEdit} so the exact-duplicate
+ * guard on `target` is honoured. File renames and metadata edits are appended
+ * directly; callers that need deduplication (e.g. batch rename accumulation)
+ * should use {@link accumulateRenameWorkspace} instead.
+ *
+ * @param target - Destination workspace that receives the merged content.
+ * @param source - Source workspace whose edits are copied into `target`.
+ */
+export function mergeWorkspaceEditInto(target: WorkspaceEdit, source: WorkspaceEdit | null | undefined): void {
+    if (!source) {
+        return;
+    }
+
+    for (const edit of source.edits) {
+        target.addEdit(edit.path, edit.start, edit.end, edit.newText);
+    }
+
+    for (const metadataEdit of source.metadataEdits) {
+        target.addMetadataEdit(metadataEdit.path, metadataEdit.content);
+    }
+
+    for (const fileRename of source.fileRenames) {
+        target.addFileRename(fileRename.oldPath, fileRename.newPath);
+    }
+}
+
+/**
  * Validate file rename operations queued on a workspace edit.
  * Rejects ambiguous rename graphs up front so callers cannot apply a workspace
  * that would depend on execution order or overwrite another pending rename.

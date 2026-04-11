@@ -510,7 +510,7 @@ export function resolveUnknownScanConcurrency(configuredMaximum: number): number
  * @returns {number} Safe retranspile concurrency value (minimum 1).
  */
 export function resolveDependentRetranspileConcurrency(configuredMaximum: number): number {
-    return Math.max(1, Math.trunc(configuredMaximum));
+    return resolveUnknownScanConcurrency(configuredMaximum);
 }
 
 /**
