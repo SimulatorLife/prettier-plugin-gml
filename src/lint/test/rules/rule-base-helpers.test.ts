@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { Core } from "@gmloop/core";
+import type { Rule } from "eslint";
 
 import {
     createCommentTokenRangeIndex,
@@ -199,13 +200,13 @@ void test("isAssignmentExpressionNodeWithOperator rejects non-assignment and mis
 function createStubRuleContext(
     sourceText: string,
     getLocFromIndex?: (index: number) => { line: number; column: number } | undefined
-): import("eslint").Rule.RuleContext {
+): Rule.RuleContext {
     return {
         sourceCode: {
             text: sourceText,
             ...(getLocFromIndex === undefined ? {} : { getLocFromIndex })
         }
-    } as unknown as import("eslint").Rule.RuleContext;
+    } as unknown as Rule.RuleContext;
 }
 
 void test("resolveLocFromIndex returns line 1 column 0 for index 0 in a single-line source", () => {
