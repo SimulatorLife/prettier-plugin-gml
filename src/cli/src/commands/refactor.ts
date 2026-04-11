@@ -308,10 +308,10 @@ async function collectTargetGmlFiles(projectRoot: string, targetPaths: Array<str
 }
 
 function createRefactorEngineForProject(
-    projectIndex: unknown,
-    projectRoot: string
+    projectRoot: string,
+    projectIndex: object | null
 ): InstanceType<typeof RefactorEngine> {
-    const semantic = new GmlSemanticBridge(projectIndex, projectRoot);
+    const semantic = projectIndex === null ? null : new GmlSemanticBridge(projectIndex, projectRoot);
     const parser = new GmlParserBridge();
     const formatter = new GmlTranspilerBridge();
 
@@ -333,7 +333,7 @@ async function performRename(options: ValidatedRenameOptions): Promise<void> {
 
     try {
         const projectIndex = await buildProjectIndexWithParseTolerance(projectRoot, undefined, verbose);
-        const engine = createRefactorEngineForProject(projectIndex, projectRoot);
+        const engine = createRefactorEngineForProject(projectRoot, projectIndex);
         const semantic = engine.semantic as GmlSemanticBridge;
 
         if (!targetSymbolId && oldName) {
@@ -475,12 +475,19 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
         return;
     }
 
-    const projectIndex = await buildProjectIndexWithParseTolerance(projectRoot, undefined, verbose);
-    const engine = createRefactorEngineForProject(projectIndex, projectRoot);
-    const indexedRootTargetGmlFiles = resolveIndexedRootTargetGmlFiles(projectRoot, targetPaths, projectIndex);
-    const gmlFilePaths = indexedRootTargetGmlFiles ?? (await collectTargetGmlFiles(projectRoot, targetPaths));
     const selectedCodemodIds = selectConfiguredCodemodIds(config, onlyCodemods);
     const semanticIndexDependentCodemodIds = new Set(listSemanticProjectIndexDependentCodemodIds());
+    const requiresSemanticProjectIndex = selectedCodemodIds.some((codemodId) =>
+        semanticIndexDependentCodemodIds.has(codemodId)
+    );
+
+    const projectIndex = requiresSemanticProjectIndex
+        ? await buildProjectIndexWithParseTolerance(projectRoot, undefined, verbose)
+        : null;
+    const engine = createRefactorEngineForProject(projectRoot, projectIndex);
+    const indexedRootTargetGmlFiles =
+        projectIndex === null ? null : resolveIndexedRootTargetGmlFiles(projectRoot, targetPaths, projectIndex);
+    const gmlFilePaths = indexedRootTargetGmlFiles ?? (await collectTargetGmlFiles(projectRoot, targetPaths));
     const remainingSelectedCodemodIds = [...selectedCodemodIds];
 
     if (selectedCodemodIds.length === 0) {
