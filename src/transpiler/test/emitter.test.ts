@@ -98,14 +98,17 @@ void test("GmlToJsEmitter folds parser-produced string concatenation literals", 
 });
 
 void test("GmlToJsEmitter folds parser-produced multi-segment string concatenation", () => {
+    // Chained concat "a" + "b" + "c" is parsed as left-associative: ("a" + "b") + "c".
+    // The inner pair folds to "ab", but the outer node cannot fold further because
+    // its left child is a BinaryExpression (not a Literal). The result preserves
+    // the folded inner concat as a string literal while the outer concat remains
+    // a runtime operation.
     const source = 'var path = "sprites" + "/" + "player"';
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('"sprites/"') || result.includes('"sprites/player"'),
-        "Should fold chained string concat"
-    );
+    assert.ok(result.includes('"sprites/"'), "Should fold the inner concatenation to a single string");
+    assert.ok(result.includes('"player"'), "Should preserve the outer operand");
 });
 
 void test("GmlToJsEmitter emits escaped literals for folded strings with control characters", () => {

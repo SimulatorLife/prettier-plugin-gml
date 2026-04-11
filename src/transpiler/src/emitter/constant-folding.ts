@@ -49,7 +49,7 @@ function isNullishValue(value: unknown): value is null | undefined {
  * or non-string literal values do NOT include quotes.
  */
 function isParserQuotedString(value: string): boolean {
-    return value.length >= 2 && value.charCodeAt(0) === 34 && value.charCodeAt(value.length - 1) === 34;
+    return value.length >= 2 && value[0] === '"' && value.at(-1) === '"';
 }
 
 /**
