@@ -13,8 +13,11 @@ import {
 } from "../rule-base-helpers.js";
 import type { GmlRuleDefinition } from "../rule-definition.js";
 
-const { convertLegacyReturnsDescriptionLinesToMetadata, promoteLeadingDocCommentTextToDescription } =
-    gmlRuleDocCommentServices;
+const {
+    convertLegacyReturnsDescriptionLinesToMetadata,
+    promoteLeadingDocCommentTextToDescription,
+    resolveParameterName
+} = gmlRuleDocCommentServices;
 
 const { applyJsDocTagAliasReplacements } = CoreWorkspace.Core;
 
@@ -244,34 +247,7 @@ function countNamedFunctionParameters(functionNode: AstNodeWithType): number {
 
     let count = 0;
     for (const param of params) {
-        if (!param || typeof param !== "object") {
-            continue;
-        }
-
-        const paramType = Reflect.get(param, "type");
-        if (paramType === "Identifier" && typeof Reflect.get(param, "name") === "string") {
-            count += 1;
-            continue;
-        }
-
-        if (paramType === "DefaultParameter" || paramType === "AssignmentPattern") {
-            const left = Reflect.get(param, "left");
-            if (left && typeof left === "object") {
-                const name = Reflect.get(left, "name");
-                const identifier = Reflect.get(left, "id");
-                if (
-                    typeof name === "string" ||
-                    (identifier &&
-                        typeof identifier === "object" &&
-                        typeof Reflect.get(identifier, "name") === "string")
-                ) {
-                    count += 1;
-                }
-            }
-            continue;
-        }
-
-        if (typeof Reflect.get(param, "name") === "string") {
+        if (resolveParameterName(param) !== undefined) {
             count += 1;
         }
     }
@@ -1041,20 +1017,14 @@ function synthesizeFunctionDocCommentBlock(
 
     const params = (functionNode as any).params || [];
     for (const param of params) {
-        let paramName: string | undefined;
+        const paramName = resolveParameterName(param);
         let defaultVal: string | undefined;
 
-        if (param.type === "Identifier") {
-            paramName = param.name;
-        } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
-            const left = param.left;
-            paramName = left?.name ?? left?.id?.name;
+        if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
             const extractedDefault = extractDefaultParameterValueText(sourceText, param);
             if (extractedDefault !== null) {
                 defaultVal = extractedDefault;
             }
-        } else if (param.name) {
-            paramName = param.name;
         }
 
         if (!paramName) continue;
@@ -1653,15 +1623,7 @@ function getFunctionParameterNames(functionNode: any): { inOrder: string[]; set:
     const params = functionNode.params || [];
     const inOrder: string[] = [];
     for (const param of params) {
-        let parameterName: string | undefined;
-        if (param.type === "Identifier") {
-            parameterName = param.name;
-        } else if (param.type === "DefaultParameter" || param.type === "AssignmentPattern") {
-            const left = param.left;
-            parameterName = left?.name ?? left?.id?.name;
-        } else if (typeof param.name === "string") {
-            parameterName = param.name;
-        }
+        const parameterName = resolveParameterName(param);
 
         if (typeof parameterName !== "string" || parameterName.length === 0) {
             continue;
