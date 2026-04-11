@@ -23,7 +23,7 @@ import {
     calculateElapsedNanoseconds,
     formatElapsedNanosecondsAsMilliseconds,
     readMonotonicNanoseconds
-} from "../shared/elapsed-time.js";
+} from "../shared/timing/elapsed-time.js";
 import {
     discoverProjectRoot,
     resolveExistingGmloopConfigPath,

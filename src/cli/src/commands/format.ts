@@ -56,12 +56,12 @@ import {
     resolveSkippedDirectorySampleLimit,
     resolveUnsupportedExtensionSampleLimit
 } from "../runtime-options/sample-limits.js";
+import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
 import {
     calculateElapsedNanoseconds,
     formatElapsedNanosecondsAsMilliseconds,
     readMonotonicNanoseconds
-} from "../shared/elapsed-time.js";
-import { isMissingModuleDependency, resolveModuleDefaultExport } from "../shared/module.js";
+} from "../shared/timing/elapsed-time.js";
 import { resolveExistingGmloopConfigPath } from "../workflow/project-root.js";
 import {
     isHelpRequest,
