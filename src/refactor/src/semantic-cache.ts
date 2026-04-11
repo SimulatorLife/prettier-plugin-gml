@@ -28,7 +28,7 @@ interface CacheEntry<T> {
 export interface SemanticCacheConfig {
     /**
      * Maximum number of entries to store per cache type.
-     * When exceeded, oldest entries are evicted (FIFO).
+     * When exceeded, least-recently-used entries are evicted (LRU).
      * A value of `0` keeps the cache active but gives it zero capacity, so
      * fetched results are returned without being retained.
      * Default: 100
@@ -261,7 +261,7 @@ export class SemanticQueryCache {
      * Useful when a file changes but others remain valid.
      */
     invalidateFile(filePath: string): void {
-        const cachedSymbols = this.getCached(this.fileSymbolsCache, filePath);
+        const cachedSymbols = this.getCached(this.fileSymbolsCache, filePath, false);
         this.fileSymbolsCache.delete(filePath);
 
         if (cachedSymbols) {
@@ -355,7 +355,7 @@ export class SemanticQueryCache {
      * Get a cached value if it exists and hasn't expired.
      * @private
      */
-    private getCached<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+    private getCached<T>(cache: Map<string, CacheEntry<T>>, key: string, promoteOnHit = true): T | null {
         const entry = cache.get(key);
         if (!entry) {
             return null;
@@ -371,6 +371,10 @@ export class SemanticQueryCache {
             return null;
         }
 
+        if (promoteOnHit) {
+            this.promoteCacheEntry(cache, key, entry);
+        }
+
         return entry.value;
     }
 
@@ -384,7 +388,8 @@ export class SemanticQueryCache {
             return;
         }
 
-        // Evict oldest entry if cache is full (simple FIFO, not true LRU)
+        // Evict least-recently-used entry if cache is full (Map preserves insertion order;
+        // `getCached` promotes entries on hit by deleting + re-inserting them).
         if (cache.size >= this.config.maxSize) {
             const firstKey = cache.keys().next().value as string | undefined;
             if (firstKey !== undefined) {
@@ -402,6 +407,11 @@ export class SemanticQueryCache {
             value,
             timestamp: Date.now()
         });
+    }
+
+    private promoteCacheEntry<T>(cache: Map<string, CacheEntry<T>>, key: string, entry: CacheEntry<T>): void {
+        cache.delete(key);
+        cache.set(key, entry);
     }
 
     /**
