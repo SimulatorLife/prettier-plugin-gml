@@ -256,8 +256,12 @@ function sourceContainsGlobalvarContent(sourceText: string, knownNames: Readonly
         return false;
     }
 
-    // For large name sets the linear scan is not worth the overhead — fall through
-    // to the parser which will handle it correctly.
+    // For large name sets the per-name `includes()` scan across the full file
+    // text becomes more expensive than just parsing the file.  The threshold of
+    // 200 names is chosen conservatively: at that cardinality the substring scan
+    // of a typical 10-50 KB GML file costs roughly the same as a single parse,
+    // so the fast-path no longer provides a net benefit and we fall through to
+    // the parser which handles the rest correctly.
     if (knownNames.size > 200) {
         return true;
     }
