@@ -89,6 +89,25 @@ void test("GmlToJsEmitter folds string equality literals", () => {
     assert.ok(result.includes("isMatch = true"), "Should emit folded boolean constant for string equality");
 });
 
+void test("GmlToJsEmitter folds parser-produced string concatenation literals", () => {
+    const source = 'var msg = "hello" + " world"';
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.strictEqual(result.trim(), 'var msg = "hello world";', "Should fold string concat at compile time");
+});
+
+void test("GmlToJsEmitter folds parser-produced multi-segment string concatenation", () => {
+    const source = 'var path = "sprites" + "/" + "player"';
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes('"sprites/"') || result.includes('"sprites/player"'),
+        "Should fold chained string concat"
+    );
+});
+
 void test("GmlToJsEmitter emits escaped literals for folded strings with control characters", () => {
     const ast = {
         type: "Program",
