@@ -266,7 +266,8 @@ function loadIdentifierMetadata() {
  * Allow advanced integrations to supply alternate metadata at runtime while
  * keeping the default loader pointed at the bundled JSON file.
  *
- * @param {() => unknown} loader
+ * @param loader Custom metadata loader function, or a falsy value to reset
+ *        to the default bundled JSON loader.
  * @returns {() => void} Cleanup handler that restores the previous loader when
  *          invoked. The handler intentionally degrades to a no-op when another
  *          caller swapped the loader before cleanup runs. Identifier casing
@@ -274,14 +275,14 @@ function loadIdentifierMetadata() {
  *          reinstating `previousLoader` would roll back those newer overrides
  *          and leave the formatter reading stale metadata mid-run.
  */
-export function setReservedIdentifierMetadataLoader(loader: unknown) {
+export function setReservedIdentifierMetadataLoader(loader: (() => unknown) | null | undefined) {
     if (typeof loader !== "function") {
         resetReservedIdentifierMetadataLoader();
         return noop;
     }
 
     const previousLoader = metadataLoader;
-    metadataLoader = loader as () => unknown;
+    metadataLoader = loader;
 
     // Clear caches when the loader changes to prevent stale data
     clearIdentifierMetadataCache();
