@@ -27,6 +27,30 @@ function hasTypeProperty(value: unknown): value is { type?: string } {
     return value !== null && typeof value === "object";
 }
 
+/**
+ * Remove a comment from a node's `comments` array, if present.
+ *
+ * This helper encapsulates the "guard → indexOf → splice" pattern so that
+ * callers do not need to reach through `node.comments.indexOf(…)` /
+ * `node.comments.splice(…)` chains, keeping property-access depth within
+ * Law-of-Demeter bounds.
+ *
+ * @param node - AST node that may carry a `comments` array (may be null/undefined)
+ * @param comment - The comment instance to detach
+ */
+function removeCommentFromNodeList(
+    node: { comments?: Array<PrinterComment> } | null | undefined,
+    comment: PrinterComment
+): void {
+    if (!node || !Array.isArray(node.comments)) {
+        return;
+    }
+    const index = node.comments.indexOf(comment);
+    if (index !== -1) {
+        node.comments.splice(index, 1);
+    }
+}
+
 const EMPTY_BODY_TARGETS = [{ type: "BlockStatement", property: "body" }];
 
 const EMPTY_PARENS_TARGETS = [
@@ -689,25 +713,10 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
     const hadPrecedingNode = Boolean(comment.precedingNode);
     const shouldForceLeadingBlankLine = !hadPrecedingNode && comment.enclosingNode?.type === "Program";
 
-    if (Array.isArray(followingNode.comments)) {
-        const index = followingNode.comments.indexOf(comment);
-        if (index !== -1) {
-            followingNode.comments.splice(index, 1);
-        }
-    }
+    removeCommentFromNodeList(followingNode, comment);
     addLeadingComment(followingNode, comment);
-    if (comment.precedingNode && Array.isArray(comment.precedingNode.comments)) {
-        const index = comment.precedingNode.comments.indexOf(comment);
-        if (index !== -1) {
-            comment.precedingNode.comments.splice(index, 1);
-        }
-    }
-    if (comment.enclosingNode && Array.isArray(comment.enclosingNode.comments)) {
-        const index = comment.enclosingNode.comments.indexOf(comment);
-        if (index !== -1) {
-            comment.enclosingNode.comments.splice(index, 1);
-        }
-    }
+    removeCommentFromNodeList(comment.precedingNode, comment);
+    removeCommentFromNodeList(comment.enclosingNode, comment);
     comment.precedingNode = null;
     comment.followingNode = followingNode;
     comment.leading = true;
