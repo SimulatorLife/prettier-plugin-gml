@@ -34,7 +34,9 @@ const RECOMMENDED_RULES: Readonly<Record<string, LintRuleLevel>> = Object.freeze
     "gml/require-argument-separators": "error",
     "gml/normalize-data-structure-accessors": "warn",
     "gml/require-trailing-optional-defaults": "warn",
-    "gml/simplify-real-calls": "warn"
+    "gml/simplify-real-calls": "warn",
+    "gml/no-unary-plus-on-identifier": "warn",
+    "gml/no-negative-zero": "warn"
 });
 
 const RECOMMENDED_SAFE_FEATHER_RULES: Readonly<Record<`feather/${string}`, LintRuleLevel>> = Object.freeze({
