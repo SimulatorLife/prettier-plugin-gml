@@ -279,12 +279,41 @@ async function collectGmlFilesFromTarget(
 ): Promise<void> {
     const stats = await lstat(absoluteTargetPath);
     if (stats.isDirectory()) {
-        const entries = await readdir(absoluteTargetPath, {
-            withFileTypes: true
-        });
-        await Core.runSequentially(entries, async (entry) => {
-            await collectGmlFilesFromTarget(projectRoot, path.join(absoluteTargetPath, entry.name), collectedFiles);
-        });
+        const pendingDirectories = [absoluteTargetPath];
+        const processPendingDirectories = async (): Promise<void> => {
+            if (pendingDirectories.length === 0) {
+                return;
+            }
+            const currentDirectories = pendingDirectories.splice(0, 16);
+            const entriesByDirectory = await Core.runInParallel(currentDirectories, async (directoryPath) => {
+                return await readdir(directoryPath, {
+                    withFileTypes: true
+                });
+            });
+
+            for (const [directoryIndex, directoryPath] of currentDirectories.entries()) {
+                const entries = entriesByDirectory[directoryIndex];
+
+                for (const entry of entries) {
+                    const entryPath = path.join(directoryPath, entry.name);
+                    if (entry.isDirectory()) {
+                        pendingDirectories.push(entryPath);
+                        continue;
+                    }
+
+                    if (
+                        entry.isFile() &&
+                        (entry.name.toLowerCase().endsWith(".gml") || entry.name.toLowerCase().endsWith(".yy"))
+                    ) {
+                        collectedFiles.add(path.relative(projectRoot, entryPath));
+                    }
+                }
+            }
+
+            await processPendingDirectories();
+        };
+
+        await processPendingDirectories();
         return;
     }
 
@@ -309,9 +338,15 @@ async function collectTargetGmlFiles(projectRoot: string, targetPaths: Array<str
 
 function createRefactorEngineForProject(
     projectRoot: string,
-    projectIndex: object | null
+    projectIndex: object | null,
+    includeSemanticBridge: boolean = projectIndex !== null
 ): InstanceType<typeof RefactorEngine> {
-    const semantic = projectIndex === null ? null : new GmlSemanticBridge(projectIndex, projectRoot);
+    const semantic =
+        includeSemanticBridge && projectIndex !== null
+            ? new GmlSemanticBridge(projectIndex, projectRoot)
+            : includeSemanticBridge
+              ? new GmlSemanticBridge({}, projectRoot)
+              : null;
     const parser = new GmlParserBridge();
     const formatter = new GmlTranspilerBridge();
 
@@ -480,11 +515,20 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
     const requiresSemanticProjectIndex = selectedCodemodIds.some((codemodId) =>
         semanticIndexDependentCodemodIds.has(codemodId)
     );
+    const firstSemanticCodemodIndex = selectedCodemodIds.findIndex((codemodId) =>
+        semanticIndexDependentCodemodIds.has(codemodId)
+    );
+    const shouldDeferInitialSemanticIndexBuild =
+        firstSemanticCodemodIndex > 0 &&
+        selectedCodemodIds
+            .slice(0, firstSemanticCodemodIndex)
+            .some((codemodId) => !semanticIndexDependentCodemodIds.has(codemodId));
 
-    const projectIndex = requiresSemanticProjectIndex
-        ? await buildProjectIndexWithParseTolerance(projectRoot, undefined, verbose)
-        : null;
-    const engine = createRefactorEngineForProject(projectRoot, projectIndex);
+    const projectIndex =
+        requiresSemanticProjectIndex && !shouldDeferInitialSemanticIndexBuild
+            ? await buildProjectIndexWithParseTolerance(projectRoot, undefined, verbose)
+            : null;
+    const engine = createRefactorEngineForProject(projectRoot, projectIndex, requiresSemanticProjectIndex);
     const indexedRootTargetGmlFiles =
         projectIndex === null ? null : resolveIndexedRootTargetGmlFiles(projectRoot, targetPaths, projectIndex);
     const gmlFilePaths = indexedRootTargetGmlFiles ?? (await collectTargetGmlFiles(projectRoot, targetPaths));
@@ -501,7 +545,7 @@ async function performConfiguredCodemods(options: ValidatedCodemodOptions): Prom
     }
 
     const resolvePath = (filePath: string) => path.resolve(projectRoot, filePath);
-    let hasPendingSemanticIndexRefresh = false;
+    let hasPendingSemanticIndexRefresh = shouldDeferInitialSemanticIndexBuild;
     const result = await engine.executeConfiguredCodemods({
         projectRoot,
         targetPaths,
