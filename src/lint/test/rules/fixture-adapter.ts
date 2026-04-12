@@ -3,6 +3,7 @@ import { ESLint } from "eslint";
 
 import { createLintRuleEntriesFromProjectConfig } from "../../src/configs/index.js";
 import { Lint } from "../../src/index.js";
+import { resolveFixtureLintRecoveryMode } from "./recovery-mode.js";
 
 function createRuleEntriesCacheKey(ruleEntries: Record<string, unknown>): string {
     const sortedRuleIds = Object.keys(ruleEntries).sort((left, right) => left.localeCompare(right));
@@ -53,7 +54,7 @@ export function createLintFixtureAdapter(): FixtureAdapter {
                             },
                             language: "gml/gml",
                             languageOptions: {
-                                recovery: "limited"
+                                recovery: resolveFixtureLintRecoveryMode(ruleEntries)
                             },
                             rules: ruleEntries
                         }
