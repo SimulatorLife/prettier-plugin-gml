@@ -21,6 +21,11 @@ type BuildProjectIndexFunction = (
     options?: Record<string, unknown>
 ) => Promise<unknown>;
 
+type ProjectIndexLogger = {
+    log?: (...args: Array<unknown>) => void;
+    debug?: (...args: Array<unknown>) => void;
+} | null;
+
 type ProjectIndexCoordinatorOptions = {
     fsFacade?: ProjectIndexFsFacade | null;
     loadCache?: typeof loadProjectIndexCache;
@@ -1872,7 +1877,7 @@ async function discoverProjectFilesForIndex({
     metrics: any;
     signal: any;
     ensureNotAborted: () => void;
-    logger?: { log: typeof console.log } | null;
+    logger?: ProjectIndexLogger;
 }) {
     const projectFiles = await metrics.timers.timeAsync("scanProjectTree", () =>
         scanProjectTree(projectRoot, fsFacade, metrics, { signal })
@@ -1882,11 +1887,12 @@ async function discoverProjectFilesForIndex({
     metrics.metadata.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
 
     if (logger) {
-        logger.log(
+        logProjectIndexDebug(
+            logger,
             `DEBUG: Discovered ${projectFiles.yyFiles.length} yyFiles and ${projectFiles.gmlFiles.length} gmlFiles`
         );
         if (projectFiles.yyFiles.length > 0) {
-            logger.log(`DEBUG: Sample yyFile: ${projectFiles.yyFiles[0].relativePath}`);
+            logProjectIndexDebug(logger, `DEBUG: Sample yyFile: ${projectFiles.yyFiles[0].relativePath}`);
         }
     }
     return projectFiles;
@@ -1906,10 +1912,10 @@ async function analyseProjectResourcesForIndex({
     metrics: any;
     signal: any;
     ensureNotAborted: () => void;
-    logger?: { log: typeof console.log } | null;
+    logger?: ProjectIndexLogger;
 }) {
     if (logger) {
-        logger.log(`DEBUG: analyseProjectResourcesForIndex called with ${yyFiles.length} yyFiles`);
+        logProjectIndexDebug(logger, `DEBUG: analyseProjectResourcesForIndex called with ${yyFiles.length} yyFiles`);
     }
     const resourceAnalysis = await metrics.timers.timeAsync("analyseResourceFiles", () =>
         analyseResourceFiles({
@@ -1921,7 +1927,10 @@ async function analyseProjectResourcesForIndex({
         })
     );
     if (logger) {
-        logger.log(`DEBUG: analyseResourceFiles returned resourcesMap of size: ${resourceAnalysis.resourcesMap.size}`);
+        logProjectIndexDebug(
+            logger,
+            `DEBUG: analyseResourceFiles returned resourcesMap of size: ${resourceAnalysis.resourcesMap.size}`
+        );
     }
     ensureNotAborted();
     metrics.counters.increment("resources.total", resourceAnalysis.resourcesMap.size);
@@ -1983,6 +1992,27 @@ function finalizeProjectIndexResult({ metricsReporting, options, projectIndex })
     }
     return projectIndex;
 }
+function logProjectIndexDebug(logger: ProjectIndexLogger, message: string, payload?: unknown) {
+    if (!logger) {
+        return;
+    }
+
+    if (typeof logger.debug === "function") {
+        logger.debug(message, payload);
+        return;
+    }
+
+    if (typeof logger.log !== "function") {
+        return;
+    }
+
+    if (payload === undefined) {
+        logger.log(message);
+        return;
+    }
+
+    logger.log(message, payload);
+}
 export async function buildProjectIndex(projectRoot, fsFacade = defaultFsFacade, options = {} as any) {
     if (!projectRoot) {
         throw new Error("projectRoot must be provided to buildProjectIndex");
@@ -2011,7 +2041,7 @@ export async function buildProjectIndex(projectRoot, fsFacade = defaultFsFacade,
     recordMemoryHighWater();
 
     if (logger) {
-        logger.log(`DEBUG: Starting buildProjectIndex for project: ${resolvedRoot}`);
+        logProjectIndexDebug(logger, `DEBUG: Starting buildProjectIndex for project: ${resolvedRoot}`);
     }
 
     const builtInNames = await loadBuiltInNamesForProjectIndex({
@@ -2102,10 +2132,14 @@ export async function buildProjectIndex(projectRoot, fsFacade = defaultFsFacade,
         metrics.metadata.setMetadata("memory.maxHeapUsedBytes", maxHeapUsed);
 
         if (logger) {
-            logger.log("DEBUG: identifierCollections keys:", Object.keys(identifierCollections));
-            logger.log("DEBUG: resourceAnalysis keys:", Object.keys(resourceAnalysis));
+            logProjectIndexDebug(logger, "DEBUG: identifierCollections keys:", Object.keys(identifierCollections));
+            logProjectIndexDebug(logger, "DEBUG: resourceAnalysis keys:", Object.keys(resourceAnalysis));
             if (resourceAnalysis.resourcesMap) {
-                logger.log("DEBUG: resourceAnalysis.resourcesMap size:", resourceAnalysis.resourcesMap.size);
+                logProjectIndexDebug(
+                    logger,
+                    "DEBUG: resourceAnalysis.resourcesMap size:",
+                    resourceAnalysis.resourcesMap.size
+                );
             }
         }
 
