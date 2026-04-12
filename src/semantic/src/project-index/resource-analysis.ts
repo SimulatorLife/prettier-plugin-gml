@@ -13,6 +13,10 @@ import { normalizeProjectResourcePath } from "./path-normalization.js";
 import { extractAssetReferencesFromMetadataDocument } from "./resource-reference-extractor.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
+type ProjectIndexLogger = {
+    log?: (...args: Array<unknown>) => void;
+    debug?: (...args: Array<unknown>) => void;
+} | null;
 
 function normalizeResourceDocumentMetadata(resourceData) {
     if (!Core.isObjectLike(resourceData)) {
@@ -342,7 +346,7 @@ export async function analyseResourceFiles({
     yyFiles: Array<{ relativePath: string; absolutePath: string }>;
     fsFacade?: Required<Pick<ProjectIndexFsFacade, "readFile">>;
     signal?: AbortSignal | null;
-    logger?: { log: typeof console.log } | null;
+    logger?: ProjectIndexLogger;
 }) {
     const context = createResourceAnalysisContext();
 
@@ -371,7 +375,8 @@ export async function analyseResourceFiles({
     });
 
     if (logger) {
-        logger.log(
+        logProjectIndexDebug(
+            logger,
             `DEBUG: analyseResourceFiles parsed ${parsedCount}, skipped ${skippedCount}, resourcesMap size = ${context.resourcesMap.size}`
         );
     }
@@ -379,4 +384,26 @@ export async function analyseResourceFiles({
     annotateAssetReferenceTargets(context.assetReferences, context.resourcesMap);
 
     return context;
+}
+
+function logProjectIndexDebug(logger: ProjectIndexLogger, message: string, payload?: unknown) {
+    if (!logger) {
+        return;
+    }
+
+    if (typeof logger.debug === "function") {
+        logger.debug(message, payload);
+        return;
+    }
+
+    if (typeof logger.log !== "function") {
+        return;
+    }
+
+    if (payload === undefined) {
+        logger.log(message);
+        return;
+    }
+
+    logger.log(message, payload);
 }
